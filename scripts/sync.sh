@@ -71,6 +71,9 @@ CHANGED=$($GIT diff --cached --name-only | wc -l | tr -d ' ')
 log "Committing $CHANGED changed file(s)..."
 
 $GIT commit -m "chore: nightly config sync $(date '+%Y-%m-%d %H:%M')"
+
 $GIT push origin main
+$GIT push github main
+$GIT push codeberg main
 
 log "Push complete."
