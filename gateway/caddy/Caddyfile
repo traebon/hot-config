@@ -1,0 +1,160 @@
+{
+    email admin@house-of-trae.com
+    acme_dns powerdns {
+        server_url http://powerdns:8081
+        server_id localhost
+        api_token {env.PDNS_API_KEY}
+    }
+}
+(crowdsec) {
+    forward_auth crowdsec-bouncer:8083 {
+        uri /api/v1/forwardAuth
+        copy_headers X-Forwarded-For
+    }
+}
+# Group Domains
+house-of-trae.com, www.house-of-trae.com {
+    import crowdsec
+    respond "House of Trae — Coming Soon" 200
+}
+securenexus.net, www.securenexus.net {
+    import crowdsec
+    handle /.well-known/webfinger {
+        header Content-Type "application/jrd+json"
+        respond `{"subject":"acct:tristian@securenexus.net","links":[{"rel":"http://openid.net/specs/connect/1.0/issuer","href":"https://auth.house-of-trae.com/realms/securenexus"}]}` 200
+    }
+    handle {
+        respond "SecureNexus — Coming Soon" 200
+    }
+}
+byrne-accounts.org, www.byrne-accounts.org {
+    import crowdsec
+    respond "Byrne Accounts — Coming Soon" 200
+}
+stratus-digital.com, www.stratus-digital.com {
+    import crowdsec
+    reverse_proxy 10.10.30.102:8001
+}
+discreet-elite.uk, www.discreet-elite.uk {
+    import crowdsec
+    reverse_proxy 10.10.30.102:8002
+}
+emerald-markets.net, www.emerald-markets.net {
+    import crowdsec
+    reverse_proxy 10.10.30.102:8003
+}
+privatenexus.net, www.privatenexus.net {
+    import crowdsec
+    reverse_proxy 10.10.40.103:80
+}
+tresemme.space {
+    import crowdsec
+    reverse_proxy https://10.10.40.103:443 {
+        transport http {
+            tls_insecure_skip_verify
+        }
+        header_up Host tresemme.space
+    }
+}
+# Transition Domain
+cloud-architects.online, www.cloud-architects.online {
+    import crowdsec
+    respond "Stratus Digital — Coming Soon" 200
+}
+# Auth (Keycloak SSO)
+auth.house-of-trae.com {
+    import crowdsec
+    reverse_proxy keycloak:8080
+}
+# Mail
+mail.house-of-trae.com {
+    import crowdsec
+    redir https://webmail.house-of-trae.com{uri} permanent
+}
+webmail.house-of-trae.com {
+    import crowdsec
+    reverse_proxy roundcube:80
+}
+git.securenexus.net, git.house-of-trae.com {
+    import crowdsec
+    reverse_proxy 10.10.10.100:3000
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        Referrer-Policy strict-origin-when-cross-origin
+    }
+}
+wazuh.house-of-trae.com {
+    reverse_proxy 10.10.70.106:443 {
+        transport http {
+            tls_insecure_skip_verify
+        }
+    }
+}
+# Dickson Supplies - ERPNext
+erp.dickson-supplies.com {
+    import crowdsec
+    reverse_proxy 10.10.20.101:8000 {
+        header_up Host {host}
+    }
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options nosniff
+        X-Frame-Options SAMEORIGIN
+        Referrer-Policy strict-origin-when-cross-origin
+    }
+}
+# Monitoring Stack
+grafana.house-of-trae.com {
+    import crowdsec
+    reverse_proxy 10.10.50.104:3000
+}
+monitor.securenexus.net {
+    import crowdsec
+    reverse_proxy 10.10.50.104:3001
+}
+prometheus.securenexus.net {
+    import crowdsec
+    reverse_proxy 10.10.50.104:9090
+}
+# tresemme.space
+actual.tresemme.space {
+    import crowdsec
+    reverse_proxy https://10.10.40.103:443 {
+        transport http {
+            tls_insecure_skip_verify
+        }
+        header_up Host actual.tresemme.space
+    }
+}
+firefly-iii.tresemme.space {
+    import crowdsec
+    reverse_proxy https://10.10.40.103:443 {
+        transport http {
+            tls_insecure_skip_verify
+        }
+        header_up Host firefly-iii.tresemme.space
+    }
+}
+vaultwarden.tresemme.space {
+    import crowdsec
+    reverse_proxy https://10.10.40.103:443 {
+        transport http {
+            tls_insecure_skip_verify
+        }
+        header_up Host vaultwarden.tresemme.space
+    }
+}
+nextcloud.tresemme.space {
+    import crowdsec
+    reverse_proxy 10.10.40.103:8080
+    header Strict-Transport-Security "max-age=15552000; includeSubDomains; preload"
+}
+photos.tresemme.space {
+    import crowdsec
+    reverse_proxy 10.10.40.103:2283
+}
+dns-admin.house-of-trae.com {
+    reverse_proxy 10.10.10.100:9191
+}

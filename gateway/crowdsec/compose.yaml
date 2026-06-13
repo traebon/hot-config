@@ -1,0 +1,45 @@
+services:
+
+  crowdsec:
+    image: crowdsecurity/crowdsec:latest
+    container_name: crowdsec
+    restart: unless-stopped
+    environment:
+      TZ: Europe/London
+      COLLECTIONS: "crowdsecurity/caddy crowdsecurity/http-cve crowdsecurity/linux"
+      GID: "1000"
+    volumes:
+      - crowdsec_data:/var/lib/crowdsec/data
+      - crowdsec_config:/etc/crowdsec
+      - /var/log:/var/log/host:ro
+      - caddy_data:/var/log/caddy:ro
+    ports:
+      - "100.106.41.10:8082:8080"
+    networks:
+      - hotinfra_edge
+
+  crowdsec-bouncer:
+    image: fbonalair/traefik-crowdsec-bouncer:latest
+    container_name: crowdsec-bouncer
+    restart: unless-stopped
+    depends_on:
+      - crowdsec
+    environment:
+      GIN_MODE: release
+      CROWDSEC_BOUNCER_API_KEY: ${BOUNCER_KEY}
+      CROWDSEC_AGENT_HOST: crowdsec:8080
+      PORT: 8083
+    networks:
+      - hotinfra_edge
+
+volumes:
+  crowdsec_data:
+    name: crowdsec_data
+  crowdsec_config:
+    name: crowdsec_config
+  caddy_data:
+    external: true
+
+networks:
+  hotinfra_edge:
+    external: true

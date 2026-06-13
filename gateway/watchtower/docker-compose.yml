@@ -1,0 +1,22 @@
+services:
+  watchtower:
+    image: containrrr/watchtower:1.5.3
+    container_name: watchtower
+    restart: always
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - DOCKER_API_VERSION=1.54
+      - WATCHTOWER_MONITOR_ONLY=true
+      - WATCHTOWER_SCHEDULE=0 0 4 * * *
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_INCLUDE_STOPPED=false
+      - WATCHTOWER_NOTIFICATIONS=email
+      - WATCHTOWER_NOTIFICATION_EMAIL_FROM=notifications@house-of-trae.com
+      - WATCHTOWER_NOTIFICATION_EMAIL_TO=notifications@house-of-trae.com
+      - WATCHTOWER_NOTIFICATION_EMAIL_SERVER=mail.house-of-trae.com
+      - WATCHTOWER_NOTIFICATION_EMAIL_SERVER_PORT=587
+      - WATCHTOWER_NOTIFICATION_EMAIL_SERVER_USER=notifications@house-of-trae.com
+      - WATCHTOWER_NOTIFICATION_EMAIL_SERVER_PASSWORD=Unvocal-Average-Multiple6
+      - WATCHTOWER_NOTIFICATION_EMAIL_SUBJECTTAG=gateway-vps
+      - WATCHTOWER_NOTIFICATIONS_LEVEL=warn

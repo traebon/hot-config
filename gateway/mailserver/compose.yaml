@@ -1,0 +1,45 @@
+services:
+  mailserver:
+    image: ghcr.io/docker-mailserver/docker-mailserver:latest
+    container_name: mailserver
+    hostname: mail.house-of-trae.com
+    restart: unless-stopped
+    env_file: mailserver.env
+    ports:
+      - "0.0.0.0:25:25"       # SMTP inbound
+      - "0.0.0.0:465:465"     # SMTPS
+      - "0.0.0.0:587:587"     # Submission
+      - "0.0.0.0:993:993"     # IMAPS
+    volumes:
+      - ./data:/var/mail
+      - ./state:/var/mail-state
+      - ./logs:/var/log/mail
+      - ./config:/tmp/docker-mailserver
+      - caddy_certs:/etc/caddy/certs:ro
+    cap_add:
+      - NET_ADMIN
+    networks:
+      - hotinfra_mail
+      - hotinfra_edge
+
+  webmail:
+    image: roundcube/roundcubemail:latest
+    container_name: roundcube
+    restart: unless-stopped
+    volumes:
+      - roundcube_data:/var/roundcube/config
+    networks:
+      - hotinfra_mail
+      - hotinfra_edge
+
+volumes:
+  roundcube_data:
+    name: roundcube_data
+  caddy_certs:
+    external: true
+
+networks:
+  hotinfra_mail:
+    external: true
+  hotinfra_edge:
+    external: true

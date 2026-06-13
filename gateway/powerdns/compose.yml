@@ -1,0 +1,55 @@
+services:
+
+  powerdns-db:
+    image: postgres:16-alpine
+    container_name: powerdns-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: powerdns
+      POSTGRES_USER: powerdns
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password  # Reads from secret file
+    secrets:
+      - postgres_password
+    volumes:
+      - powerdns_db_data:/var/lib/postgresql/data
+    networks:
+      - hotinfra_internal
+
+  powerdns:
+    image: powerdns/pdns-auth-49:latest
+    container_name: powerdns
+    restart: unless-stopped
+    dns: 127.0.0.11
+    depends_on:
+      - powerdns-db
+    entrypoint: ["/bin/sh", "/etc/powerdns/entrypoint.sh"]
+    secrets:
+      - postgres_password
+      - pdns_api_key
+    volumes:
+      - ./pdns.conf.template:/etc/powerdns/pdns.conf.template:ro
+      - ./entrypoint.sh:/etc/powerdns/entrypoint.sh:ro
+    ports:
+      - "0.0.0.0:53:53/tcp"
+      - "0.0.0.0:53:53/udp"
+      - "10.10.0.1:8081:8081"
+    networks:
+      - hotinfra_internal
+      - hotinfra_edge
+
+# Secret definitions — points Docker to the files on disk
+secrets:
+  postgres_password:
+    file: ./secrets/postgres_password.txt
+  pdns_api_key:
+    file: ./secrets/pdns_api_key.txt
+
+volumes:
+  powerdns_db_data:
+    name: powerdns_db_data
+
+networks:
+  hotinfra_internal:
+    external: true
+  hotinfra_edge:
+    external: true

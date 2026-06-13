@@ -1,0 +1,24 @@
+services:
+  roundcube:
+    image: roundcube/roundcubemail:latest
+    container_name: roundcube
+    restart: unless-stopped
+    environment:
+      - ROUNDCUBEMAIL_DEFAULT_HOST=ssl://mailserver
+      - ROUNDCUBEMAIL_DEFAULT_PORT=993
+      - ROUNDCUBEMAIL_SMTP_SERVER=ssl://mailserver
+      - ROUNDCUBEMAIL_SMTP_PORT=465
+      - ROUNDCUBEMAIL_UPLOAD_MAX_FILESIZE=50M
+    volumes:
+      - roundcube_data:/var/roundcube/db
+      - ./custom-config.php:/var/roundcube/config/custom.inc.php:ro
+    networks:
+      - hotinfra_edge
+      - hotinfra_mail
+volumes:
+  roundcube_data:
+networks:
+  hotinfra_edge:
+    external: true
+  hotinfra_mail:
+    external: true

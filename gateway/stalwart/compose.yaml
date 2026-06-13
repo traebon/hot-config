@@ -1,0 +1,39 @@
+services:
+  stalwart:
+    image: stalwartlabs/stalwart:latest
+    container_name: stalwart
+    restart: unless-stopped
+    entrypoint:
+      - /bin/sh
+      - /etc/stalwart/entrypoint.sh
+    secrets:
+      - admin_password
+    environment:
+      TZ: Europe/London
+    volumes:
+      - stalwart_data:/opt/stalwart
+      - ./entrypoint.sh:/etc/stalwart/entrypoint.sh:ro
+      - caddy_certs:/opt/caddy/certificates:ro # Read Caddy's certs directly
+    ports:
+      - 0.0.0.0:10025:25 # SMTP inbound
+      - 0.0.0.0:10465:465 # SMTPS
+      - 0.0.0.0:10587:587 # Submission
+      - 0.0.0.0:10993:993 # IMAPS
+      - 0.0.0.0:4190:4190 # ManageSieve
+      - 100.106.41.10:8181:8080 # Admin UI — internal only
+    networks:
+      - hotinfra_mail
+      - hotinfra_edge
+secrets:
+  admin_password:
+    file: ./secrets/admin_password.txt
+volumes:
+  stalwart_data:
+    name: stalwart_data
+  caddy_certs:
+    external: true # Already created by Caddy stack
+networks:
+  hotinfra_mail:
+    external: true
+  hotinfra_edge:
+    external: true

@@ -1,0 +1,20 @@
+launch=gpgsql
+gpgsql-host=powerdns-db
+gpgsql-dbname=powerdns
+gpgsql-user=powerdns
+gpgsql-password=__POSTGRES_PASSWORD__
+gpgsql-dnssec=yes
+
+api=yes
+api-key=__PDNS_API_KEY__
+webserver=yes
+webserver-address=0.0.0.0
+webserver-port=8081
+webserver-allow-from=0.0.0.0/0
+
+local-address=0.0.0.0
+local-port=53
+allow-axfr-ips=127.0.0.1
+default-soa-content=ns1.house-of-trae.com admin.house-of-trae.com 0 10800 3600 604800 3600
+log-dns-queries=no
+loglevel=4

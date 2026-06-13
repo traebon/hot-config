@@ -1,0 +1,41 @@
+services:
+  caddy:
+    build: .
+    container_name: caddy
+    restart: unless-stopped
+    secrets:
+      - pdns_api_key
+    environment:
+      PDNS_API_KEY_FILE: /run/secrets/pdns_api_key
+    entrypoint: ["/bin/sh", "/etc/caddy/entrypoint.sh"]
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./entrypoint.sh:/etc/caddy/entrypoint.sh:ro
+      - caddy_data:/data
+      - caddy_config:/config
+      - caddy_certs:/data/caddy/certificates # Shared with Stalwart later
+    ports:
+      - 0.0.0.0:80:80
+      - 0.0.0.0:443:443
+      - 0.0.0.0:443:443/udp # HTTP/3 QUIC
+    networks:
+      - hotinfra_edge
+      - hotinfra_internal
+      - hotinfra_mail
+secrets:
+  pdns_api_key:
+    file: ./secrets/pdns_api_key.txt
+volumes:
+  caddy_data:
+    name: caddy_data
+  caddy_config:
+    name: caddy_config
+  caddy_certs:
+    name: caddy_certs
+networks:
+  hotinfra_edge:
+    external: true
+  hotinfra_internal:
+    external: true
+  hotinfra_mail:
+    external: true
