@@ -488,7 +488,6 @@ Watchtower: v1.5.3 ONLY on all nodes. v1.7.1 has Docker API negotiation bug — 
 - PowerDNS-Admin Keycloak SSO (OIDC_OAUTH_API_URL fix)
 - Namevault is_admin fix (ADMIN_EMAILS env var mismatch)
 - Namevault post-logout redirect
-- DNSSEC setup
 - Grafana SMTP alert rules
 - sn-web: all 6 client sites
 - Tor hidden services
