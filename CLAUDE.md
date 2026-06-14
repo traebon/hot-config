@@ -217,11 +217,12 @@ All VMs run as root.
 | PowerDNS-Admin    | /opt/stacks/powerdns/   | sn-infra:9191 (via WireGuard)                         |
 
 ### sn-infra (ssh sn-infra — 10.10.10.100)
-| Service        | Path                    | URL                    | Port |
-|----------------|-------------------------|------------------------|------|
-| Forgejo        | /opt/stacks/forgejo/    | git.securenexus.net    | 3000 |
-| Namevault      | /opt/stacks/namevault/  | namevault.co.uk        | 8010 |
-| Ntfy (planned) | /opt/stacks/ntfy/       | ntfy.house-of-trae.com | 8080 |
+| Service        | Path                    | URL                           | Port |
+|----------------|-------------------------|-------------------------------|------|
+| Forgejo        | /opt/stacks/forgejo/    | git.securenexus.net           | 3000 |
+| PowerDNS-Admin | /opt/stacks/pdns-admin/ | dns-admin.house-of-trae.com   | 9191 |
+| Namevault      | /opt/stacks/namegen/    | namevault.co.uk               | 8010 |
+| Ntfy (planned) | /opt/stacks/ntfy/       | ntfy.house-of-trae.com        | 8080 |
 
 ### sn-business (ssh sn-business — 10.10.20.101)
 | Service     | Path                 | URL                      | Port |
@@ -286,6 +287,7 @@ Planned: Wazuh SIEM. Needs full setup checklist (node-exporter, Promtail, UFW, P
 | grafana.house-of-trae.com      | Grafana           | sn-monitor  |
 | git.securenexus.net            | Forgejo           | sn-infra    |
 | git.house-of-trae.com          | Forgejo           | sn-infra    |
+| dns-admin.house-of-trae.com    | PowerDNS-Admin    | sn-infra    |
 | namevault.co.uk                | Namevault         | sn-infra    |
 | nextcloud.tresemme.space       | Nextcloud         | sn-personal |
 | vaultwarden.tresemme.space     | Vaultwarden       | sn-personal |
@@ -485,9 +487,6 @@ Watchtower: v1.5.3 ONLY on all nodes. v1.7.1 has Docker API negotiation bug — 
 | Phase 4 | ⏳ PENDING      | Security hardening |
 
 ### Phase 3 Outstanding Items
-- PowerDNS-Admin Keycloak SSO (OIDC_OAUTH_API_URL fix)
-- Namevault is_admin fix (ADMIN_EMAILS env var mismatch)
-- Namevault post-logout redirect
 - Grafana SMTP alert rules
 - sn-web: all 6 client sites
 - Tor hidden services
