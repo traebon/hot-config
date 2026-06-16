@@ -43,6 +43,18 @@ emerald-markets.net, www.emerald-markets.net {
     import crowdsec
     reverse_proxy 10.10.30.102:8003
 }
+rubyosiris.com, www.rubyosiris.com {
+    import crowdsec
+    reverse_proxy 10.10.30.102:8004
+}
+evilrabbitart.com, www.evilrabbitart.com {
+    import crowdsec
+    reverse_proxy 10.10.30.102:8005
+}
+dickson-supplies.com, www.dickson-supplies.com {
+    import crowdsec
+    reverse_proxy 10.10.30.102:8006
+}
 privatenexus.net, www.privatenexus.net {
     import crowdsec
     reverse_proxy 10.10.40.103:80

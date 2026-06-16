@@ -230,14 +230,16 @@ All VMs run as root.
 | ERPNext v16 | /opt/stacks/dickson/ | erp.dickson-supplies.com | —    |
 
 ### sn-web (ssh sn-web — 10.10.30.102)
-| Service          | Path                    | URL (when live)     | Port |
-|------------------|-------------------------|---------------------|------|
-| Rubyosloris      | /opt/stacks/ruby/       | rubyosloris.com     | 8001 |
-| Evil Rabbit Art  | /opt/stacks/evilrabbit/ | evilrabbitart.com   | 8002 |
-| Dickson Supplies | /opt/stacks/dicksonweb/ | dickson-supplies.com| 8003 |
-| Emerald Markets  | /opt/stacks/emerald/    | emerald-markets.net | —    |
-| Discreet Elite   | /opt/stacks/discreet/   | discreet-elite.uk   | —    |
-| Stratus Digital  | /opt/stacks/stratus/    | stratus-digital.com | —    |
+| Service          | Path                       | URL                  | Port |
+|------------------|-----------------------------|----------------------|------|
+| Stratus Digital  | /opt/stacks/stratus-digital/| stratus-digital.com  | 8001 |
+| Discreet Elite   | /opt/stacks/discreet-elite/ | discreet-elite.uk    | 8002 |
+| Emerald Markets  | /opt/stacks/emerald-markets/| emerald-markets.net  | 8003 |
+| Ruby Osiris      | /opt/stacks/ruby/           | rubyosiris.com       | 8004 |
+| Evil Rabbit Art  | /opt/stacks/evilrabbit/     | evilrabbitart.com    | 8005 |
+| Dickson Supplies | /opt/stacks/dicksonweb/     | dickson-supplies.com | 8006 |
+
+All 6 are simple nginx:alpine + static "Coming Soon" placeholder pages, reverse-proxied via Caddy (root + www). rubyosiris.com and evilrabbitart.com domains had no registrar NS delegation to ns1/ns2.house-of-trae.com until 2026-06-16 — now fixed, may take time to propagate on slower public resolvers (e.g. 8.8.8.8 lagged behind 1.1.1.1) before Let's Encrypt can issue certs; Caddy auto-retries every 60s.
 
 ### sn-personal (ssh sn-personal — 10.10.40.103)
 Domain: tresemme.space — NOT privatenexus.net (privatenexus.net belongs to pn-test)
@@ -272,8 +274,12 @@ Domain: privatenexus.net — active dev VM
 | PrivateNexus | /opt/privatenexus/    | Active dev — React + Go/NestJS + PostgreSQL |
 
 ### sn-security (ssh sn-security — 10.10.70.106)
-VM provisioned (4 vCPU / 8 GB / 250 GB, VLAN 70). Docker installed. No services deployed yet.
-Planned: Wazuh SIEM. Needs full setup checklist (node-exporter, Promtail, UFW, Prometheus target).
+VM provisioned (4 vCPU / 8 GB / 250 GB, VLAN 70). Docker installed.
+Planned: Wazuh SIEM (not yet configured). Needs full setup checklist (node-exporter, Promtail, UFW, Prometheus target).
+
+| Service        | Path                          | Notes                                                  |
+|----------------|-------------------------------|---------------------------------------------------------|
+| Forgejo Runner | /opt/stacks/forgejo-runner/   | Forgejo Actions CI/CD runner for git.securenexus.net. Placed here (not sn-infra) because sn-infra is only 1 vCPU/4GB with ~236MB free and already runs Forgejo+PowerDNS-Admin+Namevault — CI job spikes risk starving it. sn-security was by far the most idle box (4 vCPU, ~6.4GB free). Move to a dedicated box if/when Wazuh deployment starts competing for resources. |
 
 ---
 
@@ -341,7 +347,7 @@ Zones managed (confirmed live):
   namevault.co.uk         — Namevault
   dickson-supplies.com    — Dickson Supplies
   evilrabbitart.com       — Evil Rabbit Art
-  rubyosiris.com          — Rubyosloris
+  rubyosiris.com          — Ruby Osiris
   cloud-architects.online — legacy (Cloud Architects — pre-rebrand)
 
 tresemme.space confirmed records:
@@ -458,6 +464,7 @@ node-exporter UFW gotcha: node-exporter runs in Docker host network mode, but Pr
 | Watchtower version       | v1.5.3 only — v1.7.1 Docker API negotiation bug                                 |
 | MinIO + EPYC 3151        | Must use cpuv1 image tag — Zen1 architecture, no AVX-512                        |
 | Cosmos = abandoned       | Aggressively pulls images, breaks local builds — plain Docker Compose only      |
+| forgejo-runner + docker.sock | Image runs as UID 1000 (non-root). Bind-mounted ./data dir must be `chown 1000:1000` on host or registration fails with `permission denied` writing `.runner`. To let it execute Docker-based job containers, must also `group_add` the host's actual docker.sock GID (`stat -c '%g' /var/run/docker.sock`, varies per host) — without it, daemon starts but every job fails with `permission denied` connecting to the socket. A failed registration attempt still creates an orphaned runner row server-side even when the local `.runner` file write fails — clean up via `DELETE FROM action_runner WHERE last_online = 0` in forgejo-db if the entrypoint retry-loops before the permission fix lands. |
 | No combined stacks       | Each service has its own compose file — never combine unrelated services        |
 | Secrets management       | Docker secrets for all credentials — never plain environment variables          |
 
@@ -505,9 +512,11 @@ node-exporter UFW gotcha: node-exporter runs in Docker host network mode, but Pr
 | Phase 4 | ⏳ PENDING      | Security hardening |
 
 ### Phase 3 Outstanding Items
-- sn-web: all 6 client sites
-- Tor hidden services
-- Forgejo CI/CD runner
+- Tor hidden services (scope TBD — which services, see Mr. Byrne)
+
+### Phase 3 Completed (2026-06-16)
+- sn-web: all 6 client sites live (3 pre-existing + Ruby Osiris, Evil Rabbit Art, Dickson Supplies added)
+- Forgejo CI/CD runner: deployed on sn-security (see below)
 
 ### On the Horizon (Phase 4+)
 - Wazuh SIEM on sn-security (VLAN 70) — 2 vCPU / 8 GB / 200 GB
