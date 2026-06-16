@@ -1,6 +1,6 @@
 # CLAUDE.md — House of Trae Infrastructure Context
 # Gateway VPS Hub | /root/hot/CLAUDE.md
-# Version: 1.2 | June 2026
+# Version: 1.3 | June 2026
 # Always address the operator as Mr. Byrne.
 
 ---
@@ -565,5 +565,5 @@ node-exporter UFW gotcha: node-exporter runs in Docker host network mode, but Pr
 | Full roadmap                | /root/hot/docs/roadmap.md                            |
 
 ---
-# End of CLAUDE.md — v1.1
+# End of CLAUDE.md — v1.3
 # "Sometimes you gotta run before you can walk." — Tony Stark
