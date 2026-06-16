@@ -415,7 +415,18 @@ Config repo: /opt/hot-config → Forgejo (git.securenexus.net) + Codeberg mirror
 | node-exporter | System metrics — all 7 nodes including Proxmox host (native systemd) | Prometheus targets         |
 
 Grafana SSO: securenexus realm. Roles mapper configured.
+Grafana admin password: reset via `grafana cli admin reset-admin-password` when changed post-bootstrap — env var GF_SECURITY_ADMIN_PASSWORD only applies on first init, never resets a changed password.
 Watchtower: v1.5.3 ONLY on all nodes. v1.7.1 has Docker API negotiation bug — do not use.
+
+### Grafana Alerting
+SMTP: mail.house-of-trae.com:587 STARTTLS via notifications@house-of-trae.com (confirmed working).
+Contact point: "email-hot" → tristian@securenexus.net. Notification policy routes severity=critical|high|warning to email-hot.
+Alert rules (folder "HoT Infrastructure Alerts", group "infrastructure"):
+  - Node Down (severity=critical, for=2m) — `up == 0`
+  - Disk Usage High (severity=high, for=5m, >85%) and Disk Usage Critical (severity=critical, for=5m, >95%)
+  - Memory Usage High (severity=warning, for=5m, >90%)
+  - TLS Cert Expiry <14d (severity=high) and <7d (severity=critical) — requires Blackbox Exporter (`probe_ssl_earliest_cert_expiry`) which is NOT yet deployed; rules will show NoData until then
+node-exporter UFW gotcha: node-exporter runs in Docker host network mode, but Prometheus runs in the `monitoring_monitoring` bridge network (172.18.0.0/16) — UFW must explicitly allow that bridge subnet to port 9100, not just the VLAN subnet, or the target shows as down.
 
 ---
 
@@ -487,7 +498,6 @@ Watchtower: v1.5.3 ONLY on all nodes. v1.7.1 has Docker API negotiation bug — 
 | Phase 4 | ⏳ PENDING      | Security hardening |
 
 ### Phase 3 Outstanding Items
-- Grafana SMTP alert rules
 - sn-web: all 6 client sites
 - Tor hidden services
 - Forgejo CI/CD runner

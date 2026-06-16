@@ -1,0 +1,63 @@
+services:
+  forgejo:
+    image: codeberg.org/forgejo/forgejo:10
+    container_name: forgejo
+    restart: unless-stopped
+    environment:
+      - USER_UID=1000
+      - USER_GID=1000
+      - FORGEJO__database__DB_TYPE=postgres
+      - FORGEJO__database__HOST=forgejo-db:5432
+      - FORGEJO__database__NAME=forgejo
+      - FORGEJO__database__USER=forgejo
+      - FORGEJO__database__PASSWD__FILE=/run/secrets/forgejo_db_password
+      - FORGEJO__server__DOMAIN=git.securenexus.net
+      - FORGEJO__server__ROOT_URL=https://git.securenexus.net
+      - FORGEJO__server__HTTP_PORT=3000
+      - FORGEJO__server__SSH_DOMAIN=git.securenexus.net
+      - FORGEJO__server__SSH_PORT=2222
+      - FORGEJO__service__DISABLE_REGISTRATION=true
+      - FORGEJO__service__REQUIRE_SIGNIN_VIEW=true
+      - FORGEJO__log__LEVEL=Info
+    ports:
+      - "3000:3000"
+      - "2222:22"
+    volumes:
+      - ./data:/data
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    secrets:
+      - forgejo_db_password
+    depends_on:
+      forgejo-db:
+        condition: service_healthy
+    networks:
+      - forgejo-net
+
+  forgejo-db:
+    image: postgres:16-alpine
+    container_name: forgejo-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=forgejo
+      - POSTGRES_USER=forgejo
+      - POSTGRES_PASSWORD_FILE=/run/secrets/forgejo_db_password
+    volumes:
+      - ./postgres:/var/lib/postgresql/data
+    secrets:
+      - forgejo_db_password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U forgejo"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - forgejo-net
+
+secrets:
+  forgejo_db_password:
+    file: ./secrets/forgejo_db_password
+
+networks:
+  forgejo-net:
+    driver: bridge

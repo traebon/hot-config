@@ -17,6 +17,12 @@ sync_file() {
   cp "$src" "$dst"
 }
 
+sync_remote() {
+  local vm="$1" src="$2" dst="$3"
+  mkdir -p "$(dirname "$dst")"
+  ssh "$vm" "cat $src" > "$dst" 2>/dev/null || log "WARN: could not sync $vm:$src"
+}
+
 log "Syncing Gateway VPS configs..."
 
 # CLAUDE.md (master infra context)
@@ -58,9 +64,32 @@ sync_file "$STACKS/promtail/promtail-config.yml"  "$REPO/gateway/promtail/promta
 # Watchtower
 sync_file "$STACKS/watchtower/docker-compose.yml" "$REPO/gateway/watchtower/docker-compose.yml"
 
-# ── Commit & push ────────────────────────────────────────────────────────────
+# ── Sync sn-monitor configs (via SSH) ────────────────────────────────────────
 
+log "Syncing sn-monitor configs..."
+sync_remote sn-monitor /opt/stacks/monitoring/docker-compose.yml         "$REPO/sn-monitor/monitoring/docker-compose.yml"
+sync_remote sn-monitor /opt/monitoring/prometheus/config/prometheus.yml  "$REPO/sn-monitor/monitoring/prometheus.yml"
+
+# ── Sync sn-infra configs (via SSH) ──────────────────────────────────────────
+
+log "Syncing sn-infra configs..."
+sync_remote sn-infra /opt/stacks/pdns-admin/docker-compose.yml  "$REPO/sn-infra/pdns-admin/docker-compose.yml"
+sync_remote sn-infra /opt/stacks/namegen/docker-compose.yml     "$REPO/sn-infra/namegen/docker-compose.yml"
+sync_remote sn-infra /opt/stacks/forgejo/docker-compose.yml     "$REPO/sn-infra/forgejo/docker-compose.yml"
+
+# ── Secret-leak guard ─────────────────────────────────────────────────────────
+# Synced compose files must use *_FILE / *__FILE Docker-secret indirection only.
+# Abort the sync rather than push a plaintext credential to public mirrors.
+
+log "Scanning staged changes for plaintext secrets..."
 $GIT add -A
+LEAK=$($GIT diff --cached -U0 -- '*.yml' '*.yaml' | grep -E '^\+' | grep -iE '(PASSWORD|SECRET|_KEY|_TOKEN)\s*:\s*"[^"]+"' | grep -viE '_FILE\s*:|__FILE\s*:' || true)
+if [ -n "$LEAK" ]; then
+  log "ABORT: plaintext secret detected in staged changes — not committing or pushing."
+  echo "$LEAK" | sed 's/^/  /'
+  $GIT reset >/dev/null
+  exit 1
+fi
 
 if $GIT diff --cached --quiet; then
   log "No changes — nothing to commit."

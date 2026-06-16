@@ -1,0 +1,68 @@
+# ============================================================
+# Prometheus Configuration
+# Location: /opt/monitoring/prometheus/config/prometheus.yml
+# ============================================================
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: 'house-of-trae'
+
+scrape_configs:
+
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Gateway VPS — node exporter
+  - job_name: 'gateway-node'
+    static_configs:
+      - targets: ['10.10.0.1:9100']
+        labels:
+          instance: 'gateway-vps'
+
+  # sn-infra (VM 100)
+  - job_name: 'sn-infra-node'
+    static_configs:
+      - targets: ['10.10.10.100:9100']
+        labels:
+          instance: 'sn-infra'
+
+  # sn-business (VM 101)
+  - job_name: 'sn-business-node'
+    static_configs:
+      - targets: ['10.10.20.101:9100']
+        labels:
+          instance: 'sn-business'
+
+  # sn-web (VM 102)
+  - job_name: 'sn-web-node'
+    static_configs:
+      - targets: ['10.10.30.102:9100']
+        labels:
+          instance: 'sn-web'
+
+  # sn-personal (VM 103)
+  - job_name: 'sn-personal-node'
+    static_configs:
+      - targets: ['10.10.40.103:9100']
+        labels:
+          instance: 'sn-personal'
+
+  # sn-monitor self (VM 104)
+  - job_name: 'sn-monitor-node'
+    scrape_interval: 30s
+    scrape_timeout: 25s
+    static_configs:
+      - targets: ['10.10.50.104:9100']
+        labels:
+          instance: 'sn-monitor'
+
+  # Proxmox host
+  - job_name: 'proxmox-node'
+    static_configs:
+      - targets: ['10.10.50.1:9100']
+        labels:
+          instance: 'proxmox-host'
