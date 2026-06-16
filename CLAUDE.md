@@ -411,8 +411,10 @@ Config repo: /opt/hot-config → Forgejo (git.securenexus.net) + Codeberg mirror
 | Grafana       | Dashboards + alerting                                                 | grafana.house-of-trae.com  |
 | Loki          | Log aggregation                                                       | Internal 10.10.50.104:3100 |
 | Promtail      | Log shipping (all 6 VMs + VPS)                                        | Deployed on every node     |
-| Uptime Kuma   | Public uptime monitoring                                              | status.house-of-trae.com   |
+| Uptime Kuma   | Internal uptime monitoring (admin dashboard, NOT a public status page yet) | monitor.securenexus.net (port 3001) |
 | node-exporter | System metrics — all 7 nodes including Proxmox host (native systemd) | Prometheus targets         |
+
+⚠️ status.house-of-trae.com is documented as the public status page URL but is NOT deployed: no DNS record, no Caddy block, and no Uptime Kuma "Status Page" object has ever been created (`status_page` table is empty). The real admin dashboard lives at monitor.securenexus.net. Confirm with Mr. Byrne before building the public status page (decide which monitors to expose) — it is net-new scope, not a bug fix.
 
 Grafana SSO: securenexus realm. Roles mapper configured.
 Grafana admin password: reset via `grafana cli admin reset-admin-password` when changed post-bootstrap — env var GF_SECURITY_ADMIN_PASSWORD only applies on first init, never resets a changed password.
@@ -444,6 +446,7 @@ node-exporter UFW gotcha: node-exporter runs in Docker host network mode, but Pr
 | Caddy remote_ip          | Sees Docker bridge IP not real client IP — IP-based access control ineffective  |
 | Tailscale = admin only   | Never route production traffic through Tailscale (DERP relay latency)           |
 | Keycloak OIDC URL        | Must point to realm root (.../realms/<realm>) not the protocol endpoint         |
+| pda-legacy OIDC config   | Must use OIDC_OAUTH_AUTO_CONFIGURE=true + OIDC_OAUTH_METADATA_URL (discovery doc) — manual OIDC_OAUTH_TOKEN_URL/AUTHORIZE_URL never supplies jwks_uri to authlib, causing `RuntimeError: Missing "jwks_uri" in metadata` on every login callback |
 | user_oidc CLI            | Silent fail on Nextcloud v8.6.1 — must configure via web UI                    |
 | PostgreSQL reserved words| "user" must be quoted in queries                                                |
 | ERPNext apps.txt         | Manually reconcile after restore — ghost entries cause silent failures          |

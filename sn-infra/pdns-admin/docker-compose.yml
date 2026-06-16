@@ -32,8 +32,8 @@ services:
       - OIDC_OAUTH_SECRET_FILE=/run/secrets/pdns_admin_oidc_secret
       - OIDC_OAUTH_SCOPE=openid email profile
       - OIDC_OAUTH_API_URL=https://auth.house-of-trae.com/realms/securenexus
-      - OIDC_OAUTH_TOKEN_URL=https://auth.house-of-trae.com/realms/securenexus/protocol/openid-connect/token
-      - OIDC_OAUTH_AUTHORIZE_URL=https://auth.house-of-trae.com/realms/securenexus/protocol/openid-connect/auth
+      - OIDC_OAUTH_AUTO_CONFIGURE=true
+      - OIDC_OAUTH_METADATA_URL=https://auth.house-of-trae.com/realms/securenexus/.well-known/openid-configuration
     healthcheck:
       test: ["CMD-SHELL", "wget --output-document=- --quiet --tries=1 http://127.0.0.1:8000/ || exit 1"]
       interval: 30s
