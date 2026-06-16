@@ -77,6 +77,23 @@ sync_remote sn-infra /opt/stacks/pdns-admin/docker-compose.yml  "$REPO/sn-infra/
 sync_remote sn-infra /opt/stacks/namegen/docker-compose.yml     "$REPO/sn-infra/namegen/docker-compose.yml"
 sync_remote sn-infra /opt/stacks/forgejo/docker-compose.yml     "$REPO/sn-infra/forgejo/docker-compose.yml"
 
+# ── Sync sn-web configs (via SSH) ────────────────────────────────────────────
+
+log "Syncing sn-web configs..."
+sync_remote sn-web /opt/stacks/stratus-digital/docker-compose.yml "$REPO/sn-web/stratus-digital/docker-compose.yml"
+sync_remote sn-web /opt/stacks/discreet-elite/docker-compose.yml  "$REPO/sn-web/discreet-elite/docker-compose.yml"
+sync_remote sn-web /opt/stacks/emerald-markets/docker-compose.yml "$REPO/sn-web/emerald-markets/docker-compose.yml"
+sync_remote sn-web /opt/stacks/ruby/docker-compose.yml            "$REPO/sn-web/ruby/docker-compose.yml"
+sync_remote sn-web /opt/stacks/evilrabbit/docker-compose.yml      "$REPO/sn-web/evilrabbit/docker-compose.yml"
+sync_remote sn-web /opt/stacks/dicksonweb/docker-compose.yml      "$REPO/sn-web/dicksonweb/docker-compose.yml"
+
+# ── Sync sn-security configs (via SSH) ───────────────────────────────────────
+
+log "Syncing sn-security configs..."
+sync_remote sn-security /opt/stacks/forgejo-runner/docker-compose.yml "$REPO/sn-security/forgejo-runner/docker-compose.yml"
+sync_remote sn-security /opt/stacks/forgejo-runner/config.yaml        "$REPO/sn-security/forgejo-runner/config.yaml"
+sync_remote sn-security /opt/stacks/forgejo-runner/entrypoint.sh      "$REPO/sn-security/forgejo-runner/entrypoint.sh"
+
 # ── Secret-leak guard ─────────────────────────────────────────────────────────
 # Synced compose files must use *_FILE / *__FILE Docker-secret indirection only.
 # Abort the sync rather than push a plaintext credential to public mirrors.
