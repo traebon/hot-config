@@ -285,6 +285,7 @@ Planned: Wazuh SIEM. Needs full setup checklist (node-exporter, Promtail, UFW, P
 | webmail.house-of-trae.com      | Roundcube         | Gateway VPS |
 | mail.house-of-trae.com         | Docker Mailserver | Gateway VPS |
 | grafana.house-of-trae.com      | Grafana           | sn-monitor  |
+| status.house-of-trae.com       | Uptime Kuma (public status page) | sn-monitor  |
 | git.securenexus.net            | Forgejo           | sn-infra    |
 | git.house-of-trae.com          | Forgejo           | sn-infra    |
 | dns-admin.house-of-trae.com    | PowerDNS-Admin    | sn-infra    |
@@ -411,10 +412,10 @@ Config repo: /opt/hot-config → Forgejo (git.securenexus.net) + Codeberg mirror
 | Grafana       | Dashboards + alerting                                                 | grafana.house-of-trae.com  |
 | Loki          | Log aggregation                                                       | Internal 10.10.50.104:3100 |
 | Promtail      | Log shipping (all 6 VMs + VPS)                                        | Deployed on every node     |
-| Uptime Kuma   | Internal uptime monitoring (admin dashboard, NOT a public status page yet) | monitor.securenexus.net (port 3001) |
+| Uptime Kuma   | Admin dashboard (full monitor list) + public status page             | monitor.securenexus.net (port 3001) / status.house-of-trae.com |
 | node-exporter | System metrics — all 7 nodes including Proxmox host (native systemd) | Prometheus targets         |
 
-⚠️ status.house-of-trae.com is documented as the public status page URL but is NOT deployed: no DNS record, no Caddy block, and no Uptime Kuma "Status Page" object has ever been created (`status_page` table is empty). The real admin dashboard lives at monitor.securenexus.net. Confirm with Mr. Byrne before building the public status page (decide which monitors to expose) — it is net-new scope, not a bug fix.
+status.house-of-trae.com — Uptime Kuma status page (slug `hot-status`, served via `status_page_cname` mapping, group "Group Entity Sites"). Exposes only the 6 group entity sites (House of Trae, SecureNexus, Byrne Accounts, Stratus Digital, Discreet Elite, Emerald Markets) — internal/admin tooling (dns-admin, Namevault, webmail, Forgejo, ERPNext) deliberately excluded from the public page. Caddy block reverse-proxies to 10.10.50.104:3001 same as monitor.securenexus.net; Kuma picks the right status page by Host header via status_page_cname.
 
 Grafana SSO: securenexus realm. Roles mapper configured.
 Grafana admin password: reset via `grafana cli admin reset-admin-password` when changed post-bootstrap — env var GF_SECURITY_ADMIN_PASSWORD only applies on first init, never resets a changed password.
