@@ -1,6 +1,6 @@
 # CLAUDE.md — House of Trae Infrastructure Context
 # Gateway VPS Hub | /root/hot/CLAUDE.md
-# Version: 1.5 | June 2026
+# Version: 1.6 | June 2026
 # Always address the operator as Mr. Byrne.
 
 ---
@@ -228,7 +228,9 @@ All VMs run as root.
 ### sn-business (ssh sn-business — 10.10.20.101)
 | Service     | Path                 | URL                      | Port |
 |-------------|----------------------|--------------------------|------|
-| ERPNext v16 | /opt/stacks/dickson/ | erp.dickson-supplies.com | —    |
+| ERPNext v16 | /opt/stacks/dickson/ | erp.dickson-supplies.com | 8000 |
+
+Stack: custom image (`/opt/stacks/dickson/docker/Dockerfile`) — `frappe/erpnext:v16` + POS Awesome app (`posawesome`). Services: `dickson-backend` (gunicorn, port 8000), `dickson-db` (MariaDB 10.6), `dickson-redis-cache`, `dickson-redis-queue`, `dickson-socketio`, `dickson-worker`, `dickson-scheduler`. Secrets in `/opt/stacks/dickson/secrets/*.txt` — must be `chmod 644` (frappe runs as UID 1000, not root). Site DB name: `_ae77c090ad3ef28b` (hashed from site name).
 
 ### sn-web (ssh sn-web — 10.10.30.102)
 | Service          | Path                       | URL                  | Port |
@@ -464,6 +466,8 @@ node-exporter UFW gotcha: node-exporter runs in Docker host network mode, but Pr
 | ERPNext healthcheck PID leak | The `dickson-backend` healthcheck uses `CMD-SHELL` + `curl`. When ERPNext is unhealthy, curl hangs until Docker times it out — but without `init: true`, bash is PID 1 and orphaned curl processes are never reaped. Over days this fills the container's cgroup PID limit (5991), making the container completely unkillable (even `docker kill` and `docker stop` fail; must `kill -9` the host PID directly). Fix already applied: `init: true` on `dickson-backend` in compose — tini runs as PID 1 and reaps orphans. Apply `init: true` to any long-running container whose healthcheck spawns subprocesses. |
 | ERPNext `unless-stopped` trap | `restart: unless-stopped` does NOT restart a container stopped via `docker stop` or `docker compose stop` — Docker marks it as intentionally stopped. `dickson-db` was stopped on 2026-06-05 (exit 137) and stayed down for 12 days. If the whole stack is stopped for maintenance, always follow with `docker compose start` or `docker compose up -d` when done. |
 | ERPNext tabError Log corruption | `tabError Log` (MyISAM table in the ERPNext site DB) crashes periodically after unclean shutdowns. Symptom: MariaDB logs `Table '.../_ae77c090ad3ef28b/tabError@0020Log' is marked as crashed`. Fix: `docker exec dickson-db mariadb -u root -p<password> _ae77c090ad3ef28b -e "REPAIR TABLE \`tabError Log\`;"` — password in `/opt/stacks/dickson/secrets/dickson_db_password.txt`. |
+| ERPNext backend = gunicorn, not bench serve | `bench serve` runs Werkzeug dev server — single-threaded, live debugger active (PIN visible in logs), not safe for production. `dickson-backend` was originally misconfigured with `bench serve`. Fixed: compose command now runs `gunicorn --workers=2 --worker-class=gthread --threads=4 --timeout=120 frappe.app:application` from `/home/frappe/frappe-bench/sites`. WSGI callable is `frappe.app:application`. Do not revert to `bench serve`. |
+| ERPNext secrets must be 644 | `dickson-backend` runs as `frappe` (UID 1000). Docker secrets bind-mounted at `/run/secrets/` inherit host file permissions. If secret files in `/opt/stacks/dickson/secrets/` are `chmod 600` (root-only), the frappe user can't read them — Redis URLs are built from empty strings, silently breaking cache/queue. All four `.txt` files must be `chmod 644`. Symptom: `cat: /run/secrets/...: Permission denied` in backend startup logs. |
 | rclone B2                | hard_delete=true required — otherwise leaves hidden versions                   |
 | Watchtower version       | v1.5.3 only — v1.7.1 Docker API negotiation bug                                 |
 | MinIO + EPYC 3151        | Must use cpuv1 image tag — Zen1 architecture, no AVX-512                        |
@@ -607,5 +611,5 @@ The Gateway VPS is NOT a Proxmox VM — PBS/vzdump may not cover it. Losing `/op
 | Full roadmap                | /root/hot/docs/roadmap.md                            |
 
 ---
-# End of CLAUDE.md — v1.5
+# End of CLAUDE.md — v1.6
 # "Sometimes you gotta run before you can walk." — Tony Stark
