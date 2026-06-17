@@ -87,6 +87,11 @@ sync_remote sn-web /opt/stacks/ruby/docker-compose.yml            "$REPO/sn-web/
 sync_remote sn-web /opt/stacks/evilrabbit/docker-compose.yml      "$REPO/sn-web/evilrabbit/docker-compose.yml"
 sync_remote sn-web /opt/stacks/dicksonweb/docker-compose.yml      "$REPO/sn-web/dicksonweb/docker-compose.yml"
 
+# ── Sync sn-business configs (via SSH) ───────────────────────────────────────
+
+log "Syncing sn-business configs..."
+sync_remote sn-business /opt/stacks/dickson/docker-compose.yml "$REPO/sn-business/dickson/docker-compose.yml"
+
 # ── Sync Tor hidden service configs ──────────────────────────────────────────
 # data/ is intentionally excluded — private keys must NEVER go to git
 
