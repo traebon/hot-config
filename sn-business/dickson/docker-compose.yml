@@ -74,7 +74,14 @@ services:
         REDIS_QUEUE_PASSWORD=$$(cat /run/secrets/dickson_redis_queue_password)
         export REDIS_CACHE="redis://:$$REDIS_CACHE_PASSWORD@dickson-redis-cache:6379"
         export REDIS_QUEUE="redis://:$$REDIS_QUEUE_PASSWORD@dickson-redis-queue:6379"
-        cd /home/frappe/frappe-bench && bench serve --port 8000
+        cd /home/frappe/frappe-bench/sites && \
+        /home/frappe/frappe-bench/env/bin/gunicorn \
+          --bind=0.0.0.0:8000 \
+          --workers=2 \
+          --worker-class=gthread \
+          --threads=4 \
+          --timeout=120 \
+          frappe.app:application
     volumes:
       - dickson-sites-data:/home/frappe/frappe-bench/sites
       - dickson-assets-data:/home/frappe/frappe-bench/sites/assets
