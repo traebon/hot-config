@@ -74,6 +74,8 @@ services:
         REDIS_QUEUE_PASSWORD=$$(cat /run/secrets/dickson_redis_queue_password)
         export REDIS_CACHE="redis://:$$REDIS_CACHE_PASSWORD@dickson-redis-cache:6379"
         export REDIS_QUEUE="redis://:$$REDIS_QUEUE_PASSWORD@dickson-redis-queue:6379"
+        python3 /usr/local/bin/regen_assets.py && \
+        redis-cli -h dickson-redis-cache -a "$$REDIS_CACHE_PASSWORD" DEL assets_json > /dev/null 2>&1 || true && \
         cd /home/frappe/frappe-bench/sites && \
         /home/frappe/frappe-bench/env/bin/gunicorn \
           --bind=0.0.0.0:8000 \
@@ -81,10 +83,11 @@ services:
           --worker-class=gthread \
           --threads=4 \
           --timeout=120 \
-          frappe.app:application
+          wsgi:application
     volumes:
       - dickson-sites-data:/home/frappe/frappe-bench/sites
       - dickson-assets-data:/home/frappe/frappe-bench/sites/assets
+      - ./regen_assets.py:/usr/local/bin/regen_assets.py:ro
     healthcheck:
       test: ["CMD-SHELL", "curl -f -H 'Host: erp.dickson-supplies.com' http://localhost:8000/ || exit 1"]
       interval: 30s
