@@ -1,0 +1,15 @@
+services:
+  tor:
+    build: .
+    image: hot/tor:local
+    container_name: tor
+    network_mode: host
+    restart: unless-stopped
+    volumes:
+      - ./torrc:/etc/tor/torrc:ro
+      - ./data:/var/lib/tor
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

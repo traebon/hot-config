@@ -1,6 +1,6 @@
 # CLAUDE.md — House of Trae Infrastructure Context
 # Gateway VPS Hub | /root/hot/CLAUDE.md
-# Version: 1.3 | June 2026
+# Version: 1.4 | June 2026
 # Always address the operator as Mr. Byrne.
 
 ---
@@ -214,6 +214,7 @@ All VMs run as root.
 | Docker Mailserver | /opt/stacks/mailserver/ | mail.house-of-trae.com                                |
 | Roundcube         | /opt/stacks/roundcube/  | webmail.house-of-trae.com                             |
 | CrowdSec          | /opt/stacks/crowdsec/   | LAPI mode + Caddy forward auth bouncer                |
+| Tor               | /opt/stacks/tor/        | v3 hidden service for erp.dickson-supplies.com         |
 | PowerDNS-Admin    | /opt/stacks/powerdns/   | sn-infra:9191 (via WireGuard)                         |
 
 ### sn-infra (ssh sn-infra — 10.10.10.100)
@@ -502,17 +503,55 @@ node-exporter UFW gotcha: node-exporter runs in Docker host network mode, but Pr
 
 ---
 
+## Tor Hidden Services
+
+Stack: `/opt/stacks/tor/` on the Gateway VPS. Custom image built from `debian:bookworm-slim` + official Debian `tor` package. `network_mode: host` — Tor makes only outbound connections; host networking lets `HiddenServicePort 80 127.0.0.1:80` hit Caddy's existing port 80 directly.
+
+| Service          | Onion Address                                                              | Auth      | Notes                                    |
+|------------------|----------------------------------------------------------------------------|-----------|------------------------------------------|
+| ERPNext (mirror) | qcrzygpg5qbzch4c2qlcgiktuvzf3xwqwtd7mkcn5r4g4mxebmpptkid.onion           | x25519 v3 | Mirror of erp.dickson-supplies.com       |
+
+Clearnet `erp.dickson-supplies.com` is unaffected — this is a mirror, not onion-only.
+
+### Traffic path
+`Tor Browser → .onion → Gateway VPS Tor daemon → Caddy (http:// block) → 10.10.20.101:8000 (ERPNext)`  
+Caddy block uses `http://` prefix (no auto-HTTPS/ACME for .onion) and `header_up Host erp.dickson-supplies.com` (ERPNext multi-tenant routing depends on this exact hostname).
+
+### Client authentication
+Service descriptor is encrypted — unauthorized clients cannot even resolve the descriptor.  
+Keys stored at `/opt/stacks/tor/data/erp/authorized_clients/*.auth` (public side only, never in git).
+
+| User    | Auth file            | Private key location         |
+|---------|----------------------|------------------------------|
+| tristian| tristian.auth        | Vaultwarden — "ERPNext Onion Client Auth Key (tristian)" |
+
+### Adding / revoking a client
+1. Generate: `openssl genpkey -algorithm x25519 -out tmp.pem` → extract 32-byte raw private and public hex via `openssl pkey -noout -text` → `xxd -r -p | base32 | tr -d '='`
+2. Add: Write `descriptor:x25519:<pub-b32>` → `/opt/stacks/tor/data/erp/authorized_clients/<name>.auth` (chown 100:101, chmod 600)
+3. Give the user: `<onion-address>:descriptor:x25519:<priv-b32>` as their `.auth_private` file
+4. Reload: `cd /opt/stacks/tor && docker compose restart tor` (Tor re-reads `authorized_clients/` on restart, re-publishes descriptor)
+5. Revoke: delete the `.auth` file + restart Tor
+
+### Backup caveat
+The Gateway VPS is NOT a Proxmox VM — PBS/vzdump may not cover it. Losing `/opt/stacks/tor/data/erp/` (specifically `hs_ed25519_secret_key`) means the onion address is lost permanently with no recovery. Ensure the key file is included in any VPS-level backup or snapshot process.
+
+### sync.sh — what IS and IS NOT committed
+- ✓ Synced: `docker-compose.yml`, `Dockerfile`, `torrc`
+- ✗ Never synced: `data/` (private service key, client auth descriptors)
+
+---
+
 ## Phase Status Summary
 
 | Phase   | Status         | Completed       |
 |---------|----------------|-----------------|
 | Phase 1 | ✓ COMPLETE     | Feb 18, 2026    |
 | Phase 2 | ✓ COMPLETE     | Feb 18–24, 2026 |
-| Phase 3 | 🟡 IN PROGRESS | March 2026 →    |
+| Phase 3 | ✓ COMPLETE     | March–June 2026  |
 | Phase 4 | ⏳ PENDING      | Security hardening |
 
-### Phase 3 Outstanding Items
-- Tor hidden services (scope TBD — which services, see Mr. Byrne)
+### Phase 3 Completed (2026-06-17)
+- ERPNext Tor hidden service: qcrzygpg5qbzch4c2qlcgiktuvzf3xwqwtd7mkcn5r4g4mxebmpptkid.onion (client auth, v3)
 
 ### Phase 3 Completed (2026-06-16)
 - sn-web: all 6 client sites live (3 pre-existing + Ruby Osiris, Evil Rabbit Art, Dickson Supplies added)
@@ -565,5 +604,5 @@ node-exporter UFW gotcha: node-exporter runs in Docker host network mode, but Pr
 | Full roadmap                | /root/hot/docs/roadmap.md                            |
 
 ---
-# End of CLAUDE.md — v1.3
+# End of CLAUDE.md — v1.4
 # "Sometimes you gotta run before you can walk." — Tony Stark

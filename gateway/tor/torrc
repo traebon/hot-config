@@ -1,0 +1,5 @@
+SocksPort 127.0.0.1:9050
+
+HiddenServiceDir /var/lib/tor/erp/
+HiddenServicePort 80 127.0.0.1:80
+HiddenServiceVersion 3
