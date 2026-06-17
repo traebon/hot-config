@@ -1,6 +1,6 @@
 # CLAUDE.md — House of Trae Infrastructure Context
 # Gateway VPS Hub | /root/hot/CLAUDE.md
-# Version: 1.4 | June 2026
+# Version: 1.5 | June 2026
 # Always address the operator as Mr. Byrne.
 
 ---
@@ -461,6 +461,9 @@ node-exporter UFW gotcha: node-exporter runs in Docker host network mode, but Pr
 | user_oidc CLI            | Silent fail on Nextcloud v8.6.1 — must configure via web UI                    |
 | PostgreSQL reserved words| "user" must be quoted in queries                                                |
 | ERPNext apps.txt         | Manually reconcile after restore — ghost entries cause silent failures          |
+| ERPNext healthcheck PID leak | The `dickson-backend` healthcheck uses `CMD-SHELL` + `curl`. When ERPNext is unhealthy, curl hangs until Docker times it out — but without `init: true`, bash is PID 1 and orphaned curl processes are never reaped. Over days this fills the container's cgroup PID limit (5991), making the container completely unkillable (even `docker kill` and `docker stop` fail; must `kill -9` the host PID directly). Fix already applied: `init: true` on `dickson-backend` in compose — tini runs as PID 1 and reaps orphans. Apply `init: true` to any long-running container whose healthcheck spawns subprocesses. |
+| ERPNext `unless-stopped` trap | `restart: unless-stopped` does NOT restart a container stopped via `docker stop` or `docker compose stop` — Docker marks it as intentionally stopped. `dickson-db` was stopped on 2026-06-05 (exit 137) and stayed down for 12 days. If the whole stack is stopped for maintenance, always follow with `docker compose start` or `docker compose up -d` when done. |
+| ERPNext tabError Log corruption | `tabError Log` (MyISAM table in the ERPNext site DB) crashes periodically after unclean shutdowns. Symptom: MariaDB logs `Table '.../_ae77c090ad3ef28b/tabError@0020Log' is marked as crashed`. Fix: `docker exec dickson-db mariadb -u root -p<password> _ae77c090ad3ef28b -e "REPAIR TABLE \`tabError Log\`;"` — password in `/opt/stacks/dickson/secrets/dickson_db_password.txt`. |
 | rclone B2                | hard_delete=true required — otherwise leaves hidden versions                   |
 | Watchtower version       | v1.5.3 only — v1.7.1 Docker API negotiation bug                                 |
 | MinIO + EPYC 3151        | Must use cpuv1 image tag — Zen1 architecture, no AVX-512                        |
@@ -604,5 +607,5 @@ The Gateway VPS is NOT a Proxmox VM — PBS/vzdump may not cover it. Losing `/op
 | Full roadmap                | /root/hot/docs/roadmap.md                            |
 
 ---
-# End of CLAUDE.md — v1.4
+# End of CLAUDE.md — v1.5
 # "Sometimes you gotta run before you can walk." — Tony Stark
