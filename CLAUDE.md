@@ -1,6 +1,6 @@
 # CLAUDE.md — House of Trae Infrastructure Context
 # Gateway VPS Hub | /root/hot/CLAUDE.md
-# Version: 1.7 | June 2026
+# Version: 1.8 | June 2026
 # Always address the operator as Mr. Byrne.
 
 ---
@@ -24,19 +24,13 @@ All reference documents are in /root/hot/docs/. Use docx2txt or pdftotext (both 
 
 | File                                                    | Type  | Purpose                                                                         |
 |---------------------------------------------------------|-------|---------------------------------------------------------------------------------|
-| HoT_Infrastructure_State_Roadmap_v3_2.docx              | DOCX  | Master infrastructure state & roadmap v3.2 — single source of truth for all phases, VM allocation, and PrivateNexus blueprint |
-| HoT_Infrastructure_Architecture_Specification_v3.0.pdf  | PDF   | Architecture specification v3.0 — core pillars, platform layers, strategic objectives |
-| HoT_Operations_Runbook.pdf                              | PDF   | Operations runbook — incident severity (P1–P3), recovery order, DR checklist, backup validation cadence, change management rules |
-| PrivateNexus_Product_Specification.pdf                  | PDF   | PrivateNexus product spec — mission, five core functions, MVP v1.0 definition, v2–v4 future scope |
-| PrivateNexus_Build_Implementation_Guide_v1.0.docx       | DOCX  | PrivateNexus build guide v1.0 (02 Jun 2026) — phase-by-phase implementation, repo layout, security baseline, API surface, release gates |
-| PrivateNexus_Commercial_Product_Strategy.docx           | DOCX  | PrivateNexus commercial strategy — product positioning, revenue ladder, multi-tenancy model, go-to-market path |
+| HoT_Infrastructure_State_Roadmap_v3_2.docx              | DOCX  | Master infrastructure state & roadmap v3.2 — single source of truth            |
+| HoT_Infrastructure_Architecture_Specification_v3.0.pdf  | PDF   | Architecture specification v3.0 — core pillars, platform layers                |
+| HoT_Operations_Runbook.pdf                              | PDF   | Operations runbook — incident severity (P1–P3), recovery order, DR checklist   |
+| PrivateNexus_Product_Specification.pdf                  | PDF   | PrivateNexus product spec — mission, MVP v1.0, v2–v4 scope                     |
+| PrivateNexus_Build_Implementation_Guide_v1.0.docx       | DOCX  | PrivateNexus build guide v1.0 — phases, repo layout, security baseline         |
+| PrivateNexus_Commercial_Product_Strategy.docx           | DOCX  | PrivateNexus commercial strategy — positioning, revenue ladder, GTM             |
 | dnssec-ds-records.md                                    | MD    | DNSSEC DS record reference for managed zones                                    |
-
-Read order for unfamiliar context:
-1. HoT_Infrastructure_State_Roadmap_v3_2.docx  (full current state)
-2. HoT_Infrastructure_Architecture_Specification_v3.0.pdf  (design rationale)
-3. HoT_Operations_Runbook.pdf  (incident response)
-4. PrivateNexus docs (product + build + commercial) for PN-specific work
 
 ---
 
@@ -109,11 +103,6 @@ SSH config: /root/.ssh/config
 | pn-test     | 10.10.60.105   | 60   |
 | sn-security | 10.10.70.106   | 70   |
 
-Examples:
-  ssh sn-personal "docker ps"
-  ssh sn-monitor "cd /opt/stacks/monitoring && docker compose logs grafana --tail=50"
-  ssh proxmox "qm list"
-
 ---
 
 ## Hardware — Bare Metal (AMD EPYC 3151)
@@ -126,7 +115,6 @@ Examples:
 | RAM             | 32 GB DDR4 ECC total                         |
 | Storage         | 2×8 TB HDD — ZFS mirror (rpool) ~8 TB usable |
 | ZFS             | lz4 compression, weekly scrub                |
-| Host reserved   | ~4 GB for Proxmox host + ZFS ARC cache       |
 | Usable for VMs  | ~28 GB RAM / ~8 TB disk                      |
 
 ### ⚠️ EPYC 3151 Zen 1 CPU Warning
@@ -150,8 +138,8 @@ Examples:
 |     | **TOTAL**   | **14**|**44 GB**|**1.75 TB**|                   | Over-provisioned — actual RSS ~7 GB across all VMs |
 
 ### ⚠️ Hard Limits — Do Not Exceed Without Approval
-- **RAM:** VMs are over-provisioned (44 GB allocated vs 32 GB physical) — KVM balloon keeps actual usage low (~7 GB RSS observed). Do not add more RAM-heavy VMs without checking actual pressure.
-- **vCPU:** 14 vCPUs allocated across 8 physical threads — flag further additions
+- **RAM:** 44 GB allocated vs 32 GB physical — KVM balloon keeps actual usage low. Do not add RAM-heavy VMs without checking pressure.
+- **vCPU:** 14 vCPUs across 8 physical threads — flag further additions
 - **Disk:** ~6.05 TB free on ZFS (1.09 TB used) — snapshots + backups consume this too
 - **sn-personal disk:** Only 98 GB of the 250 GB disk is in the LVM — LV can be extended if needed
 - **sn-personal (500 GB)** and **sn-business (300 GB)** are the only VMs suitable for disk-heavy services
@@ -169,22 +157,9 @@ Examples:
 | Role      | Edge ONLY — Caddy, DNS, Mail, WireGuard, CrowdSec |
 
 ### ⚠️ VPS Resource Warning
-- 8 GB RAM shared across: Caddy, PowerDNS, Unbound, Docker Mailserver,
-  Roundcube, CrowdSec, WireGuard, PowerDNS-Admin, Keycloak
+- 8 GB RAM shared across: Caddy, PowerDNS, Unbound, Docker Mailserver, Roundcube, CrowdSec, WireGuard, Keycloak
 - Keycloak alone uses ~512 MB–1 GB at idle
-- Do NOT suggest deploying heavy workloads (databases, media, ERPNext) on the VPS
-- VPS = edge/proxy only — all compute lives on bare metal VMs
-
----
-
-## Hardware — Home NAS (Proxmox Backup Server)
-
-| Parameter  | Value                                |
-|------------|--------------------------------------|
-| Role       | Backup node only — PBS base OS       |
-| Access     | Tailscale only (never public-facing) |
-| Encryption | AES-256-GCM client-side              |
-| Use        | PBS snapshots from all VMs           |
+- VPS = edge/proxy only — never deploy databases, media, or ERPNext here
 
 ---
 
@@ -193,7 +168,7 @@ Examples:
 1. Adding a new service to an existing VM → check RAM headroom first
 2. Suggesting a new VM → confirm bare metal has RAM and disk capacity
 3. Any image without explicit version tag → verify Zen 1 / cpuv1 compatibility
-4. Disk-heavy services → sn-personal (500 GB) or sn-business (300 GB) only
+4. Disk-heavy services → sn-personal or sn-business only
 5. Monitoring/logging growth → watch sn-monitor disk (Loki retention policy)
 6. Never deploy databases or media services on the Gateway VPS
 
@@ -214,8 +189,7 @@ All VMs run as root.
 | Docker Mailserver | /opt/stacks/mailserver/ | mail.house-of-trae.com                                |
 | Roundcube         | /opt/stacks/roundcube/  | webmail.house-of-trae.com                             |
 | CrowdSec          | /opt/stacks/crowdsec/   | LAPI mode + Caddy forward auth bouncer                |
-| Tor               | /opt/stacks/tor/        | v3 hidden service for erp.dickson-supplies.com         |
-| PowerDNS-Admin    | /opt/stacks/powerdns/   | sn-infra:9191 (via WireGuard)                         |
+| Tor               | /opt/stacks/tor/        | v3 hidden service for erp.dickson-supplies.com        |
 
 ### sn-infra (ssh sn-infra — 10.10.10.100)
 | Service        | Path                    | URL                           | Port |
@@ -230,10 +204,10 @@ All VMs run as root.
 |-------------|----------------------|--------------------------|------|
 | ERPNext v16 | /opt/stacks/dickson/ | erp.dickson-supplies.com | 8000 |
 
-Stack: custom image (`/opt/stacks/dickson/docker/Dockerfile`) — `frappe/erpnext:v16` + POS Awesome app (`posawesome`). Services: `dickson-backend` (gunicorn, port 8000), `dickson-db` (MariaDB 10.6), `dickson-redis-cache`, `dickson-redis-queue`, `dickson-socketio`, `dickson-worker`, `dickson-scheduler`. Secrets in `/opt/stacks/dickson/secrets/*.txt` — must be `chmod 644` (frappe runs as UID 1000, not root). Site DB name: `_ae77c090ad3ef28b` (hashed from site name).
+Stack: custom image (`/opt/stacks/dickson/docker/Dockerfile`) — `frappe/erpnext:v16` + posawesome. Services: `dickson-backend` (gunicorn), `dickson-db` (MariaDB 10.6), redis-cache, redis-queue, socketio, worker, scheduler. Secrets in `/opt/stacks/dickson/secrets/*.txt` — must be `chmod 644` (frappe UID 1000). Site DB name: `_ae77c090ad3ef28b`.
 
 ### sn-web (ssh sn-web — 10.10.30.102)
-| Service          | Path                       | URL                  | Port |
+| Service          | Path                        | URL                  | Port |
 |------------------|-----------------------------|----------------------|------|
 | Stratus Digital  | /opt/stacks/stratus-digital/| stratus-digital.com  | 8001 |
 | Discreet Elite   | /opt/stacks/discreet-elite/ | discreet-elite.uk    | 8002 |
@@ -242,7 +216,7 @@ Stack: custom image (`/opt/stacks/dickson/docker/Dockerfile`) — `frappe/erpnex
 | Evil Rabbit Art  | /opt/stacks/evilrabbit/     | evilrabbitart.com    | 8005 |
 | Dickson Supplies | /opt/stacks/dicksonweb/     | dickson-supplies.com | 8006 |
 
-All 6 are simple nginx:alpine + static "Coming Soon" placeholder pages, reverse-proxied via Caddy (root + www). rubyosiris.com and evilrabbitart.com domains had no registrar NS delegation to ns1/ns2.house-of-trae.com until 2026-06-16 — now fixed, may take time to propagate on slower public resolvers (e.g. 8.8.8.8 lagged behind 1.1.1.1) before Let's Encrypt can issue certs; Caddy auto-retries every 60s.
+All 6 are nginx:alpine + static "Coming Soon" pages, reverse-proxied via Caddy (root + www).
 
 ### sn-personal (ssh sn-personal — 10.10.40.103)
 Domain: tresemme.space — NOT privatenexus.net (privatenexus.net belongs to pn-test)
@@ -250,16 +224,16 @@ Domain: tresemme.space — NOT privatenexus.net (privatenexus.net belongs to pn-
 ⚠️ NON-STANDARD: Several services are NOT in /opt/stacks/ and/or managed by Cosmos (banned).
 Cosmos is running at /opt/stacks/cosmos/ — managing Vaultwarden, Firefly-III, Actual via Docker named volumes.
 Immich and Notesnook have data in /opt/immich/ and /opt/notesnook/ but NO running containers.
-Migration to proper /opt/stacks/ compose files is required (see action list).
+Migration to proper /opt/stacks/ compose files is required.
 
-| Service       | Path (actual)             | URL                          | Port | Status                       |
-|---------------|---------------------------|------------------------------|------|------------------------------|
-| Nextcloud     | /opt/stacks/nextcloud/    | nextcloud.tresemme.space     | 8080 | Active                       |
-| Vaultwarden   | Cosmos-managed (volume)   | vaultwarden.tresemme.space   | —    | Active (via Cosmos — migrate)|
-| Immich        | /opt/immich/ (data only)  | photos.tresemme.space        | 2283 | DOWN — needs compose file    |
-| Notesnook     | /opt/notesnook/ (data)    | notes.tresemme.space         | —    | DOWN — env never configured  |
-| Firefly III   | Cosmos-managed (volume)   | firefly.tresemme.space       | —    | Dormant (via Cosmos)         |
-| Actual Budget | Cosmos-managed (volume)   | actual.tresemme.space        | —    | Dormant (via Cosmos)         |
+| Service       | Path (actual)             | URL                          | Port | Status                        |
+|---------------|---------------------------|------------------------------|------|-------------------------------|
+| Nextcloud     | /opt/stacks/nextcloud/    | nextcloud.tresemme.space     | 8080 | Active                        |
+| Vaultwarden   | Cosmos-managed (volume)   | vaultwarden.tresemme.space   | —    | Active (via Cosmos — migrate) |
+| Immich        | /opt/immich/ (data only)  | photos.tresemme.space        | 2283 | DOWN — needs compose file     |
+| Notesnook     | /opt/notesnook/ (data)    | notes.tresemme.space         | —    | DOWN — env never configured   |
+| Firefly III   | Cosmos-managed (volume)   | firefly.tresemme.space       | —    | Dormant (via Cosmos)          |
+| Actual Budget | Cosmos-managed (volume)   | actual.tresemme.space        | —    | Dormant (via Cosmos)          |
 
 ### sn-monitor (ssh sn-monitor — 10.10.50.104)
 | Service     | Path                    | URL                       | Port |
@@ -269,43 +243,23 @@ Migration to proper /opt/stacks/ compose files is required (see action list).
 | Loki        | (inside monitoring)     | 10.10.50.104:3100         | 3100 |
 | Uptime Kuma | (inside monitoring)     | status.house-of-trae.com  | —    |
 
+status.house-of-trae.com — slug `hot-status`, exposes only the 6 group entity sites. Admin at monitor.securenexus.net:3001.
+Grafana admin password: reset via `grafana cli admin reset-admin-password` — GF_SECURITY_ADMIN_PASSWORD only applies on first init.
+node-exporter UFW gotcha: Prometheus runs in bridge network 172.18.0.0/16 — UFW must allow that subnet to port 9100.
+
 ### pn-test (ssh pn-test — 10.10.60.105)
 Domain: privatenexus.net — active dev VM
 
-| Service      | Path                  | Notes                                     |
-|--------------|-----------------------|-------------------------------------------|
-| PrivateNexus | /opt/privatenexus/    | Active dev — React + Go/NestJS + PostgreSQL |
+| Service      | Path               | Notes                                       |
+|--------------|--------------------|---------------------------------------------|
+| PrivateNexus | /opt/privatenexus/ | Active dev — React + Go/NestJS + PostgreSQL |
 
 ### sn-security (ssh sn-security — 10.10.70.106)
-VM provisioned (4 vCPU / 8 GB / 250 GB, VLAN 70). Docker installed.
-Planned: Wazuh SIEM (not yet configured). Needs full setup checklist (node-exporter, Promtail, UFW, Prometheus target).
+VM provisioned (4 vCPU / 8 GB / 250 GB, VLAN 70). Planned: Wazuh SIEM (not yet configured).
 
-| Service        | Path                          | Notes                                                  |
-|----------------|-------------------------------|---------------------------------------------------------|
-| Forgejo Runner | /opt/stacks/forgejo-runner/   | Forgejo Actions CI/CD runner for git.securenexus.net. Placed here (not sn-infra) because sn-infra is only 1 vCPU/4GB with ~236MB free and already runs Forgejo+PowerDNS-Admin+Namevault — CI job spikes risk starving it. sn-security was by far the most idle box (4 vCPU, ~6.4GB free). Move to a dedicated box if/when Wazuh deployment starts competing for resources. |
-
----
-
-## Key Service URLs
-
-| URL                            | Service           | Backend VM  |
-|--------------------------------|-------------------|-------------|
-| auth.house-of-trae.com         | Keycloak SSO      | Gateway VPS |
-| webmail.house-of-trae.com      | Roundcube         | Gateway VPS |
-| mail.house-of-trae.com         | Docker Mailserver | Gateway VPS |
-| grafana.house-of-trae.com      | Grafana           | sn-monitor  |
-| status.house-of-trae.com       | Uptime Kuma (public status page) | sn-monitor  |
-| git.securenexus.net            | Forgejo           | sn-infra    |
-| git.house-of-trae.com          | Forgejo           | sn-infra    |
-| dns-admin.house-of-trae.com    | PowerDNS-Admin    | sn-infra    |
-| namevault.co.uk                | Namevault         | sn-infra    |
-| nextcloud.tresemme.space       | Nextcloud         | sn-personal |
-| vaultwarden.tresemme.space     | Vaultwarden       | sn-personal |
-| photos.tresemme.space          | Immich            | sn-personal |
-| notes.tresemme.space           | Notesnook         | sn-personal |
-| firefly.tresemme.space         | Firefly III       | sn-personal (dormant) |
-| actual.tresemme.space          | Actual Budget     | sn-personal (dormant) |
-| erp.dickson-supplies.com       | ERPNext           | sn-business |
+| Service        | Path                        | Notes                                           |
+|----------------|-----------------------------|-------------------------------------------------|
+| Forgejo Runner | /opt/stacks/forgejo-runner/ | CI/CD runner for git.securenexus.net            |
 
 ---
 
@@ -326,8 +280,7 @@ Backend: Gateway VPS — PostgreSQL backend
 | (8th realm)     | House of Trae parent                                         |
 
 All realms: MFA enforced, brute force detection, strong password policy.
-Keycloak OIDC API URL must point to realm root: .../realms/<realm-name>
-(NOT the protocol endpoint — this is a known misconfiguration that causes 500 errors)
+Keycloak OIDC API URL must point to realm root: `.../realms/<realm-name>` (NOT the protocol endpoint — causes 500 errors).
 
 ---
 
@@ -339,43 +292,24 @@ Bound on: 10.10.0.1:8081 (WireGuard interface — reachable from bare metal)
 Authoritative nameservers: ns1.house-of-trae.com / ns2.house-of-trae.com
 
 Zones managed (confirmed live):
-  house-of-trae.com       — parent group
-  securenexus.net         — SecureNexus
-  byrne-accounts.org      — Byrne Accounts
-  stratus-digital.com     — Stratus Digital
-  discreet-elite.uk       — Discreet Elite
-  emerald-markets.net     — Emerald Markets
-  privatenexus.net        — pn-test (PrivateNexus dev)
-  tresemme.space          — sn-personal (personal apps)
-  namevault.co.uk         — Namevault
-  dickson-supplies.com    — Dickson Supplies
-  evilrabbitart.com       — Evil Rabbit Art
-  rubyosiris.com          — Ruby Osiris
-  cloud-architects.online — legacy (Cloud Architects — pre-rebrand)
+  house-of-trae.com, securenexus.net, byrne-accounts.org, stratus-digital.com,
+  discreet-elite.uk, emerald-markets.net, privatenexus.net, tresemme.space,
+  namevault.co.uk, dickson-supplies.com, evilrabbitart.com, rubyosiris.com,
+  cloud-architects.online (legacy)
 
-tresemme.space confirmed records:
-  nextcloud.tresemme.space    → 151.241.217.91
-  vaultwarden.tresemme.space  → 151.241.217.91
-  photos.tresemme.space       → 151.241.217.91
-  notes.tresemme.space        → 151.241.217.91
-  firefly.tresemme.space      → 151.241.217.91 (dormant)
-  firefly-iii.tresemme.space  → 151.241.217.91 (dormant)
-  actual.tresemme.space       → 151.241.217.91 (dormant)
-  tresemme.space              → 151.241.217.91
+tresemme.space records — all → 151.241.217.91:
+  nextcloud, vaultwarden, photos, notes, firefly, firefly-iii, actual, apex
 
 ---
 
 ## Email Infrastructure
 
-Host: mail.house-of-trae.com
-Webmail: webmail.house-of-trae.com
+Host: mail.house-of-trae.com | Webmail: webmail.house-of-trae.com
 Stack: Docker Mailserver + Roundcube
-Universal SMTP account: notifications@house-of-trae.com
-SMTP config for all services: host mail.house-of-trae.com | port 587 | STARTTLS
+Universal SMTP: notifications@house-of-trae.com | port 587 | STARTTLS
 
 Email domains: @house-of-trae.com, @securenexus.net, @byrne-accounts.org,
-               @stratus-digital.com, @discreet-elite.uk, @emerald-markets.net,
-               @privatenexus.net
+               @stratus-digital.com, @discreet-elite.uk, @emerald-markets.net, @privatenexus.net
 
 ---
 
@@ -388,8 +322,8 @@ Email domains: @house-of-trae.com, @securenexus.net, @byrne-accounts.org,
 | WARNING  | Memory >90%, backup failure, CrowdSec spike       | ✓    | ✓    | —   |
 | INFO     | Backup completed, Watchtower update available     | —    | ✓    | —   |
 
-SMS rate limit: max 1 SMS per alert group per 5 minutes (prevents cascading storms)
-SMS relay: ~30-line Node.js sms-relay service on sn-infra (Ntfy webhook → Twilio API)
+SMS rate limit: max 1 SMS per alert group per 5 minutes.
+SMS relay: Node.js sms-relay on sn-infra (Ntfy webhook → Twilio API).
 
 ---
 
@@ -402,88 +336,60 @@ SMS relay: ~30-line Node.js sms-relay service on sn-infra (Ntfy webhook → Twil
 | Cloud (B2)     | rclone crypt + B2     | 03:00 daily | Backblaze B2            | rclone crypt — hard_delete=true |
 | Cloud (Wasabi) | rclone crypt + Wasabi | 04:00 daily | Wasabi EU-Central-1     | Separate crypt key from B2      |
 
-Cron schedule:
-  01:00 — Config sync: /opt/hot-config git commit + push to Forgejo
-  02:00 — vzdump all VMs (ZFS-backed local snapshots)
-  03:00 — rclone crypt → Backblaze B2 (primary cloud backup)
-  04:00 — rclone crypt → Wasabi EU-Central-1 (secondary cloud backup)
-  04:30 — Watchtower v1.5.3 monitor-only mode (log only — no auto-updates)
-
-Config repo: /opt/hot-config → Forgejo (git.securenexus.net) + Codeberg mirror + GitHub public mirror
+Cron: 01:00 config sync → 02:00 vzdump → 03:00 B2 → 04:00 Wasabi → 04:30 Watchtower monitor-only
+Config repo: /opt/hot-config → Forgejo (git.securenexus.net) + Codeberg + GitHub mirrors
 
 ---
 
-## Monitoring Stack (sn-monitor)
+## Grafana Alerting
 
-| Tool          | Purpose                                                               | Access                     |
-|---------------|-----------------------------------------------------------------------|----------------------------|
-| Prometheus    | Metrics scraping (all 7 nodes)                                        | Internal 10.10.50.104:9090 |
-| Grafana       | Dashboards + alerting                                                 | grafana.house-of-trae.com  |
-| Loki          | Log aggregation                                                       | Internal 10.10.50.104:3100 |
-| Promtail      | Log shipping (all 6 VMs + VPS)                                        | Deployed on every node     |
-| Uptime Kuma   | Admin dashboard (full monitor list) + public status page             | monitor.securenexus.net (port 3001) / status.house-of-trae.com |
-| node-exporter | System metrics — all 7 nodes including Proxmox host (native systemd) | Prometheus targets         |
-
-status.house-of-trae.com — Uptime Kuma status page (slug `hot-status`, served via `status_page_cname` mapping, group "Group Entity Sites"). Exposes only the 6 group entity sites (House of Trae, SecureNexus, Byrne Accounts, Stratus Digital, Discreet Elite, Emerald Markets) — internal/admin tooling (dns-admin, Namevault, webmail, Forgejo, ERPNext) deliberately excluded from the public page. Caddy block reverse-proxies to 10.10.50.104:3001 same as monitor.securenexus.net; Kuma picks the right status page by Host header via status_page_cname.
-
-Grafana SSO: securenexus realm. Roles mapper configured.
-Grafana admin password: reset via `grafana cli admin reset-admin-password` when changed post-bootstrap — env var GF_SECURITY_ADMIN_PASSWORD only applies on first init, never resets a changed password.
-Watchtower: v1.5.3 ONLY on all nodes. v1.7.1 has Docker API negotiation bug — do not use.
-
-### Grafana Alerting
-SMTP: mail.house-of-trae.com:587 STARTTLS via notifications@house-of-trae.com (confirmed working).
-Contact point: "email-hot" → tristian@securenexus.net. Notification policy routes severity=critical|high|warning to email-hot.
-Alert rules (folder "HoT Infrastructure Alerts", group "infrastructure"):
-  - Node Down (severity=critical, for=2m) — `up == 0`
-  - Disk Usage High (severity=high, for=5m, >85%) and Disk Usage Critical (severity=critical, for=5m, >95%)
-  - Memory Usage High (severity=warning, for=5m, >90%)
-  - TLS Cert Expiry <14d (severity=high) and <7d (severity=critical) — requires Blackbox Exporter (`probe_ssl_earliest_cert_expiry`) which is NOT yet deployed; rules will show NoData until then
-node-exporter UFW gotcha: node-exporter runs in Docker host network mode, but Prometheus runs in the `monitoring_monitoring` bridge network (172.18.0.0/16) — UFW must explicitly allow that bridge subnet to port 9100, not just the VLAN subnet, or the target shows as down.
+SMTP: mail.house-of-trae.com:587 via notifications@house-of-trae.com. Contact point: "email-hot" → tristian@securenexus.net.
+Alert rules (folder "HoT Infrastructure Alerts"): Node Down (critical, 2m), Disk >85% (high), Disk >95% (critical), Memory >90% (warning), TLS cert <14d/<7d (needs Blackbox Exporter — not yet deployed).
 
 ---
 
 ## Operational Rules (Hard-Won Learnings)
 
-| Rule                     | Detail                                                                          |
-|--------------------------|---------------------------------------------------------------------------------|
-| No Docker in LXC         | Requires privileged containers — undermines security — Docker stays on full VMs |
-| UFW rules use /16        | Proxmox masquerades IPs between VLANs — rules must allow 10.10.0.0/16          |
-| WireGuard AllowedIPs     | Must update on BOTH VPS and bare metal when adding a new VLAN/subnet            |
-| VM clone checklist       | Fix UFW input policy (DROP→ACCEPT) and nameserver (10.10.0.1→correct) on every clone |
-| Caddy reload             | docker compose restart caddy from /opt/stacks/caddy/ — kill -USR1 and admin API both FAIL |
-| PowerDNS API             | Port 8081 (not 8053) — Caddy TLS uses acme_dns with api_token                  |
-| Docker secrets           | chmod 644 (not 600) for non-root container users                                |
-| Caddy remote_ip          | Sees Docker bridge IP not real client IP — IP-based access control ineffective  |
-| Tailscale = admin only   | Never route production traffic through Tailscale (DERP relay latency)           |
-| Keycloak OIDC URL        | Must point to realm root (.../realms/<realm>) not the protocol endpoint         |
-| pda-legacy OIDC config   | Must use OIDC_OAUTH_AUTO_CONFIGURE=true + OIDC_OAUTH_METADATA_URL (discovery doc) — manual OIDC_OAUTH_TOKEN_URL/AUTHORIZE_URL never supplies jwks_uri to authlib, causing `RuntimeError: Missing "jwks_uri" in metadata` on every login callback |
-| pda-legacy OIDC_OAUTH_API_URL | pda-legacy's `/login` route calls `oidc.get('userinfo')`, and authlib resolves that via `urljoin(api_base_url, 'userinfo')` — urljoin drops the last path segment of api_base_url if it has no trailing slash. Must be set to the realm's `protocol/openid-connect/` path WITH a trailing slash (`https://auth.house-of-trae.com/realms/<realm>/protocol/openid-connect/`), not the realm root — otherwise it requests the wrong URL and `user_data[...]` raises `KeyError: 'preferred_username'` |
-| pda-legacy OIDC auto-provisioning | First-time OIDC login auto-creates a NEW local user (username = Keycloak `preferred_username`) with role "User" and zero account assignments by default — it does NOT reuse an existing local/LOCAL-auth account with the same email, and "User" role sees no zones until assigned. Manually promote via `UPDATE "user" SET role_id=1 WHERE username='<oidc-username>'` (role 1 = Administrator) in the pdns-admin DB after first OIDC login. There's a separate pre-existing local Administrator account `trae` (same email) — kept for LOCAL-auth fallback, distinct from the OIDC-provisioned `tristian` account. |
-| Keycloak realm-federation broker | Every child realm (securenexus, byrne-accounts, clients, discreet-elite, emerald-markets, stratus-digital, house-of-trae) brokers identity from the house-of-trae master realm via a forced `identity-provider-redirector` in the browser flow. This adds a second login hop, so the default 60s `access_code_lifespan` is too short and causes intermittent `expired_code`/`cookie_not_found` broker errors (seen on Grafana + PowerDNS-Admin). Fixed by raising `access_code_lifespan` to 300s on all of them — `personal` realm already had this fix applied previously; apply to any new child realm going forward. Realm setting changes via raw SQL need a Keycloak container restart to bust the Infinispan realm cache. |
-| user_oidc CLI            | Silent fail on Nextcloud v8.6.1 — must configure via web UI                    |
-| PostgreSQL reserved words| "user" must be quoted in queries                                                |
-| ERPNext apps.txt         | Manually reconcile after restore — ghost entries cause silent failures          |
-| ERPNext healthcheck PID leak | The `dickson-backend` healthcheck uses `CMD-SHELL` + `curl`. When ERPNext is unhealthy, curl hangs until Docker times it out — but without `init: true`, bash is PID 1 and orphaned curl processes are never reaped. Over days this fills the container's cgroup PID limit (5991), making the container completely unkillable (even `docker kill` and `docker stop` fail; must `kill -9` the host PID directly). Fix already applied: `init: true` on `dickson-backend` in compose — tini runs as PID 1 and reaps orphans. Apply `init: true` to any long-running container whose healthcheck spawns subprocesses. |
-| ERPNext `unless-stopped` trap | `restart: unless-stopped` does NOT restart a container stopped via `docker stop` or `docker compose stop` — Docker marks it as intentionally stopped. `dickson-db` was stopped on 2026-06-05 (exit 137) and stayed down for 12 days. If the whole stack is stopped for maintenance, always follow with `docker compose start` or `docker compose up -d` when done. |
-| ERPNext tabError Log corruption | `tabError Log` (MyISAM table in the ERPNext site DB) crashes periodically after unclean shutdowns. Symptom: MariaDB logs `Table '.../_ae77c090ad3ef28b/tabError@0020Log' is marked as crashed`. Fix: `docker exec dickson-db mariadb -u root -p<password> _ae77c090ad3ef28b -e "REPAIR TABLE \`tabError Log\`;"` — password in `/opt/stacks/dickson/secrets/dickson_db_password.txt`. |
-| ERPNext backend = gunicorn, not bench serve | `bench serve` runs Werkzeug dev server — single-threaded, live debugger active (PIN visible in logs), not safe for production. Fixed: compose command runs `gunicorn --workers=2 --worker-class=gthread --threads=4 --timeout=120 wsgi:application` from `/home/frappe/frappe-bench/sites`. WSGI callable is `wsgi:application` (a `wsgi.py` file in the sites volume that calls `application_with_statics()` at import time — necessary to wrap gunicorn with Werkzeug's `SharedDataMiddleware` so `/assets/` requests are served statically). Do not revert to `bench serve` or to bare `frappe.app:application` (latter skips static serving entirely). |
-| ERPNext asset hash drift | CSS/JS bundles are in the Docker image layer at `apps/{app}/{app}/public/dist/` — NOT persistent. `sites/assets/assets.json` (persistent volume) maps bundle names to hash-suffixed filenames. If `bench build` ever runs inside the container and updates assets.json, those new hashes won't exist after the next container restart (image resets to original hashes). Result: CSS 404s on every page. Two-part fix applied: (1) `regen_assets.py` bind-mounted at `/usr/local/bin/regen_assets.py` — runs at startup before gunicorn, scans image-layer files and regenerates assets.json to match. (2) `redis-cli DEL assets_json` also runs at startup to bust frappe's `ClientCache` (in-process Redis-backed cache, 10-min TTL, 1024-key FIFO) so workers re-read the fresh assets.json on first request. Never run `bench build` inside `dickson-backend` — it silently invalidates hashes that will be lost on next restart. |
-| ERPNext secrets must be 644 | `dickson-backend` runs as `frappe` (UID 1000). Docker secrets bind-mounted at `/run/secrets/` inherit host file permissions. If secret files in `/opt/stacks/dickson/secrets/` are `chmod 600` (root-only), the frappe user can't read them — Redis URLs are built from empty strings, silently breaking cache/queue. All four `.txt` files must be `chmod 644`. Symptom: `cat: /run/secrets/...: Permission denied` in backend startup logs. |
-| rclone B2                | hard_delete=true required — otherwise leaves hidden versions                   |
-| Watchtower version       | v1.5.3 only — v1.7.1 Docker API negotiation bug                                 |
-| MinIO + EPYC 3151        | Must use cpuv1 image tag — Zen1 architecture, no AVX-512                        |
-| Cosmos = abandoned       | Aggressively pulls images, breaks local builds — plain Docker Compose only      |
-| forgejo-runner + docker.sock | Image runs as UID 1000 (non-root). Bind-mounted ./data dir must be `chown 1000:1000` on host or registration fails with `permission denied` writing `.runner`. To let it execute Docker-based job containers, must also `group_add` the host's actual docker.sock GID (`stat -c '%g' /var/run/docker.sock`, varies per host) — without it, daemon starts but every job fails with `permission denied` connecting to the socket. A failed registration attempt still creates an orphaned runner row server-side even when the local `.runner` file write fails — clean up via `DELETE FROM action_runner WHERE last_online = 0` in forgejo-db if the entrypoint retry-loops before the permission fix lands. |
-| No combined stacks       | Each service has its own compose file — never combine unrelated services        |
-| Secrets management       | Docker secrets for all credentials — never plain environment variables          |
+| Rule                              | Detail                                                                                                                                 |
+|-----------------------------------|----------------------------------------------------------------------------------------------------------------------------------------|
+| No Docker in LXC                  | Requires privileged containers — undermines security — Docker stays on full VMs                                                        |
+| UFW rules use /16                 | Proxmox masquerades IPs between VLANs — rules must allow 10.10.0.0/16                                                                 |
+| WireGuard AllowedIPs              | Must update on BOTH VPS and bare metal when adding a new VLAN/subnet                                                                   |
+| VM clone checklist                | Fix UFW input policy (DROP→ACCEPT) and nameserver on every clone                                                                       |
+| Caddy reload                      | `docker compose restart caddy` from /opt/stacks/caddy/ — kill -USR1 and admin API both FAIL                                           |
+| PowerDNS API                      | Port 8081 (not 8053) — Caddy TLS uses acme_dns with api_token                                                                         |
+| Docker secrets                    | chmod 644 (not 600) for non-root container users                                                                                       |
+| Caddy remote_ip                   | Sees Docker bridge IP not real client IP — IP-based access control ineffective                                                         |
+| Tailscale = admin only            | Never route production traffic through Tailscale (DERP relay latency)                                                                  |
+| Keycloak OIDC URL                 | Must point to realm root (.../realms/<realm>) not the protocol endpoint                                                                |
+| pda-legacy OIDC config            | Use OIDC_OAUTH_AUTO_CONFIGURE=true + OIDC_OAUTH_METADATA_URL — manual TOKEN_URL/AUTHORIZE_URL omits jwks_uri, causing RuntimeError    |
+| pda-legacy OIDC_OAUTH_API_URL     | Must be `https://auth.house-of-trae.com/realms/<realm>/protocol/openid-connect/` WITH trailing slash — urljoin drops last segment otherwise, causing KeyError: 'preferred_username' |
+| pda-legacy OIDC auto-provisioning | First OIDC login creates new "User" role account — promote via `UPDATE "user" SET role_id=1 WHERE username='<oidc-username>'` in pdns-admin DB |
+| Keycloak realm-federation broker  | All child realms broker from house-of-trae master via identity-provider-redirector. Raise access_code_lifespan to 300s on every child realm — default 60s causes expired_code broker errors. SQL changes need Keycloak restart to bust Infinispan cache. |
+| user_oidc CLI                     | Silent fail on Nextcloud v8.6.1 — must configure via web UI                                                                           |
+| PostgreSQL reserved words         | "user" must be quoted in queries                                                                                                       |
+| ERPNext apps.txt                  | Manually reconcile after restore — ghost entries cause silent failures                                                                 |
+| ERPNext healthcheck PID leak      | `init: true` on dickson-backend (already applied) — tini reaps orphaned curl processes from healthcheck; without it PID limit fills and container becomes unkillable |
+| ERPNext `unless-stopped` trap     | After `docker stop`/maintenance the stack stays down — always follow with `docker compose up -d` to restart                            |
+| ERPNext tabError Log corruption   | After unclean shutdown: `docker exec dickson-db mariadb -u root -p<pw> _ae77c090ad3ef28b -e "REPAIR TABLE \`tabError Log\`;"` — password in secrets/dickson_db_password.txt |
+| ERPNext backend = gunicorn        | Never revert to `bench serve` — command is `gunicorn --workers=2 --worker-class=gthread --threads=4 --timeout=120 wsgi:application` from `/home/frappe/frappe-bench/sites` |
+| ERPNext asset hash drift          | `regen_assets.py` runs at startup to rebuild assets.json from image-layer files; `redis-cli DEL assets_json` also runs to bust ClientCache. Never run `bench build` inside the container — it invalidates hashes lost on next restart. |
+| ERPNext secrets must be 644       | frappe runs as UID 1000 — `chmod 600` secrets are unreadable, silently breaking Redis cache/queue                                      |
+| rclone B2                         | hard_delete=true required — otherwise leaves hidden versions                                                                           |
+| Watchtower version                | v1.5.3 only — v1.7.1 Docker API negotiation bug                                                                                        |
+| MinIO + EPYC 3151                 | Must use cpuv1 image tag — Zen1 architecture, no AVX-512                                                                               |
+| Cosmos = abandoned                | Aggressively pulls images, breaks local builds — plain Docker Compose only                                                             |
+| forgejo-runner + docker.sock      | `chown 1000:1000 ./data` on host or registration fails. Add `group_add` with host docker.sock GID (`stat -c '%g' /var/run/docker.sock`) or every job fails with permission denied. |
+| No combined stacks                | Each service has its own compose file — never combine unrelated services                                                               |
+| Secrets management                | Docker secrets for all credentials — never plain environment variables                                                                 |
 
 ---
 
 ## New VM Clone Checklist
 
 1. Set UFW input policy to ACCEPT (template defaults to DROP)
-2. Correct /etc/resolv.conf nameserver (template default 10.10.0.1 unreachable from some VLANs)
-3. Apply UFW rule: allow from 10.10.0.0/16 (covers all inter-VLAN traffic via Proxmox NAT)
+2. Correct /etc/resolv.conf nameserver
+3. Apply UFW rule: allow from 10.10.0.0/16
 4. If new VLAN: update WireGuard AllowedIPs on Gateway VPS AND bare metal; wg-quick down/up
 5. Add new VM alias to /root/.ssh/config on this Gateway
 6. Install node-exporter and Promtail, configure to ship to 10.10.50.104:3100
@@ -513,60 +419,24 @@ node-exporter UFW gotcha: node-exporter runs in Docker host network mode, but Pr
 
 ## Tor Hidden Services
 
-Stack: `/opt/stacks/tor/` on the Gateway VPS. Custom image built from `debian:bookworm-slim` + official Debian `tor` package. `network_mode: host` — Tor makes only outbound connections; host networking lets `HiddenServicePort 80 127.0.0.1:80` hit Caddy's existing port 80 directly.
+Stack: `/opt/stacks/tor/` on Gateway VPS. `network_mode: host` — `HiddenServicePort 80 127.0.0.1:80` hits Caddy directly.
 
-| Service          | Onion Address                                                              | Auth      | Notes                                    |
-|------------------|----------------------------------------------------------------------------|-----------|------------------------------------------|
-| ERPNext (mirror) | qcrzygpg5qbzch4c2qlcgiktuvzf3xwqwtd7mkcn5r4g4mxebmpptkid.onion           | x25519 v3 | Mirror of erp.dickson-supplies.com       |
+| Service          | Onion Address                                                    | Auth      | Notes                              |
+|------------------|------------------------------------------------------------------|-----------|------------------------------------|
+| ERPNext (mirror) | qcrzygpg5qbzch4c2qlcgiktuvzf3xwqwtd7mkcn5r4g4mxebmpptkid.onion | x25519 v3 | Mirror of erp.dickson-supplies.com |
 
-Clearnet `erp.dickson-supplies.com` is unaffected — this is a mirror, not onion-only.
+Caddy block uses `http://` prefix + `header_up Host erp.dickson-supplies.com`.
+Client private key for tristian: Vaultwarden — "ERPNext Onion Client Auth Key (tristian)".
+Auth files: `/opt/stacks/tor/data/erp/authorized_clients/` (chown 100:101, chmod 600). Reload: `docker compose restart tor`.
 
-### Traffic path
-`Tor Browser → .onion → Gateway VPS Tor daemon → Caddy (http:// block) → 10.10.20.101:8000 (ERPNext)`  
-Caddy block uses `http://` prefix (no auto-HTTPS/ACME for .onion) and `header_up Host erp.dickson-supplies.com` (ERPNext multi-tenant routing depends on this exact hostname).
-
-### Client authentication
-Service descriptor is encrypted — unauthorized clients cannot even resolve the descriptor.  
-Keys stored at `/opt/stacks/tor/data/erp/authorized_clients/*.auth` (public side only, never in git).
-
-| User    | Auth file            | Private key location         |
-|---------|----------------------|------------------------------|
-| tristian| tristian.auth        | Vaultwarden — "ERPNext Onion Client Auth Key (tristian)" |
-
-### Adding / revoking a client
-1. Generate: `openssl genpkey -algorithm x25519 -out tmp.pem` → extract 32-byte raw private and public hex via `openssl pkey -noout -text` → `xxd -r -p | base32 | tr -d '='`
-2. Add: Write `descriptor:x25519:<pub-b32>` → `/opt/stacks/tor/data/erp/authorized_clients/<name>.auth` (chown 100:101, chmod 600)
-3. Give the user: `<onion-address>:descriptor:x25519:<priv-b32>` as their `.auth_private` file
-4. Reload: `cd /opt/stacks/tor && docker compose restart tor` (Tor re-reads `authorized_clients/` on restart, re-publishes descriptor)
-5. Revoke: delete the `.auth` file + restart Tor
-
-### Backup caveat
-The Gateway VPS is NOT a Proxmox VM — PBS/vzdump may not cover it. Losing `/opt/stacks/tor/data/erp/` (specifically `hs_ed25519_secret_key`) means the onion address is lost permanently with no recovery. Ensure the key file is included in any VPS-level backup or snapshot process.
-
-### sync.sh — what IS and IS NOT committed
-- ✓ Synced: `docker-compose.yml`, `Dockerfile`, `torrc`
-- ✗ Never synced: `data/` (private service key, client auth descriptors)
+⚠️ Backup: Gateway VPS is NOT a Proxmox VM. Losing `hs_ed25519_secret_key` means the onion address is permanently lost. Include `/opt/stacks/tor/data/erp/` in any VPS backup.
+`data/` is never committed to git (only docker-compose.yml, Dockerfile, torrc are synced).
 
 ---
 
-## Phase Status Summary
+## Phase 4 — On the Horizon
 
-| Phase   | Status         | Completed       |
-|---------|----------------|-----------------|
-| Phase 1 | ✓ COMPLETE     | Feb 18, 2026    |
-| Phase 2 | ✓ COMPLETE     | Feb 18–24, 2026 |
-| Phase 3 | ✓ COMPLETE     | March–June 2026  |
-| Phase 4 | ⏳ PENDING      | Security hardening |
-
-### Phase 3 Completed (2026-06-17)
-- ERPNext Tor hidden service: qcrzygpg5qbzch4c2qlcgiktuvzf3xwqwtd7mkcn5r4g4mxebmpptkid.onion (client auth, v3)
-
-### Phase 3 Completed (2026-06-16)
-- sn-web: all 6 client sites live (3 pre-existing + Ruby Osiris, Evil Rabbit Art, Dickson Supplies added)
-- Forgejo CI/CD runner: deployed on sn-security (see below)
-
-### On the Horizon (Phase 4+)
-- Wazuh SIEM on sn-security (VLAN 70) — 2 vCPU / 8 GB / 200 GB
+- Wazuh SIEM on sn-security (VLAN 70)
 - CrowdSec custom scenarios
 - Tang/Clevis NBDE (automated LUKS unlock)
 - Keycloak passkeys (WebAuthn)
@@ -612,5 +482,5 @@ The Gateway VPS is NOT a Proxmox VM — PBS/vzdump may not cover it. Losing `/op
 | Full roadmap                | /root/hot/docs/roadmap.md                            |
 
 ---
-# End of CLAUDE.md — v1.6
+# End of CLAUDE.md — v1.8
 # "Sometimes you gotta run before you can walk." — Tony Stark
