@@ -230,7 +230,7 @@ Migration to proper /opt/stacks/ compose files is required.
 |---------------|---------------------------|------------------------------|------|-------------------------------|
 | Nextcloud     | /opt/stacks/nextcloud/    | nextcloud.tresemme.space     | 8080 | Active                        |
 | Vaultwarden   | Cosmos-managed (volume)   | vaultwarden.tresemme.space   | —    | Active (via Cosmos — migrate) |
-| Immich        | /opt/immich/ (data only)  | photos.tresemme.space        | 2283 | DOWN — needs compose file     |
+| Immich        | Cosmos-managed (volume)   | photos.tresemme.space        | 2283 | Active (via Cosmos — migrate) |
 | Notesnook     | /opt/notesnook/ (data)    | notes.tresemme.space         | —    | DOWN — env never configured   |
 | Firefly III   | Cosmos-managed (volume)   | firefly.tresemme.space       | —    | Dormant (via Cosmos)          |
 | Actual Budget | Cosmos-managed (volume)   | actual.tresemme.space        | —    | Dormant (via Cosmos)          |
