@@ -42,6 +42,11 @@ services:
       PROMETHEUS_URL: ${PROMETHEUS_URL:-http://10.10.50.104:9090}
       LOKI_URL: ${LOKI_URL:-http://10.10.50.104:3100}
       NODE_INSTANCE: ${NODE_INSTANCE:-pn-test}
+      KEYCLOAK_URL: ${KEYCLOAK_URL:-https://auth.house-of-trae.com}
+      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-securenexus}
+      KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID:-privatenexus}
+      AUTH_REDIRECT_URI: ${AUTH_REDIRECT_URI:-https://privatenexus.net/api/auth/callback}
+      AUTH_POST_LOGOUT_URI: ${AUTH_POST_LOGOUT_URI:-https://privatenexus.net}
       DB_HOST: privatenexus-db
       DB_PORT: 5432
       DB_NAME: privatenexus
@@ -49,6 +54,8 @@ services:
       REDIS_URL: redis://privatenexus-redis:6379
     secrets:
       - db_password
+      - keycloak_client_secret
+      - session_secret
     ports:
       - "127.0.0.1:${PRIVATENEXUS_BACKEND_PORT:-3001}:3001"
     volumes:
@@ -86,3 +93,7 @@ networks:
 secrets:
   db_password:
     file: ../secrets/db_password.txt
+  keycloak_client_secret:
+    file: ../secrets/keycloak_client_secret.txt
+  session_secret:
+    file: ../secrets/session_secret.txt
