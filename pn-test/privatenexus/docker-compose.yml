@@ -1,4 +1,36 @@
 services:
+  privatenexus-db:
+    image: postgres:16-alpine
+    container_name: privatenexus-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: privatenexus
+      POSTGRES_USER: privatenexus
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+    secrets:
+      - db_password
+    volumes:
+      - pn-db-data:/var/lib/postgresql/data
+    networks:
+      - pn-internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U privatenexus"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  privatenexus-redis:
+    image: redis:7-alpine
+    container_name: privatenexus-redis
+    restart: unless-stopped
+    networks:
+      - pn-internal
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
   privatenexus-backend:
     build:
       context: ..
@@ -10,10 +42,25 @@ services:
       PROMETHEUS_URL: ${PROMETHEUS_URL:-http://10.10.50.104:9090}
       LOKI_URL: ${LOKI_URL:-http://10.10.50.104:3100}
       NODE_INSTANCE: ${NODE_INSTANCE:-pn-test}
+      DB_HOST: privatenexus-db
+      DB_PORT: 5432
+      DB_NAME: privatenexus
+      DB_USER: privatenexus
+      REDIS_URL: redis://privatenexus-redis:6379
+    secrets:
+      - db_password
     ports:
       - "127.0.0.1:${PRIVATENEXUS_BACKEND_PORT:-3001}:3001"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      privatenexus-db:
+        condition: service_healthy
+      privatenexus-redis:
+        condition: service_healthy
+    networks:
+      - pn-internal
+      - pn-edge
 
   privatenexus-frontend:
     build:
@@ -25,3 +72,17 @@ services:
       - "${PRIVATENEXUS_FRONTEND_PORT:-5173}:80"
     depends_on:
       - privatenexus-backend
+    networks:
+      - pn-edge
+
+volumes:
+  pn-db-data:
+
+networks:
+  pn-internal:
+    internal: true
+  pn-edge:
+
+secrets:
+  db_password:
+    file: ../secrets/db_password.txt
