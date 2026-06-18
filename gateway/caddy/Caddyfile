@@ -57,7 +57,7 @@ dickson-supplies.com, www.dickson-supplies.com {
 }
 privatenexus.net, www.privatenexus.net {
     import crowdsec
-    reverse_proxy 10.10.40.103:80
+    reverse_proxy 10.10.60.105:5173
 }
 tresemme.space {
     import crowdsec
