@@ -2036,6 +2036,7 @@ function PrivateNexusDashboard({ authUser }) {
         <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-neutral-500">Identity & Access</div>
         {renderCards([
           { name: "Manage Users",         onClick: () => setAdminView("users-manage") },
+          { name: "Workspaces",            onClick: () => setAdminView("workspaces") },
           { name: "User Activity",        onClick: () => setAdminView("users") },
           { name: "Certificate Status",   onClick: () => setAdminView("certs") },
           { name: "Audit Log",            onClick: () => setAdminView("audit") },
@@ -2709,6 +2710,80 @@ function PrivateNexusDashboard({ authUser }) {
             <button onClick={saveDnsRecord} disabled={dnsFormSaving}
               className="rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-4 py-2 text-xs text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-50">
               {dnsFormSaving ? "Saving…" : dnsEditRrset ? "Update Record" : "Add Record"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const workspacesPanel = (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="text-xs uppercase tracking-wider text-cyan-300/80">Admin</div>
+          <div className="text-lg font-semibold">Workspaces</div>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={openWorkspaceCreate}
+            className="rounded-lg border border-cyan-400/30 bg-cyan-500/10 px-3 py-1 text-xs text-cyan-300 hover:bg-cyan-500/20">+ New Workspace</button>
+          <button onClick={() => setAdminView(null)} className="text-xs text-neutral-400 hover:text-white">← Back</button>
+        </div>
+      </div>
+      {workspacesMgmtLoading && <div className="text-xs text-neutral-600">Loading…</div>}
+      <div className="space-y-2">
+        {workspacesMgmt.map((ws) => (
+          <div key={ws.id} className="flex items-center justify-between rounded-xl border border-neutral-800 bg-neutral-900/70 px-4 py-3">
+            <div>
+              <div className="font-semibold text-sm text-neutral-200">{ws.name}</div>
+              <div className="font-mono text-[11px] text-neutral-500">{ws.slug}</div>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-[10px] text-neutral-600">
+                {servicesData.filter((s) => s.workspace_id === ws.id).length} services
+              </span>
+              <button onClick={() => openWorkspaceEdit(ws)} className="text-xs text-neutral-500 hover:text-cyan-300">Edit</button>
+              <button onClick={() => deleteWorkspace(ws)} className="text-xs text-neutral-500 hover:text-rose-400">Delete</button>
+            </div>
+          </div>
+        ))}
+        {!workspacesMgmtLoading && workspacesMgmt.length === 0 && (
+          <div className="rounded-xl border border-neutral-800 bg-neutral-900/60 p-6 text-center text-xs text-neutral-600">No workspaces yet</div>
+        )}
+      </div>
+    </div>
+  );
+
+  const workspaceModal = showWorkspaceModal && (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+      <div className="w-full max-w-sm rounded-2xl border border-cyan-400/20 bg-neutral-950 shadow-2xl">
+        <div className="flex items-center justify-between border-b border-neutral-800 px-6 py-4">
+          <div className="text-base font-semibold">{editingWorkspace ? "Edit Workspace" : "New Workspace"}</div>
+          <button onClick={() => setShowWorkspaceModal(false)} className="text-neutral-500 hover:text-white text-lg">✕</button>
+        </div>
+        <div className="px-6 py-4 space-y-3 text-sm">
+          <div>
+            <label className="mb-1 block text-xs text-neutral-400">Name *</label>
+            <input value={workspaceForm.name}
+              onChange={(e) => setWorkspaceForm((f) => ({ ...f, name: e.target.value, slug: f.slug || e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, "-") }))}
+              placeholder="Personal Services" autoFocus
+              className="w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-sm text-neutral-200 focus:border-cyan-400/50 focus:outline-none" />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-neutral-400">Slug</label>
+            <input value={workspaceForm.slug}
+              onChange={(e) => setWorkspaceForm((f) => ({ ...f, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "") }))}
+              placeholder="personal-services"
+              className="w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-sm font-mono text-neutral-200 focus:border-cyan-400/50 focus:outline-none" />
+          </div>
+        </div>
+        <div className="border-t border-neutral-800 px-6 py-4">
+          {workspaceFormError && <div className="mb-3 rounded-lg bg-rose-500/15 px-3 py-2 text-xs text-rose-300">{workspaceFormError}</div>}
+          <div className="flex justify-end gap-2">
+            <button onClick={() => setShowWorkspaceModal(false)} className="rounded-lg border border-neutral-700 px-4 py-2 text-xs text-neutral-400 hover:text-white">Cancel</button>
+            <button onClick={saveWorkspace} disabled={workspaceFormSaving}
+              className="rounded-lg border border-cyan-400/30 bg-cyan-500/10 px-4 py-2 text-xs text-cyan-300 hover:bg-cyan-500/20 disabled:opacity-50">
+              {workspaceFormSaving ? "Saving…" : editingWorkspace ? "Update" : "Create"}
             </button>
           </div>
         </div>
@@ -3425,6 +3500,7 @@ function PrivateNexusDashboard({ authUser }) {
             adminView === "disk"    ? diskPanel    :
             adminView === "users"        ? usersPanel      :
             adminView === "users-manage" ? usersMgmtPanel  :
+            adminView === "workspaces"    ? workspacesPanel :
             adminRootView
           )}
 
@@ -5752,6 +5828,9 @@ function PrivateNexusDashboard({ authUser }) {
           </div>
         </div>
       )}
+
+      {/* Workspace modal */}
+      {workspaceModal}
 
       {/* DNS record modal */}
       {dnsModal}

@@ -237,3 +237,53 @@ servicesRouter.get("/health", requireRole("operator"), async (_req, res) => {
     res.status(500).json({ ok: false, error: err.message });
   }
 });
+
+// POST /api/services/workspaces — create a workspace (admin+)
+servicesRouter.post("/workspaces", requireRole("admin"), async (req, res) => {
+  const { name, slug } = req.body;
+  if (!name?.trim() || !slug?.trim()) {
+    return res.status(400).json({ ok: false, error: "name and slug are required" });
+  }
+  try {
+    const { rows } = await getPool().query(
+      "INSERT INTO workspaces (tenant_id, name, slug) VALUES ($1, $2, $3) RETURNING id, name, slug",
+      [HOT_TENANT_ID, name.trim(), slug.trim().toLowerCase().replace(/[^a-z0-9-]/g, "-")]
+    );
+    res.status(201).json({ ok: true, workspace: rows[0] });
+  } catch (err) {
+    if (err.code === "23505") return res.status(409).json({ ok: false, error: "Slug already in use" });
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// PATCH /api/services/workspaces/:id — rename a workspace (admin+)
+servicesRouter.patch("/workspaces/:id", requireRole("admin"), async (req, res) => {
+  const { name, slug } = req.body;
+  if (!name?.trim()) return res.status(400).json({ ok: false, error: "name is required" });
+  try {
+    const { rows } = await getPool().query(
+      "UPDATE workspaces SET name=$1, slug=$2 WHERE id=$3 AND tenant_id=$4 RETURNING id, name, slug",
+      [name.trim(), (slug || name).trim().toLowerCase().replace(/[^a-z0-9-]/g, "-"), req.params.id, HOT_TENANT_ID]
+    );
+    if (!rows.length) return res.status(404).json({ ok: false, error: "Not found" });
+    res.json({ ok: true, workspace: rows[0] });
+  } catch (err) {
+    if (err.code === "23505") return res.status(409).json({ ok: false, error: "Slug already in use" });
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// DELETE /api/services/workspaces/:id — delete a workspace (admin+)
+servicesRouter.delete("/workspaces/:id", requireRole("admin"), async (req, res) => {
+  // Reassign any services in this workspace to null first
+  await getPool().query(
+    "UPDATE services SET workspace_id=NULL WHERE workspace_id=$1 AND tenant_id=$2",
+    [req.params.id, HOT_TENANT_ID]
+  );
+  const { rowCount } = await getPool().query(
+    "DELETE FROM workspaces WHERE id=$1 AND tenant_id=$2",
+    [req.params.id, HOT_TENANT_ID]
+  );
+  if (!rowCount) return res.status(404).json({ ok: false, error: "Not found" });
+  res.json({ ok: true });
+});
