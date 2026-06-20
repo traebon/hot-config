@@ -17,6 +17,7 @@ import { logsRouter }     from "./routes/logs.js";
 import { servicesRouter } from "./routes/services.js";
 import { opsRouter }     from "./routes/ops.js";
 import { catalogueRouter } from "./routes/catalogue.js";
+import { dnsRouter } from "./routes/dns.js";
 import { requireAuth }   from "./middleware/requireAuth.js";
 import { requireRole }   from "./middleware/requireRole.js";
 import { initDb }        from "./db.js";
@@ -80,5 +81,6 @@ app.use("/api/logs",     logsRouter);
 app.use("/api/services", servicesRouter);
 app.use("/api/ops",       opsRouter);
 app.use("/api/catalogue", catalogueRouter);
+app.use("/api/dns", dnsRouter);
 
 app.listen(port, () => console.log(`PrivateNexus backend listening on ${port}`));

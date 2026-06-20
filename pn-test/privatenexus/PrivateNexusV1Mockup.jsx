@@ -512,6 +512,20 @@ function PrivateNexusDashboard({ authUser }) {
   const [workspacesData, setWorkspacesData] = useState([]);
   const [slugTouched, setSlugTouched] = useState(false);
   const [showArchivedServices, setShowArchivedServices] = useState(false);
+  // DNS state
+  const [dnsZones, setDnsZones] = useState([]);
+  const [dnsSelectedZone, setDnsSelectedZone] = useState(null);
+  const [dnsZoneDetail, setDnsZoneDetail] = useState(null);
+  const [dnsZonesLoading, setDnsZonesLoading] = useState(false);
+  const [dnsZoneLoading, setDnsZoneLoading] = useState(false);
+  const [dnsError, setDnsError] = useState(null);
+  const [dnsTypeFilter, setDnsTypeFilter] = useState("all");
+  const [dnsSearch, setDnsSearch] = useState("");
+  const [showDnsModal, setShowDnsModal] = useState(false);
+  const [dnsForm, setDnsForm] = useState({ name: "", type: "A", ttl: 300, contents: [""] });
+  const [dnsFormError, setDnsFormError] = useState(null);
+  const [dnsFormSaving, setDnsFormSaving] = useState(false);
+  const [dnsEditRrset, setDnsEditRrset] = useState(null);
   // Catalogue state
   const [catalogueApps, setCatalogueApps] = useState([]);
   const [catalogueCategory, setCatalogueCategory] = useState("all");
@@ -633,6 +647,26 @@ function PrivateNexusDashboard({ authUser }) {
     const id = setInterval(load, 30000);
     return () => { mounted = false; clearInterval(id); };
   }, [activeBoard, API_BASE]);
+
+  useEffect(() => {
+    if (activeBoard !== "DNS") return;
+    setDnsZonesLoading(true); setDnsError(null);
+    fetch(`${API_BASE}/api/dns/zones`)
+      .then((r) => r.json())
+      .then((d) => { if (d.ok) { setDnsZones(d.zones); if (d.zones.length && !dnsSelectedZone) setDnsSelectedZone(d.zones[0].id); } else setDnsError(d.error); })
+      .catch((e) => setDnsError(e.message))
+      .finally(() => setDnsZonesLoading(false));
+  }, [activeBoard, API_BASE]);
+
+  useEffect(() => {
+    if (!dnsSelectedZone || activeBoard !== "DNS") return;
+    setDnsZoneLoading(true); setDnsZoneDetail(null); setDnsTypeFilter("all"); setDnsSearch("");
+    fetch(`${API_BASE}/api/dns/zones/${encodeURIComponent(dnsSelectedZone)}`)
+      .then((r) => r.json())
+      .then((d) => { if (d.ok) setDnsZoneDetail(d.zone); else setDnsError(d.error); })
+      .catch((e) => setDnsError(e.message))
+      .finally(() => setDnsZoneLoading(false));
+  }, [dnsSelectedZone, activeBoard, API_BASE]);
 
   useEffect(() => {
     if (activeBoard !== "Catalogue") return;
@@ -1380,7 +1414,7 @@ function PrivateNexusDashboard({ authUser }) {
         level: a.level === "critical" ? "critical" : a.level === "warning" ? "warning" : "info",
       }));
 
-  const boards = ["Home", "Ops", "Admin", "Stacks", "Files", "Catalogue", "Inventory", "Alerts", "Logs", "Emergency"];
+  const boards = ["Home", "Ops", "Admin", "Stacks", "Files", "DNS", "Catalogue", "Inventory", "Alerts", "Logs", "Emergency"];
 
   const boardThemes = {
     Home:      { active: "from-cyan-400 to-blue-500",     ring: "border-cyan-400/30",     hover: "hover:border-cyan-400/30",     shell: "from-cyan-500/10 to-blue-500/5" },
@@ -1391,6 +1425,7 @@ function PrivateNexusDashboard({ authUser }) {
     Inventory: { active: "from-teal-400 to-cyan-500",     ring: "border-teal-400/30",     hover: "hover:border-teal-400/30",     shell: "from-teal-500/10 to-cyan-500/5" },
     Alerts:    { active: "from-red-400 to-rose-500",      ring: "border-red-400/30",      hover: "hover:border-red-400/30",      shell: "from-red-500/10 to-rose-500/5" },
     Logs:      { active: "from-cyan-400 to-blue-500",      ring: "border-cyan-400/30",     hover: "hover:border-cyan-400/30",     shell: "from-cyan-500/10 to-blue-500/5" },
+    DNS:       { active: "from-emerald-400 to-teal-500",   ring: "border-emerald-400/30",  hover: "hover:border-emerald-400/30",  shell: "from-emerald-500/10 to-teal-500/5" },
     Catalogue: { active: "from-violet-400 to-purple-500",  ring: "border-violet-400/30",   hover: "hover:border-violet-400/30",   shell: "from-violet-500/10 to-purple-500/5" },
     Emergency: { active: "from-rose-400 to-pink-500",     ring: "border-rose-400/30",     hover: "hover:border-rose-400/30",     shell: "from-rose-500/10 to-pink-500/5" },
   };
@@ -1488,6 +1523,61 @@ function PrivateNexusDashboard({ authUser }) {
       console.error("Health check failed:", err);
     }
     setHealthChecking(false);
+  };
+
+  const openDnsAdd = () => {
+    setDnsEditRrset(null);
+    setDnsForm({ name: "", type: "A", ttl: 300, contents: [""] });
+    setDnsFormError(null); setShowDnsModal(true);
+  };
+
+  const openDnsEdit = (rrset) => {
+    setDnsEditRrset(rrset);
+    setDnsForm({
+      name: rrset.name,
+      type: rrset.type,
+      ttl: rrset.ttl,
+      contents: rrset.records.map((r) => r.content),
+    });
+    setDnsFormError(null); setShowDnsModal(true);
+  };
+
+  const saveDnsRecord = async () => {
+    const { name, type, ttl, contents } = dnsForm;
+    const filled = contents.filter((c) => c.trim());
+    if (!name.trim() || !filled.length) { setDnsFormError("Name and at least one content value are required"); return; }
+    setDnsFormSaving(true); setDnsFormError(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/dns/zones/${encodeURIComponent(dnsSelectedZone)}/records`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name.trim(), type, ttl: Number(ttl), records: filled.map((c) => ({ content: c.trim(), disabled: false })) }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setDnsFormError(data.error || "Failed"); setDnsFormSaving(false); return; }
+      setShowDnsModal(false);
+      // Refresh zone
+      const zr = await fetch(`${API_BASE}/api/dns/zones/${encodeURIComponent(dnsSelectedZone)}`);
+      const zd = await zr.json();
+      if (zd.ok) setDnsZoneDetail(zd.zone);
+    } catch (err) { setDnsFormError(err.message); }
+    setDnsFormSaving(false);
+  };
+
+  const deleteDnsRecord = async (rrset) => {
+    if (!confirm(`Delete ${rrset.type} record "${rrset.name}"?`)) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/dns/zones/${encodeURIComponent(dnsSelectedZone)}/records`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: rrset.name, type: rrset.type }),
+      });
+      if (res.ok) {
+        const zr = await fetch(`${API_BASE}/api/dns/zones/${encodeURIComponent(dnsSelectedZone)}`);
+        const zd = await zr.json();
+        if (zd.ok) setDnsZoneDetail(zd.zone);
+      }
+    } catch (err) { console.error(err); }
   };
 
   const saveRegisterFile = async () => {
@@ -2465,6 +2555,70 @@ function PrivateNexusDashboard({ authUser }) {
     return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b));
   })();
 
+  const DNS_RECORD_TYPES = ["A","AAAA","CNAME","MX","TXT","NS","SRV","CAA","PTR","SOA","HTTPS","TLSA"];
+  const LOCKED_TYPES = ["SOA","NS"];
+
+  const dnsModal = showDnsModal && (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+      <div className="flex max-h-[90vh] w-full max-w-lg flex-col rounded-2xl border border-emerald-400/20 bg-neutral-950 shadow-2xl">
+        <div className="flex shrink-0 items-center justify-between border-b border-neutral-800 px-6 py-4">
+          <div className="text-base font-semibold">{dnsEditRrset ? "Edit Record" : "Add Record"}</div>
+          <button onClick={() => setShowDnsModal(false)} className="text-neutral-500 hover:text-white text-lg">✕</button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3 text-sm">
+          <div className="text-xs text-neutral-500">Zone: <span className="text-emerald-300 font-mono">{dnsSelectedZone?.replace(/\.$/, "")}</span></div>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="col-span-2">
+              <label className="mb-1 block text-xs text-neutral-400">Name <span className="text-neutral-600">(relative or FQDN)</span></label>
+              <input value={dnsForm.name} onChange={(e) => setDnsForm((f) => ({ ...f, name: e.target.value }))}
+                disabled={!!dnsEditRrset}
+                placeholder={`www.${dnsSelectedZone?.replace(/\.$/, "") || "example.com"}.`}
+                className="w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-sm font-mono text-neutral-200 focus:border-emerald-400/50 focus:outline-none disabled:opacity-50" />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs text-neutral-400">Type</label>
+              <select value={dnsForm.type} onChange={(e) => setDnsForm((f) => ({ ...f, type: e.target.value }))}
+                disabled={!!dnsEditRrset}
+                className="w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-sm text-neutral-200 focus:border-emerald-400/50 focus:outline-none disabled:opacity-50">
+                {DNS_RECORD_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-neutral-400">TTL <span className="text-neutral-600">(seconds)</span></label>
+            <input type="number" value={dnsForm.ttl} onChange={(e) => setDnsForm((f) => ({ ...f, ttl: e.target.value }))}
+              className="w-32 rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-sm font-mono text-neutral-200 focus:border-emerald-400/50 focus:outline-none" />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-neutral-400">Content <span className="text-neutral-600">(one value per line)</span></label>
+            {dnsForm.contents.map((c, i) => (
+              <div key={i} className="mb-1.5 flex gap-2">
+                <input value={c} onChange={(e) => setDnsForm((f) => { const cs=[...f.contents]; cs[i]=e.target.value; return {...f, contents:cs}; })}
+                  placeholder={dnsForm.type === "A" ? "151.241.217.91" : dnsForm.type === "MX" ? "10 mail.example.com." : dnsForm.type === "TXT" ? `"v=spf1 include:..."` : ""}
+                  className="flex-1 rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-sm font-mono text-neutral-200 focus:border-emerald-400/50 focus:outline-none" />
+                {dnsForm.contents.length > 1 && (
+                  <button onClick={() => setDnsForm((f) => { const cs=f.contents.filter((_,j)=>j!==i); return {...f,contents:cs}; })} className="px-2 text-neutral-600 hover:text-rose-400">✕</button>
+                )}
+              </div>
+            ))}
+            <button onClick={() => setDnsForm((f) => ({ ...f, contents: [...f.contents, ""] }))}
+              className="mt-1 text-xs text-emerald-400/60 hover:text-emerald-300">+ Add value</button>
+          </div>
+        </div>
+        <div className="shrink-0 border-t border-neutral-800 px-6 py-4">
+          {dnsFormError && <div className="mb-3 rounded-lg bg-rose-500/15 px-3 py-2 text-xs text-rose-300">{dnsFormError}</div>}
+          <div className="flex justify-end gap-2">
+            <button onClick={() => setShowDnsModal(false)} className="rounded-lg border border-neutral-700 px-4 py-2 text-xs text-neutral-400 hover:text-white">Cancel</button>
+            <button onClick={saveDnsRecord} disabled={dnsFormSaving}
+              className="rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-4 py-2 text-xs text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-50">
+              {dnsFormSaving ? "Saving…" : dnsEditRrset ? "Update Record" : "Add Record"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   const registerFileModal = showRegisterFileModal && (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
       <div className="flex max-h-[90vh] w-full max-w-lg flex-col rounded-2xl border border-rose-400/20 bg-neutral-950 shadow-2xl">
@@ -3325,6 +3479,151 @@ function PrivateNexusDashboard({ authUser }) {
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* DNS */}
+          {activeBoard === "DNS" && (
+            <div className="space-y-4">
+              {/* Header */}
+              <div className="rounded-2xl border border-emerald-400/20 bg-gradient-to-r from-emerald-500/10 via-teal-500/5 to-cyan-500/10 p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-xs uppercase tracking-wider text-emerald-300/80">PowerDNS</div>
+                    <div className="text-lg font-semibold">DNS Management</div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="rounded-full bg-neutral-900/70 px-3 py-1 text-xs text-neutral-300">{dnsZones.length} zones</span>
+                    {can("operator") && dnsSelectedZone && (
+                      <button onClick={openDnsAdd}
+                        className="rounded-full border border-emerald-400/30 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-300 hover:bg-emerald-500/20">+ Add Record</button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {dnsError && <div className="rounded-xl bg-rose-500/15 px-4 py-3 text-xs text-rose-300">{dnsError}</div>}
+
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-[220px_1fr]">
+                {/* Zone list */}
+                <div className="space-y-1">
+                  {dnsZonesLoading && <div className="text-xs text-neutral-600 px-2">Loading zones…</div>}
+                  {dnsZones.map((z) => {
+                    const display = z.name.replace(/\.$/, "");
+                    return (
+                      <button key={z.id} onClick={() => setDnsSelectedZone(z.id)}
+                        className={["w-full text-left rounded-xl border px-3 py-2.5 text-xs transition",
+                          dnsSelectedZone === z.id
+                            ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"
+                            : "border-neutral-800 bg-neutral-900/50 text-neutral-400 hover:border-neutral-700 hover:text-neutral-200"
+                        ].join(" ")}>
+                        <div className="font-mono font-medium truncate">{display}</div>
+                        <div className="mt-0.5 flex items-center gap-2 text-[10px] text-neutral-600">
+                          <span>{z.kind}</span>
+                          {z.dnssec && <span className="text-emerald-500/70">DNSSEC</span>}
+                          <span>serial {z.serial}</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Records panel */}
+                <div>
+                  {dnsZoneLoading && <div className="text-xs text-neutral-600 py-4">Loading records…</div>}
+                  {dnsZoneDetail && (() => {
+                    const zoneName = dnsZoneDetail.name;
+                    const ALL_TYPES = [...new Set((dnsZoneDetail.rrsets || []).map((r) => r.type))].sort();
+                    const lq = dnsSearch.toLowerCase();
+                    const rrsets = (dnsZoneDetail.rrsets || [])
+                      .filter((r) => dnsTypeFilter === "all" || r.type === dnsTypeFilter)
+                      .filter((r) => !lq || r.name.toLowerCase().includes(lq) || r.records.some((rc) => rc.content.toLowerCase().includes(lq)))
+                      .sort((a, b) => {
+                        const order = ["SOA","NS","MX","A","AAAA","CNAME","TXT","CAA","SRV","HTTPS","TLSA","PTR"];
+                        const ai = order.indexOf(a.type), bi = order.indexOf(b.type);
+                        if (ai !== bi) return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+                        return a.name.localeCompare(b.name);
+                      });
+                    return (
+                      <div className="space-y-3">
+                        {/* Filter bar */}
+                        <div className="flex flex-wrap gap-2">
+                          <input type="text" value={dnsSearch} onChange={(e) => setDnsSearch(e.target.value)}
+                            placeholder="Filter records…"
+                            className="flex-1 min-w-[140px] rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-xs text-neutral-200 placeholder-neutral-600 focus:border-emerald-400/50 focus:outline-none" />
+                          <div className="flex flex-wrap gap-1">
+                            {["all", ...ALL_TYPES].map((t) => (
+                              <button key={t} onClick={() => setDnsTypeFilter(t)}
+                                className={["rounded-full px-2.5 py-0.5 text-[10px] font-mono transition",
+                                  dnsTypeFilter === t ? "bg-emerald-500/20 text-emerald-300 border border-emerald-400/30" : "border border-neutral-700 text-neutral-500 hover:text-neutral-300"
+                                ].join(" ")}>{t}</button>
+                            ))}
+                          </div>
+                        </div>
+                        {/* Records table */}
+                        <div className="overflow-hidden rounded-xl border border-neutral-800">
+                          <table className="w-full text-xs">
+                            <thead>
+                              <tr className="border-b border-neutral-800 bg-neutral-900/80">
+                                <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-neutral-500 w-16">Type</th>
+                                <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-neutral-500">Name</th>
+                                <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-neutral-500 w-16">TTL</th>
+                                <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-neutral-500">Content</th>
+                                <th className="px-3 py-2 w-16"></th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-neutral-800/60">
+                              {rrsets.map((rrset) => {
+                                const isLocked = LOCKED_TYPES.includes(rrset.type);
+                                const relName = rrset.name === zoneName ? "@" : rrset.name.replace(new RegExp(`\\.?${zoneName.replace(".", "\\.")}$`), "");
+                                return (
+                                  <tr key={`${rrset.name}/${rrset.type}`} className={["transition", isLocked ? "opacity-50" : "hover:bg-neutral-800/30"].join(" ")}>
+                                    <td className="px-3 py-2">
+                                      <span className={["rounded px-1.5 py-0.5 text-[10px] font-mono font-semibold",
+                                        rrset.type === "A" || rrset.type === "AAAA" ? "bg-blue-500/15 text-blue-300"
+                                        : rrset.type === "CNAME" ? "bg-amber-500/15 text-amber-300"
+                                        : rrset.type === "MX" ? "bg-purple-500/15 text-purple-300"
+                                        : rrset.type === "TXT" ? "bg-emerald-500/15 text-emerald-300"
+                                        : rrset.type === "NS" ? "bg-neutral-700 text-neutral-400"
+                                        : rrset.type === "SOA" ? "bg-neutral-800 text-neutral-500"
+                                        : "bg-neutral-700/50 text-neutral-400"
+                                      ].join(" ")}>{rrset.type}</span>
+                                    </td>
+                                    <td className="px-3 py-2 font-mono text-neutral-200 max-w-[160px] truncate" title={rrset.name}>{relName}</td>
+                                    <td className="px-3 py-2 font-mono text-neutral-500">{rrset.ttl}</td>
+                                    <td className="px-3 py-2 text-neutral-400 max-w-[260px]">
+                                      {rrset.records.map((r, i) => (
+                                        <div key={i} className="font-mono truncate text-[11px]" title={r.content}>
+                                          {r.disabled && <span className="mr-1 text-rose-400/60">[disabled]</span>}
+                                          {r.content}
+                                        </div>
+                                      ))}
+                                    </td>
+                                    <td className="px-3 py-2">
+                                      {!isLocked && can("operator") && (
+                                        <div className="flex gap-1.5 justify-end">
+                                          <button onClick={() => openDnsEdit(rrset)} className="text-neutral-600 hover:text-emerald-300 text-[11px]">edit</button>
+                                          <button onClick={() => deleteDnsRecord(rrset)} className="text-neutral-600 hover:text-rose-400 text-[11px]">del</button>
+                                        </div>
+                                      )}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                          {!rrsets.length && (
+                            <div className="py-6 text-center text-xs text-neutral-600">No records match your filter</div>
+                          )}
+                        </div>
+                        <div className="text-right text-[10px] text-neutral-700">
+                          {rrsets.length} rrset{rrsets.length !== 1 ? "s" : ""} · ns1.house-of-trae.com / ns2.house-of-trae.com
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
               </div>
             </div>
           )}
@@ -5356,6 +5655,9 @@ function PrivateNexusDashboard({ authUser }) {
           </div>
         </div>
       )}
+
+      {/* DNS record modal */}
+      {dnsModal}
 
       {/* File register modal */}
       {registerFileModal}
