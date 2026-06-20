@@ -512,6 +512,16 @@ function PrivateNexusDashboard({ authUser }) {
   const [workspacesData, setWorkspacesData] = useState([]);
   const [slugTouched, setSlugTouched] = useState(false);
   const [showArchivedServices, setShowArchivedServices] = useState(false);
+  // Catalogue state
+  const [catalogueApps, setCatalogueApps] = useState([]);
+  const [catalogueCategory, setCatalogueCategory] = useState("all");
+  const [catalogueSearch, setCatalogueSearch] = useState("");
+  const [catalogueLoading, setCatalogueLoading] = useState(false);
+  // File register modal state
+  const [showRegisterFileModal, setShowRegisterFileModal] = useState(false);
+  const [registerFileForm, setRegisterFileForm] = useState({ id:"", label:"", path:"", stack:"", type:"compose", editable:true, validatable:false, applyStrategy:null });
+  const [registerFileError, setRegisterFileError] = useState(null);
+  const [registerFileSaving, setRegisterFileSaving] = useState(false);
 
   // -------------------------------------------------------------------------
   // API — backup and network come from the backend; app/service data is static
@@ -622,6 +632,16 @@ function PrivateNexusDashboard({ authUser }) {
     load();
     const id = setInterval(load, 30000);
     return () => { mounted = false; clearInterval(id); };
+  }, [activeBoard, API_BASE]);
+
+  useEffect(() => {
+    if (activeBoard !== "Catalogue") return;
+    setCatalogueLoading(true);
+    fetch(`${API_BASE}/api/catalogue`)
+      .then((r) => r.json())
+      .then((d) => { if (d.ok) setCatalogueApps(d.apps); })
+      .catch(() => {})
+      .finally(() => setCatalogueLoading(false));
   }, [activeBoard, API_BASE]);
 
   // Load Loki sources when Logs board opens
@@ -1360,7 +1380,7 @@ function PrivateNexusDashboard({ authUser }) {
         level: a.level === "critical" ? "critical" : a.level === "warning" ? "warning" : "info",
       }));
 
-  const boards = ["Home", "Ops", "Admin", "Stacks", "Files", "Inventory", "Alerts", "Logs", "Emergency"];
+  const boards = ["Home", "Ops", "Admin", "Stacks", "Files", "Catalogue", "Inventory", "Alerts", "Logs", "Emergency"];
 
   const boardThemes = {
     Home:      { active: "from-cyan-400 to-blue-500",     ring: "border-cyan-400/30",     hover: "hover:border-cyan-400/30",     shell: "from-cyan-500/10 to-blue-500/5" },
@@ -1371,6 +1391,7 @@ function PrivateNexusDashboard({ authUser }) {
     Inventory: { active: "from-teal-400 to-cyan-500",     ring: "border-teal-400/30",     hover: "hover:border-teal-400/30",     shell: "from-teal-500/10 to-cyan-500/5" },
     Alerts:    { active: "from-red-400 to-rose-500",      ring: "border-red-400/30",      hover: "hover:border-red-400/30",      shell: "from-red-500/10 to-rose-500/5" },
     Logs:      { active: "from-cyan-400 to-blue-500",      ring: "border-cyan-400/30",     hover: "hover:border-cyan-400/30",     shell: "from-cyan-500/10 to-blue-500/5" },
+    Catalogue: { active: "from-violet-400 to-purple-500",  ring: "border-violet-400/30",   hover: "hover:border-violet-400/30",   shell: "from-violet-500/10 to-purple-500/5" },
     Emergency: { active: "from-rose-400 to-pink-500",     ring: "border-rose-400/30",     hover: "hover:border-rose-400/30",     shell: "from-rose-500/10 to-pink-500/5" },
   };
 
@@ -1467,6 +1488,33 @@ function PrivateNexusDashboard({ authUser }) {
       console.error("Health check failed:", err);
     }
     setHealthChecking(false);
+  };
+
+  const saveRegisterFile = async () => {
+    const { id, label, path: filePath, stack } = registerFileForm;
+    if (!id || !label || !filePath || !stack) {
+      setRegisterFileError("ID, label, path, and stack are all required");
+      return;
+    }
+    setRegisterFileSaving(true); setRegisterFileError(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/files/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...registerFileForm, path: filePath }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setRegisterFileError(data.error || "Failed"); setRegisterFileSaving(false); return; }
+      setShowRegisterFileModal(false);
+      setRegisterFileForm({ id:"", label:"", path:"", stack:"", type:"compose", editable:true, validatable:false, applyStrategy:null });
+      // Refresh file list
+      const fl = await fetch(`${API_BASE}/api/files`);
+      const files = await fl.json();
+      if (Array.isArray(files)) setFilesData(files);
+    } catch (err) {
+      setRegisterFileError(err.message);
+    }
+    setRegisterFileSaving(false);
   };
 
   const runLogsQuery = async () => {
@@ -2417,6 +2465,87 @@ function PrivateNexusDashboard({ authUser }) {
     return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b));
   })();
 
+  const registerFileModal = showRegisterFileModal && (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+      <div className="flex max-h-[90vh] w-full max-w-lg flex-col rounded-2xl border border-rose-400/20 bg-neutral-950 shadow-2xl">
+        <div className="flex shrink-0 items-center justify-between border-b border-neutral-800 px-6 py-4">
+          <div className="text-base font-semibold">Register File</div>
+          <button onClick={() => setShowRegisterFileModal(false)} className="text-neutral-500 hover:text-white text-lg">✕</button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3 text-sm">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1 block text-xs text-neutral-400">ID * <span className="text-neutral-600">(unique slug)</span></label>
+              <input value={registerFileForm.id} onChange={(e) => setRegisterFileForm((f) => ({ ...f, id: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g,"") }))}
+                placeholder="my-compose" className="w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-sm font-mono text-neutral-200 focus:border-rose-400/50 focus:outline-none" />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs text-neutral-400">Label *</label>
+              <input value={registerFileForm.label} onChange={(e) => setRegisterFileForm((f) => ({ ...f, label: e.target.value }))}
+                placeholder="My Compose File" className="w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-sm text-neutral-200 focus:border-rose-400/50 focus:outline-none" />
+            </div>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-neutral-400">File Path * <span className="text-neutral-600">(absolute path on this host)</span></label>
+            <input value={registerFileForm.path} onChange={(e) => setRegisterFileForm((f) => ({ ...f, path: e.target.value }))}
+              placeholder="/opt/stacks/myapp/docker-compose.yml"
+              className="w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-sm font-mono text-neutral-200 focus:border-rose-400/50 focus:outline-none" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1 block text-xs text-neutral-400">Stack * <span className="text-neutral-600">(group name)</span></label>
+              <input value={registerFileForm.stack} onChange={(e) => setRegisterFileForm((f) => ({ ...f, stack: e.target.value }))}
+                placeholder="myapp" className="w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-sm font-mono text-neutral-200 focus:border-rose-400/50 focus:outline-none" />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs text-neutral-400">Type</label>
+              <select value={registerFileForm.type} onChange={(e) => setRegisterFileForm((f) => ({ ...f, type: e.target.value }))}
+                className="w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-sm text-neutral-200 focus:border-rose-400/50 focus:outline-none">
+                {["compose","env","caddy","nginx","json","yaml","javascript","text"].map((t) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1 block text-xs text-neutral-400">Apply Strategy</label>
+              <select value={registerFileForm.applyStrategy || ""} onChange={(e) => setRegisterFileForm((f) => ({ ...f, applyStrategy: e.target.value || null }))}
+                className="w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-sm text-neutral-200 focus:border-rose-400/50 focus:outline-none">
+                <option value="">None</option>
+                <option value="compose-up">compose-up</option>
+                <option value="caddy-reload">caddy-reload</option>
+                <option value="nginx-reload">nginx-reload</option>
+              </select>
+            </div>
+            <div className="flex items-end gap-4 pb-1">
+              <label className="flex cursor-pointer items-center gap-2 text-xs text-neutral-400">
+                <input type="checkbox" checked={registerFileForm.editable} onChange={(e) => setRegisterFileForm((f) => ({ ...f, editable: e.target.checked }))} className="rounded border-neutral-600 bg-neutral-800" />
+                Editable
+              </label>
+              <label className="flex cursor-pointer items-center gap-2 text-xs text-neutral-400">
+                <input type="checkbox" checked={registerFileForm.validatable} onChange={(e) => setRegisterFileForm((f) => ({ ...f, validatable: e.target.checked }))} className="rounded border-neutral-600 bg-neutral-800" />
+                Validatable
+              </label>
+            </div>
+          </div>
+        </div>
+        <div className="shrink-0 border-t border-neutral-800 px-6 py-4">
+          {registerFileError && (
+            <div className="mb-3 rounded-lg bg-rose-500/15 px-3 py-2 text-xs text-rose-300">{registerFileError}</div>
+          )}
+          <div className="flex justify-end gap-2">
+            <button onClick={() => setShowRegisterFileModal(false)} className="rounded-lg border border-neutral-700 px-4 py-2 text-xs text-neutral-400 hover:text-white">Cancel</button>
+            <button onClick={saveRegisterFile} disabled={registerFileSaving}
+              className="rounded-lg border border-rose-400/30 bg-rose-500/10 px-4 py-2 text-xs text-rose-300 hover:bg-rose-500/20 disabled:opacity-50">
+              {registerFileSaving ? "Registering…" : "Register File"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   const serviceModal = showServiceModal && (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
       <div className="flex max-h-[90vh] w-full max-w-lg flex-col rounded-2xl border border-teal-400/20 bg-neutral-950 shadow-2xl">
@@ -3076,6 +3205,12 @@ function PrivateNexusDashboard({ authUser }) {
                     <span className="rounded-full bg-neutral-900/70 px-3 py-1 text-xs text-neutral-300">
                       {filesData.filter((f) => f.exists).length}/{filesData.length} on disk
                     </span>
+                    {can("admin") && (
+                      <button onClick={() => { setShowRegisterFileModal(true); setRegisterFileError(null); }}
+                        className="rounded-full border border-rose-400/30 bg-rose-500/10 px-3 py-1 text-xs text-rose-300 hover:bg-rose-500/20">
+                        + Register File
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -3169,6 +3304,19 @@ function PrivateNexusDashboard({ authUser }) {
                       <span className="rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-1 text-[11px] text-neutral-500">
                         {file.editable ? "Editable" : "Read-only"}
                       </span>
+                      {can("admin") && !["caddyfile","privatenexus-compose","privatenexus-frontend-env","privatenexus-backend-server"].includes(file.id) && (
+                        <button onClick={async () => {
+                          if (!confirm(`Remove "${file.label}" from the file registry?`)) return;
+                          const r = await fetch(`${API_BASE}/api/files/register/${encodeURIComponent(file.id)}`, { method: "DELETE" });
+                          if (r.ok) {
+                            const fl = await fetch(`${API_BASE}/api/files`);
+                            const files = await fl.json();
+                            if (Array.isArray(files)) setFilesData(files);
+                          }
+                        }} className="rounded-lg border border-rose-400/20 px-3 py-1 text-[11px] text-rose-400/60 hover:bg-rose-500/10 hover:text-rose-300">
+                          Remove
+                        </button>
+                      )}
                       {file.validatable && (
                         <span className="rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-1 text-[11px] text-neutral-500">
                           Validatable
@@ -3178,6 +3326,128 @@ function PrivateNexusDashboard({ authUser }) {
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Catalogue */}
+          {activeBoard === "Catalogue" && (
+            <div className="space-y-4">
+              {/* Header */}
+              <div className="rounded-2xl border border-violet-400/20 bg-gradient-to-r from-violet-500/10 via-purple-500/5 to-indigo-500/10 p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-xs uppercase tracking-wider text-violet-300/80">Self-Hosted</div>
+                    <div className="text-lg font-semibold">App Catalogue</div>
+                  </div>
+                  <span className="rounded-full bg-neutral-900/70 px-3 py-1 text-xs text-neutral-300">
+                    {catalogueApps.length} apps
+                  </span>
+                </div>
+              </div>
+
+              {/* Search + category filter */}
+              <div className="flex flex-wrap gap-2">
+                <input
+                  type="text" value={catalogueSearch} onChange={(e) => setCatalogueSearch(e.target.value)}
+                  placeholder="Search apps…"
+                  className="flex-1 min-w-[180px] rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-xs text-neutral-200 placeholder-neutral-600 focus:border-violet-400/50 focus:outline-none" />
+                <div className="flex flex-wrap gap-1">
+                  {["all","media","productivity","finance","devops","security","network","communication","business","home"].map((cat) => (
+                    <button key={cat} onClick={() => setCatalogueCategory(cat)}
+                      className={["rounded-full px-3 py-1 text-xs transition capitalize",
+                        catalogueCategory === cat
+                          ? "bg-violet-500/20 text-violet-300 border border-violet-400/30"
+                          : "border border-neutral-700 text-neutral-400 hover:text-neutral-200"
+                      ].join(" ")}>{cat}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {catalogueLoading && <div className="text-center py-8 text-xs text-neutral-500">Loading catalogue…</div>}
+
+              {/* App grid */}
+              {!catalogueLoading && (() => {
+                const lq = catalogueSearch.toLowerCase();
+                const filtered = catalogueApps.filter((a) =>
+                  (catalogueCategory === "all" || a.category === catalogueCategory) &&
+                  (!lq || a.name.toLowerCase().includes(lq) || a.description.toLowerCase().includes(lq) || a.tags.some((t) => t.includes(lq)))
+                );
+                if (!filtered.length) return (
+                  <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 p-8 text-center text-xs text-neutral-600">No apps match your filter</div>
+                );
+                // Group by category when showing all
+                const groups = catalogueCategory === "all"
+                  ? Object.entries(filtered.reduce((acc, a) => { (acc[a.category] = acc[a.category] || []).push(a); return acc; }, {}))
+                  : [["", filtered]];
+                return (
+                  <div className="space-y-6">
+                    {groups.map(([groupName, apps]) => (
+                      <div key={groupName}>
+                        {groupName && (
+                          <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-neutral-500 capitalize">{groupName}</div>
+                        )}
+                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+                          {apps.sort((a,b) => b.stars - a.stars).map((app) => {
+                            const alreadyIn = servicesData.some((s) => s.slug === app.id);
+                            return (
+                              <div key={app.id} className="rounded-2xl border border-neutral-800 bg-neutral-900/70 p-4 transition hover:border-violet-400/20">
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="min-w-0">
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-semibold text-neutral-100">{app.name}</span>
+                                      {alreadyIn && (
+                                        <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] text-emerald-300">In Registry</span>
+                                      )}
+                                    </div>
+                                    <div className="mt-0.5 text-xs text-neutral-500 leading-relaxed">{app.description}</div>
+                                  </div>
+                                  <div className="shrink-0 text-right">
+                                    <div className="text-xs font-semibold text-amber-300">★ {app.stars}k</div>
+                                    <div className="mt-0.5 text-[10px] capitalize text-neutral-600">{app.category}</div>
+                                  </div>
+                                </div>
+                                <div className="mt-2 flex flex-wrap gap-1">
+                                  {app.tags.slice(0,4).map((t) => (
+                                    <span key={t} className="rounded-full bg-neutral-800 px-2 py-0.5 text-[10px] text-neutral-500">{t}</span>
+                                  ))}
+                                </div>
+                                <div className="mt-3 flex items-center gap-2">
+                                  <a href={app.site} target="_blank" rel="noreferrer"
+                                    className="rounded-lg border border-neutral-700 px-3 py-1 text-[10px] text-neutral-400 hover:text-neutral-200">Site ↗</a>
+                                  {can("admin") && !alreadyIn && (
+                                    <button onClick={() => {
+                                      setEditingService(null);
+                                      setServiceForm({
+                                        name: app.name, slug: app.id,
+                                        description: app.description,
+                                        category: ["media","productivity","finance","business","home"].includes(app.category) ? (app.category === "home" ? "personal" : app.category) : "infra",
+                                        access_url: "", access_mode: app.access_mode,
+                                        runtime_type: "docker", owner: "tristian",
+                                        backup_policy: app.backup, health_endpoint: "",
+                                        workspace_id: "",
+                                      });
+                                      setSlugTouched(true);
+                                      setServiceFormError(null);
+                                      setShowServiceModal(true);
+                                    }} className="rounded-lg border border-violet-400/30 bg-violet-500/10 px-3 py-1 text-[10px] text-violet-300 hover:bg-violet-500/20">
+                                      + Add to Registry
+                                    </button>
+                                  )}
+                                  {alreadyIn && (
+                                    <span className="text-[10px] text-emerald-400/60">✓ registered</span>
+                                  )}
+                                </div>
+                                <div className="mt-2 font-mono text-[10px] text-neutral-700 truncate">{app.image}</div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
           )}
 
@@ -5086,6 +5356,9 @@ function PrivateNexusDashboard({ authUser }) {
           </div>
         </div>
       )}
+
+      {/* File register modal */}
+      {registerFileModal}
 
       {/* Service registry modal */}
       {serviceModal}

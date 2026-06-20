@@ -1,4 +1,4 @@
-# PrivateNexus v1.10.0 — Logs board, Admin user mgmt, service registration modal, runHealthCheck fix
+# PrivateNexus v1.10.0 — Logs board, Admin user mgmt, service registration modal, runHealthCheck fix, Catalogue board, Files board register
 services:
   privatenexus-db:
     image: postgres:16-alpine
@@ -61,6 +61,7 @@ services:
       - "127.0.0.1:${PRIVATENEXUS_BACKEND_PORT:-3001}:3001"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /opt/privatenexus:/opt/privatenexus
     depends_on:
       privatenexus-db:
         condition: service_healthy
