@@ -1580,6 +1580,45 @@ function PrivateNexusDashboard({ authUser }) {
     } catch (err) { console.error(err); }
   };
 
+  const openWorkspaceCreate = () => {
+    setEditingWorkspace(null);
+    setWorkspaceForm({ name: "", slug: "" });
+    setWorkspaceFormError(null); setShowWorkspaceModal(true);
+  };
+  const openWorkspaceEdit = (ws) => {
+    setEditingWorkspace(ws);
+    setWorkspaceForm({ name: ws.name, slug: ws.slug });
+    setWorkspaceFormError(null); setShowWorkspaceModal(true);
+  };
+  const saveWorkspace = async () => {
+    const { name, slug } = workspaceForm;
+    if (!name.trim()) { setWorkspaceFormError("Name is required"); return; }
+    setWorkspaceFormSaving(true); setWorkspaceFormError(null);
+    const url = editingWorkspace
+      ? `${API_BASE}/api/services/workspaces/${editingWorkspace.id}`
+      : `${API_BASE}/api/services/workspaces`;
+    const method = editingWorkspace ? "PATCH" : "POST";
+    try {
+      const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: name.trim(), slug: slug.trim() || name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-") }) });
+      const data = await res.json();
+      if (!res.ok) { setWorkspaceFormError(data.error || "Failed"); setWorkspaceFormSaving(false); return; }
+      setShowWorkspaceModal(false);
+      const r = await fetch(`${API_BASE}/api/services/workspaces`);
+      const d = await r.json();
+      if (d.ok) { setWorkspacesMgmt(d.workspaces); setWorkspacesData(d.workspaces); }
+    } catch (err) { setWorkspaceFormError(err.message); }
+    setWorkspaceFormSaving(false);
+  };
+  const deleteWorkspace = async (ws) => {
+    if (!confirm(`Delete workspace "${ws.name}"? Services will become unassigned.`)) return;
+    const res = await fetch(`${API_BASE}/api/services/workspaces/${ws.id}`, { method: "DELETE" });
+    if (res.ok) {
+      const r = await fetch(`${API_BASE}/api/services/workspaces`);
+      const d = await r.json();
+      if (d.ok) { setWorkspacesMgmt(d.workspaces); setWorkspacesData(d.workspaces); }
+    }
+  };
+
   const saveRegisterFile = async () => {
     const { id, label, path: filePath, stack } = registerFileForm;
     if (!id || !label || !filePath || !stack) {
