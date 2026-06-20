@@ -1,4 +1,4 @@
-# PrivateNexus v1.9.0 — Emergency board, Admin panel wiring, cert visibility
+# PrivateNexus v1.9.0 — Emergency board, Admin panel wiring, cert visibility, service health polling
 services:
   privatenexus-db:
     image: postgres:16-alpine
