@@ -548,7 +548,7 @@ function PrivateNexusDashboard({ authUser }) {
     if (adminView === "network") {
       fetch(`${API_BASE}/api/admin/network`).then(r=>r.json()).then(setNetworkData).catch(()=>{});
     }
-    if (adminView === "certs") {
+    if (adminView === "certs" || activeBoard === "Alerts") {
       setCertData(null); setCertError(false);
       fetch(`${API_BASE}/api/admin/certs`).then(r=>r.json()).then(d=>{ if(d.ok) setCertData(d); else setCertError(true); }).catch(()=>setCertError(true));
     }
@@ -568,7 +568,7 @@ function PrivateNexusDashboard({ authUser }) {
         .catch(()=>{})
         .finally(()=>setUsersMgmtLoading(false));
     }
-  }, [adminView, API_BASE]);
+  }, [adminView, activeBoard, API_BASE]);
 
   useEffect(() => {
     if (adminView !== "audit") return;
@@ -4027,6 +4027,43 @@ function PrivateNexusDashboard({ authUser }) {
                     </div>
                   ))
                 }
+              </div>
+
+              {/* TLS Cert Expiry */}
+              <div className="rounded-2xl border border-neutral-800 bg-neutral-900/70 p-4">
+                <div className="mb-3 flex items-center justify-between">
+                  <div className="text-sm font-semibold text-neutral-200">TLS Certificates</div>
+                  <div className="flex items-center gap-2">
+                    {certData && <span className="text-[10px] text-neutral-600">updated {new Date(certData.ts).toLocaleTimeString()}</span>}
+                    <button onClick={() => { setCertData(null); setCertError(false); fetch(`${API_BASE}/api/admin/certs`).then(r=>r.json()).then(d=>{if(d.ok)setCertData(d);else setCertError(true);}).catch(()=>setCertError(true)); }}
+                      className="text-[10px] text-neutral-600 hover:text-neutral-300">&#8635;</button>
+                  </div>
+                </div>
+                {certError && <div className="text-xs text-rose-400">Failed to load cert data from Prometheus</div>}
+                {!certData && !certError && <div className="text-xs text-neutral-600">Loading...</div>}
+                {certData && (
+                  <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 xl:grid-cols-3">
+                    {[...certData.certs].sort((a,b)=>a.daysLeft-b.daysLeft).map((cert) => {
+                      const domain = cert.instance.replace(/^https?:\/\//, "");
+                      const rowCls = cert.daysLeft < 7
+                        ? "border-rose-400/30 bg-rose-500/5"
+                        : cert.daysLeft < 14
+                        ? "border-rose-400/20 bg-rose-500/5"
+                        : cert.daysLeft < 30
+                        ? "border-amber-400/20 bg-amber-500/5"
+                        : "border-neutral-800 bg-neutral-900/50";
+                      const daysCls = cert.daysLeft < 14 ? "text-rose-300 font-bold"
+                        : cert.daysLeft < 30 ? "text-amber-300 font-semibold"
+                        : "text-emerald-300";
+                      return (
+                        <div key={cert.instance} className={["flex items-center justify-between rounded-lg border px-3 py-2 text-neutral-400", rowCls].join(" ")}>
+                          <span className="font-mono text-[11px] truncate">{domain}</span>
+                          <span className={["shrink-0 ml-2 text-[11px] tabular-nums", daysCls].join(" ")}>{cert.daysLeft}d</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               {/* Sources legend */}
