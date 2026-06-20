@@ -1,6 +1,6 @@
 # CLAUDE.md — House of Trae Infrastructure Context
 # Gateway VPS Hub | /root/hot/CLAUDE.md
-# Version: 1.8 | June 2026
+# Version: 1.9 | June 2026
 # Always address the operator as Mr. Byrne.
 
 ---
@@ -344,7 +344,8 @@ Config repo: /opt/hot-config → Forgejo (git.securenexus.net) + Codeberg + GitH
 ## Grafana Alerting
 
 SMTP: mail.house-of-trae.com:587 via notifications@house-of-trae.com. Contact point: "email-hot" → tristian@securenexus.net.
-Alert rules (folder "HoT Infrastructure Alerts"): Node Down (critical, 2m), Disk >85% (high), Disk >95% (critical), Memory >90% (warning), TLS cert <14d/<7d (needs Blackbox Exporter — not yet deployed).
+Alert rules (folder "HoT Infrastructure Alerts"): Node Down (critical, 2m), Disk >85% (high), Disk >95% (critical), Memory >90% (warning), TLS cert <14d/<7d (via Blackbox Exporter — deployed, probing 17 endpoints).
+Notification policy: group by severity/alertname/instance — group_wait 30s, repeat 1h for critical/high, 4h default.
 
 ---
 
@@ -382,6 +383,8 @@ Alert rules (folder "HoT Infrastructure Alerts"): Node Down (critical, 2m), Disk
 | forgejo-runner + docker.sock      | `chown 1000:1000 ./data` on host or registration fails. Add `group_add` with host docker.sock GID (`stat -c '%g' /var/run/docker.sock`) or every job fails with permission denied. |
 | No combined stacks                | Each service has its own compose file — never combine unrelated services                                                               |
 | Secrets management                | Docker secrets for all credentials — never plain environment variables                                                                 |
+| Namevault pg.Pool idle drop       | Add `keepAlive: true`, `idleTimeoutMillis: 60000`, `connectionTimeoutMillis: 5000` — Docker DNS returns EAI_AGAIN when pool connections go idle overnight and session pruner fires |
+| Keycloak post-logout redirect     | `post.logout.redirect.uris` on the client must match exactly what the app sends — old dev Tailscale address causes silent redirect failure after logout |
 
 ---
 
