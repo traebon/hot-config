@@ -493,6 +493,8 @@ function PrivateNexusDashboard({ authUser }) {
   const [certError, setCertError] = useState(false);
   const [diskData, setDiskData] = useState(null);
   const [usersData, setUsersData] = useState(null);
+  const [usersMgmtData, setUsersMgmtData] = useState(null);
+  const [usersMgmtLoading, setUsersMgmtLoading] = useState(false);
   const [backupRunning, setBackupRunning] = useState(false);
   const [backupRunResult, setBackupRunResult] = useState(null);
 
@@ -531,6 +533,14 @@ function PrivateNexusDashboard({ authUser }) {
     if (adminView === "users") {
       setUsersData(null);
       fetch(`${API_BASE}/api/admin/users`).then(r=>r.json()).then(d=>{ if(d.ok) setUsersData(d); }).catch(()=>{});
+    }
+    if (adminView === "users-manage") {
+      setUsersMgmtData(null); setUsersMgmtLoading(true);
+      fetch(`${API_BASE}/api/admin/users-manage`)
+        .then(r=>r.json())
+        .then(d=>{ if(d.ok) setUsersMgmtData(d); })
+        .catch(()=>{})
+        .finally(()=>setUsersMgmtLoading(false));
     }
   }, [adminView, API_BASE]);
 
@@ -1760,34 +1770,31 @@ function PrivateNexusDashboard({ authUser }) {
   );
 
   const adminRootView = (
-    <div className="space-y-4">
+    <div className="space-y-5">
+      {/* Storage & Network */}
       <div>
-        <div className="mb-2 text-sm font-semibold text-neutral-400">Storage</div>
+        <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-neutral-500">Storage & Network</div>
         {renderCards([
-          { name: "Storage Management",    onClick: () => setAdminView("disk") },
-          { name: "Disk Usage Overview",   onClick: () => setAdminView("disk") },
-          { name: "Storage Pools & Mounts",onClick: () => setAdminView("disk") },
-          { name: "Network Interfaces",    onClick: () => setAdminView("network") },
+          { name: "Disk Usage",          onClick: () => setAdminView("disk") },
+          { name: "Network",             onClick: () => setAdminView("network") },
         ])}
       </div>
+      {/* Backups */}
       <div>
-        <div className="mb-2 text-sm font-semibold text-neutral-400">Backups</div>
+        <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-neutral-500">Backups</div>
         {renderCards([
           { name: "Backup Configuration", onClick: () => setAdminView("backup") },
-          { name: "Backup Schedules",     onClick: () => setAdminView("backup") },
-          { name: "Backup Destinations",  onClick: () => setAdminView("backup") },
-          { name: "Test Restore",         onClick: () => setAdminView("backup") },
         ])}
       </div>
+      {/* Identity & Access */}
       <div>
-        <div className="mb-2 text-sm font-semibold text-neutral-400">Identity & Access</div>
+        <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-neutral-500">Identity & Access</div>
         {renderCards([
-          { name: "User Activity",         onClick: () => setAdminView("users") },
-          { name: "Certificate Status",    onClick: () => setAdminView("certs") },
-          { name: "Audit Logs",            onClick: () => setAdminView("audit") },
-          { name: "Keycloak Admin",        onClick: () => window.open("https://auth.house-of-trae.com/admin", "_blank") },
-          { name: "Network Overview",      onClick: () => setAdminView("network") },
-          { name: "Network Policies",      onClick: () => setAdminView("network") },
+          { name: "Manage Users",         onClick: () => setAdminView("users-manage") },
+          { name: "User Activity",        onClick: () => setAdminView("users") },
+          { name: "Certificate Status",   onClick: () => setAdminView("certs") },
+          { name: "Audit Log",            onClick: () => setAdminView("audit") },
+          { name: "Keycloak Admin",       onClick: () => window.open("https://auth.house-of-trae.com/admin", "_blank") },
         ])}
       </div>
     </div>
@@ -2073,6 +2080,98 @@ function PrivateNexusDashboard({ authUser }) {
           ))}
         </div>
       )}
+    </div>
+  );
+
+  const ROLE_COLORS = {
+    breakglass:  "border-rose-400/40 bg-rose-500/10 text-rose-300",
+    superadmin:  "border-purple-400/40 bg-purple-500/10 text-purple-300",
+    admin:       "border-amber-400/40 bg-amber-500/10 text-amber-300",
+    operator:    "border-blue-400/40 bg-blue-500/10 text-blue-300",
+    viewer:      "border-neutral-600 bg-neutral-800 text-neutral-400",
+  };
+
+  const usersMgmtPanel = (
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="text-xs uppercase tracking-wider text-purple-300/80">IAM</div>
+          <div className="text-lg font-semibold">Manage Users</div>
+        </div>
+        <div className="flex items-center gap-2">
+          <a href="https://auth.house-of-trae.com/admin" target="_blank" rel="noreferrer"
+            className="rounded-lg border border-purple-400/30 bg-purple-500/10 px-3 py-1.5 text-xs text-purple-300 hover:bg-purple-500/20">
+            Open Keycloak ↗
+          </a>
+          <button onClick={() => setAdminView(null)} className="text-xs text-neutral-400 hover:text-white">← Back</button>
+        </div>
+      </div>
+
+      {/* Info note */}
+      <div className="rounded-xl border border-neutral-800 bg-neutral-900/60 px-4 py-3 text-xs text-neutral-500">
+        Users are provisioned via Keycloak SSO (realm: <span className="text-neutral-300">securenexus</span>). Create, deactivate or reset passwords in the Keycloak admin console. Roles shown below reflect the most recent authenticated session.
+      </div>
+
+      {/* Loading */}
+      {usersMgmtLoading && <div className="text-xs text-neutral-500">Loading…</div>}
+
+      {/* Empty */}
+      {!usersMgmtLoading && usersMgmtData?.users?.length === 0 && (
+        <div className="rounded-xl border border-neutral-800 bg-neutral-900/60 p-8 text-center text-xs text-neutral-600">
+          No users have logged in yet.
+        </div>
+      )}
+
+      {/* User table */}
+      {usersMgmtData?.users && usersMgmtData.users.length > 0 && (
+        <div className="overflow-hidden rounded-xl border border-neutral-800">
+          <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center border-b border-neutral-800 bg-neutral-900/80 px-4 py-2 text-[10px] uppercase tracking-wide text-neutral-500">
+            <div>User</div>
+            <div className="px-4">Role</div>
+            <div className="px-4 text-right">Actions</div>
+            <div className="px-4 text-right">Last Seen</div>
+            <div />
+          </div>
+          {usersMgmtData.users.map((u) => (
+            <div key={u.user_sub}
+              className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center border-b border-neutral-800/50 px-4 py-3 text-xs last:border-0 hover:bg-neutral-800/20">
+              <div>
+                <div className="font-semibold text-neutral-200">{u.username}</div>
+                <div className="mt-0.5 font-mono text-[10px] text-neutral-600 truncate max-w-[220px]" title={u.user_sub}>
+                  {u.user_sub.slice(0, 8)}…{u.user_sub.slice(-4)}
+                </div>
+              </div>
+              <div className="px-4">
+                <span className={["rounded-full border px-2 py-0.5 text-[10px] font-semibold capitalize",
+                  ROLE_COLORS[u.role] || ROLE_COLORS.viewer
+                ].join(" ")}>{u.role}</span>
+              </div>
+              <div className="px-4 text-right text-neutral-400">
+                {u.action_count}
+                {u.failures > 0 && (
+                  <span className="ml-1 text-rose-400">({u.failures} fail)</span>
+                )}
+              </div>
+              <div className="px-4 text-right text-neutral-500">
+                {new Date(u.last_seen).toLocaleDateString()}
+              </div>
+              <div>
+                <a
+                  href={`https://auth.house-of-trae.com/admin/master/console/#/securenexus/users/${u.user_sub}`}
+                  target="_blank" rel="noreferrer"
+                  className="rounded-lg border border-neutral-700 px-2 py-1 text-[10px] text-neutral-500 hover:border-purple-400/40 hover:text-purple-300 transition">
+                  KC ↗
+                </a>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="text-[10px] text-neutral-600">
+        {usersMgmtData?.users?.length ?? 0} known user{(usersMgmtData?.users?.length ?? 0) !== 1 ? "s" : ""} · source: audit log
+      </div>
     </div>
   );
 
@@ -2878,7 +2977,8 @@ function PrivateNexusDashboard({ authUser }) {
             adminView === "audit"   ? auditPanel   :
             adminView === "certs"   ? certPanel    :
             adminView === "disk"    ? diskPanel    :
-            adminView === "users"   ? usersPanel   :
+            adminView === "users"        ? usersPanel      :
+            adminView === "users-manage" ? usersMgmtPanel  :
             adminRootView
           )}
 
