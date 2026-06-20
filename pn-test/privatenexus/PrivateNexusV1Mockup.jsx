@@ -584,12 +584,12 @@ function PrivateNexusDashboard({ authUser }) {
   }, [adminView, auditFilter, API_BASE]);
 
   useEffect(() => {
-    if (activeBoard !== "Inventory") return;
+    if (activeBoard !== "Inventory" && activeBoard !== "Home") return;
     setServicesLoading(true);
     setServicesError(null);
     const params = new URLSearchParams();
-    if (showArchivedServices) params.set("archived", "true");
-    if (serviceCategoryFilter !== "all") params.set("category", serviceCategoryFilter);
+    if (activeBoard === "Inventory" && showArchivedServices) params.set("archived", "true");
+    if (activeBoard === "Inventory" && serviceCategoryFilter !== "all") params.set("category", serviceCategoryFilter);
     fetch(`${API_BASE}/api/services?${params}`)
       .then((r) => r.json())
       .then((data) => { setServicesData(Array.isArray(data) ? data : []); setServicesLoading(false); })
@@ -633,7 +633,7 @@ function PrivateNexusDashboard({ authUser }) {
   }, [API_BASE]);
 
   useEffect(() => {
-    if (activeBoard !== "Ops") return;
+    if (activeBoard !== "Ops" && activeBoard !== "Home") return;
     let mounted = true;
     const load = async () => {
       setOpsVMsLoading(true);
@@ -1767,6 +1767,103 @@ function PrivateNexusDashboard({ authUser }) {
           </div>
         </div>
       )}
+
+      {/* Fleet VM tiles */}
+      <div className="rounded-2xl border border-neutral-800 bg-neutral-900/70 p-4">
+        <div className="mb-3 flex items-center justify-between">
+          <div className="text-sm font-semibold text-neutral-200">Fleet</div>
+          {opsVMsLoading && <span className="text-[10px] text-neutral-600">querying…</span>}
+          {opsVMsTs && !opsVMsLoading && <span className="text-[10px] text-neutral-600">updated {new Date(opsVMsTs).toLocaleTimeString()}</span>}
+        </div>
+        {opsVMs.length === 0 && !opsVMsLoading && (
+          <div className="text-xs text-neutral-600">No Prometheus data — ensure node-exporter is running on each VM</div>
+        )}
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4">
+          {opsVMs.map((vm) => {
+            const cpuColor = vm.cpu > 90 ? "text-rose-300" : vm.cpu > 70 ? "text-amber-300" : "text-emerald-300";
+            const ramColor = vm.ram > 90 ? "text-rose-300" : vm.ram > 70 ? "text-amber-300" : "text-cyan-300";
+            const diskColor = vm.disk > 90 ? "text-rose-300" : vm.disk > 70 ? "text-amber-300" : "text-neutral-400";
+            const barBase = "h-1 rounded-full";
+            const cpuW = `${Math.min(vm.cpu ?? 0, 100)}%`;
+            const ramW = `${Math.min(vm.ram ?? 0, 100)}%`;
+            return (
+              <div key={vm.host} className="rounded-xl border border-neutral-800 bg-neutral-950/60 p-2.5">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="font-mono text-[11px] font-semibold text-neutral-200 truncate">{vm.host.replace(/\..*$/, "")}</span>
+                  <span className="shrink-0 ml-1 h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
+                </div>
+                <div className="space-y-1.5">
+                  <div>
+                    <div className="flex justify-between text-[9px] mb-0.5">
+                      <span className="text-neutral-600">CPU</span>
+                      <span className={cpuColor}>{vm.cpu != null ? `${vm.cpu}%` : "—"}</span>
+                    </div>
+                    <div className="h-1 w-full rounded-full bg-neutral-800">
+                      <div className={[barBase, vm.cpu > 90 ? "bg-rose-400" : vm.cpu > 70 ? "bg-amber-400" : "bg-emerald-400"].join(" ")} style={{ width: cpuW }} />
+                    </div>
+                  </div>
+                  <div>
+                    <div className="flex justify-between text-[9px] mb-0.5">
+                      <span className="text-neutral-600">RAM</span>
+                      <span className={ramColor}>{vm.ram != null ? `${vm.ram}%` : "—"}</span>
+                    </div>
+                    <div className="h-1 w-full rounded-full bg-neutral-800">
+                      <div className={[barBase, vm.ram > 90 ? "bg-rose-400" : vm.ram > 70 ? "bg-amber-400" : "bg-cyan-400"].join(" ")} style={{ width: ramW }} />
+                    </div>
+                  </div>
+                  {vm.disk != null && (
+                    <div className="flex justify-between text-[9px]">
+                      <span className="text-neutral-600">Disk</span>
+                      <span className={diskColor}>{vm.disk}%</span>
+                    </div>
+                  )}
+                  {vm.uptime != null && (
+                    <div className="flex justify-between text-[9px]">
+                      <span className="text-neutral-600">Up</span>
+                      <span className="text-neutral-500">{formatUptime(vm.uptime)}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Service health summary */}
+      {servicesData.length > 0 && (() => {
+        const counts = servicesData.reduce((acc, s) => { acc[s.status] = (acc[s.status] || 0) + 1; return acc; }, {});
+        const healthy = (counts.healthy || 0);
+        const total = servicesData.filter((s) => !s.archived).length;
+        const degraded = (counts.degraded || 0) + (counts.warning || 0);
+        const down = counts.down || 0;
+        const pct = total > 0 ? Math.round((healthy / total) * 100) : 0;
+        return (
+          <div className="rounded-2xl border border-neutral-800 bg-neutral-900/70 p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <div className="text-sm font-semibold text-neutral-200">Services</div>
+              <button onClick={() => setActiveBoard("Inventory")} className="text-[10px] text-neutral-600 hover:text-neutral-300">View all →</button>
+            </div>
+            <div className="mb-2 flex items-end gap-2">
+              <span className={["text-2xl font-semibold", down > 0 ? "text-rose-300" : degraded > 0 ? "text-amber-300" : "text-emerald-300"].join(" ")}>{healthy}/{total}</span>
+              <span className="mb-0.5 text-xs text-neutral-500">healthy</span>
+            </div>
+            <div className="h-1.5 w-full rounded-full bg-neutral-800 overflow-hidden flex">
+              <div className="h-full bg-emerald-500 transition-all" style={{ width: `${pct}%` }} />
+              {degraded > 0 && <div className="h-full bg-amber-500" style={{ width: `${Math.round((degraded/total)*100)}%` }} />}
+              {down > 0 && <div className="h-full bg-rose-500" style={{ width: `${Math.round((down/total)*100)}%` }} />}
+            </div>
+            <div className="mt-2 flex flex-wrap gap-3 text-[10px]">
+              {Object.entries(counts).sort().map(([st, n]) => (
+                <span key={st} className={[
+                  "capitalize",
+                  st === "healthy" ? "text-emerald-400" : st === "down" ? "text-rose-400" : st === "degraded" || st === "warning" ? "text-amber-400" : "text-neutral-500"
+                ].join(" ")}>{n} {st}</span>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
 
       <div className={["rounded-2xl border border-cyan-400/20 bg-neutral-900/70 bg-gradient-to-br p-4", theme.shell].join(" ")}>
         <div className="mb-3 text-sm font-semibold text-neutral-200">Recently Used</div>
