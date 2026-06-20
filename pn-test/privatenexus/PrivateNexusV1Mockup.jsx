@@ -4245,6 +4245,84 @@ function PrivateNexusDashboard({ authUser }) {
                 )}
               </div>
 
+              {/* Severity guide */}
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { label:"P1 Critical", resp:"15 min", color:"rose", examples:"Keycloak down, DNS outage, Reverse proxy failure, Storage failure" },
+                  { label:"P2 Major",    resp:"1 hour",  color:"amber", examples:"Application outage, Monitoring failure, Backup failure" },
+                  { label:"P3 Minor",    resp:"Maint window", color:"neutral", examples:"Dashboard issue, Reporting issue, Cosmetic issue" },
+                ].map(({ label, resp, color, examples }) => (
+                  <div key={label} className={[
+                    "rounded-xl border p-3",
+                    color === "rose" ? "border-rose-400/30 bg-rose-500/5"
+                    : color === "amber" ? "border-amber-400/20 bg-amber-500/5"
+                    : "border-neutral-800 bg-neutral-900/50"
+                  ].join(" ")}>
+                    <div className={["text-xs font-bold", color === "rose" ? "text-rose-300" : color === "amber" ? "text-amber-300" : "text-neutral-400"].join(" ")}>{label}</div>
+                    <div className="mt-0.5 text-[10px] text-neutral-500">Response: <span className="text-neutral-300">{resp}</span></div>
+                    <div className="mt-1.5 text-[10px] text-neutral-600 leading-relaxed">{examples}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Recovery order + DR checklist */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-2xl border border-neutral-800 bg-neutral-900/70 p-4">
+                  <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-neutral-500">Recovery Order</div>
+                  <ol className="space-y-1.5">
+                    {["Network","DNS","Identity","Storage","Databases","Applications","Monitoring"].map((step, i) => (
+                      <li key={step} className="flex items-center gap-2.5 text-xs text-neutral-300">
+                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-neutral-700 bg-neutral-800 text-[10px] font-semibold text-neutral-500">{i+1}</span>
+                        {step}
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+                <div className="rounded-2xl border border-neutral-800 bg-neutral-900/70 p-4">
+                  <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-neutral-500">DR Checklist</div>
+                  <div className="space-y-3 text-[11px]">
+                    <div>
+                      <div className="mb-1 font-medium text-neutral-400">Infrastructure</div>
+                      {["Verify Proxmox health","Verify ZFS pools","Verify VLAN connectivity","Verify WireGuard/Tailscale"].map(s=>(
+                        <div key={s} className="flex items-start gap-1.5 text-neutral-500 leading-relaxed"><span className="mt-0.5 shrink-0 text-neutral-700">○</span>{s}</div>
+                      ))}
+                    </div>
+                    <div>
+                      <div className="mb-1 font-medium text-neutral-400">Identity</div>
+                      {["Restore Keycloak database","Validate realm configuration","Validate MFA policies"].map(s=>(
+                        <div key={s} className="flex items-start gap-1.5 text-neutral-500 leading-relaxed"><span className="mt-0.5 shrink-0 text-neutral-700">○</span>{s}</div>
+                      ))}
+                    </div>
+                    <div>
+                      <div className="mb-1 font-medium text-neutral-400">Service</div>
+                      {["Restore latest known-good backup","Validate dependencies","Re-enable routing"].map(s=>(
+                        <div key={s} className="flex items-start gap-1.5 text-neutral-500 leading-relaxed"><span className="mt-0.5 shrink-0 text-neutral-700">○</span>{s}</div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Quick links */}
+              <div className="rounded-2xl border border-neutral-800 bg-neutral-900/70 p-4">
+                <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-neutral-500">Emergency Links</div>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { label:"Grafana",          url:"https://grafana.house-of-trae.com",          color:"text-orange-300" },
+                    { label:"Uptime Kuma",       url:"https://status.house-of-trae.com",           color:"text-emerald-300" },
+                    { label:"Keycloak Admin",    url:"https://auth.house-of-trae.com/admin",       color:"text-blue-300" },
+                    { label:"Proxmox",           url:"https://proxmox.house-of-trae.com:8006",     color:"text-neutral-300" },
+                    { label:"DNS Admin",         url:"https://dns-admin.house-of-trae.com",        color:"text-purple-300" },
+                    { label:"Forgejo",           url:"https://git.securenexus.net",                color:"text-cyan-300" },
+                  ].map(({ label, url, color }) => (
+                    <a key={label} href={url} target="_blank" rel="noreferrer"
+                      className={["rounded-lg border border-neutral-700 px-3 py-1.5 text-xs hover:border-neutral-500 hover:bg-neutral-800/60", color].join(" ")}>
+                      {label} ↗
+                    </a>
+                  ))}
+                </div>
+              </div>
+
               {/* System Status + Maintenance Mode */}
               <div className="grid grid-cols-2 gap-4">
                 {/* System Status */}
