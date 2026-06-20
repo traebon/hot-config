@@ -1,4 +1,4 @@
-# PrivateNexus v1.9.0 — Alerts board, Admin panel wiring, cert visibility, service health polling
+# PrivateNexus v1.9.0 — Ops board VM fleet (Prometheus), Alerts, Admin wiring, cert visibility, health polling
 services:
   privatenexus-db:
     image: postgres:16-alpine
