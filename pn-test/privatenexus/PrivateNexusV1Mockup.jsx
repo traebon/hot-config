@@ -509,6 +509,8 @@ function PrivateNexusDashboard({ authUser }) {
   const [serviceForm, setServiceForm] = useState({});
   const [serviceFormError, setServiceFormError] = useState(null);
   const [serviceSaving, setServiceSaving] = useState(false);
+  const [workspacesData, setWorkspacesData] = useState([]);
+  const [slugTouched, setSlugTouched] = useState(false);
   const [showArchivedServices, setShowArchivedServices] = useState(false);
 
   // -------------------------------------------------------------------------
@@ -569,6 +571,14 @@ function PrivateNexusDashboard({ authUser }) {
       .then((data) => { setServicesData(Array.isArray(data) ? data : []); setServicesLoading(false); })
       .catch(() => { setServicesError("Failed to load service registry"); setServicesLoading(false); });
   }, [activeBoard, showArchivedServices, serviceCategoryFilter, API_BASE]);
+
+  useEffect(() => {
+    if (activeBoard !== "Inventory") return;
+    fetch(`${API_BASE}/api/services/workspaces`)
+      .then((r) => r.json())
+      .then((d) => { if (d.ok) setWorkspacesData(d.workspaces); })
+      .catch(() => {});
+  }, [activeBoard, API_BASE]);
 
   useEffect(() => {
     let mounted = true;
@@ -2341,15 +2351,21 @@ function PrivateNexusDashboard({ authUser }) {
     owner: "", backup_policy: "none", health_endpoint: "", workspace_id: "",
   };
 
+  function slugify(str) {
+    return str.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  }
+
   function openCreateService() {
     setEditingService(null);
     setServiceForm(BLANK_SERVICE_FORM);
     setServiceFormError(null);
+    setSlugTouched(false);
     setShowServiceModal(true);
   }
 
   function openEditService(svc) {
     setEditingService(svc);
+    setSlugTouched(true);
     setServiceForm({
       name: svc.name, slug: svc.slug, description: svc.description || "",
       category: svc.category, access_url: svc.access_url || "",
@@ -2402,113 +2418,163 @@ function PrivateNexusDashboard({ authUser }) {
   })();
 
   const serviceModal = showServiceModal && (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="w-full max-w-lg rounded-2xl border border-teal-400/20 bg-neutral-950 p-6 shadow-2xl">
-        <div className="mb-4 flex items-center justify-between">
-          <div className="text-base font-semibold">{editingService ? "Edit Service" : "Register Service"}</div>
-          <button onClick={() => setShowServiceModal(false)} className="text-neutral-500 hover:text-white">✕</button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+      <div className="flex max-h-[90vh] w-full max-w-lg flex-col rounded-2xl border border-teal-400/20 bg-neutral-950 shadow-2xl">
+        {/* Modal header */}
+        <div className="flex shrink-0 items-center justify-between border-b border-neutral-800 px-6 py-4">
+          <div>
+            <div className="text-base font-semibold">{editingService ? "Edit Service" : "Register Service"}</div>
+            {editingService && <div className="mt-0.5 font-mono text-[10px] text-neutral-600">{editingService.slug}</div>}
+          </div>
+          <button onClick={() => setShowServiceModal(false)} className="text-neutral-500 hover:text-white text-lg leading-none">✕</button>
         </div>
 
-        <div className="space-y-3 text-sm">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="mb-1 block text-xs text-neutral-400">Name *</label>
-              <input value={serviceForm.name} onChange={(e) => setServiceForm((f) => ({ ...f, name: e.target.value }))}
-                className="w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-sm text-neutral-200 focus:border-teal-400/50 focus:outline-none" />
+        {/* Scrollable form body */}
+        <div className="flex-1 overflow-y-auto px-6 py-4">
+          <div className="space-y-3 text-sm">
+
+            {/* Name + Slug */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="mb-1 block text-xs text-neutral-400">Name *</label>
+                <input
+                  value={serviceForm.name}
+                  onChange={(e) => {
+                    const name = e.target.value;
+                    setServiceForm((f) => ({
+                      ...f,
+                      name,
+                      slug: slugTouched ? f.slug : slugify(name),
+                    }));
+                  }}
+                  placeholder="Nextcloud"
+                  className="w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-sm text-neutral-200 focus:border-teal-400/50 focus:outline-none" />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs text-neutral-400">Slug *</label>
+                <input
+                  value={serviceForm.slug}
+                  onChange={(e) => { setSlugTouched(true); setServiceForm((f) => ({ ...f, slug: e.target.value })); }}
+                  placeholder="nextcloud"
+                  className="w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-sm text-neutral-200 font-mono focus:border-teal-400/50 focus:outline-none" />
+              </div>
             </div>
+
+            {/* Description */}
             <div>
-              <label className="mb-1 block text-xs text-neutral-400">Slug *</label>
-              <input value={serviceForm.slug} onChange={(e) => setServiceForm((f) => ({ ...f, slug: e.target.value }))}
+              <label className="mb-1 block text-xs text-neutral-400">Description</label>
+              <textarea
+                value={serviceForm.description}
+                onChange={(e) => setServiceForm((f) => ({ ...f, description: e.target.value }))}
+                rows={2}
+                placeholder="What does this service do?"
+                className="w-full resize-none rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-sm text-neutral-200 focus:border-teal-400/50 focus:outline-none" />
+            </div>
+
+            {/* Category + Access Mode */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="mb-1 block text-xs text-neutral-400">Category *</label>
+                <select value={serviceForm.category} onChange={(e) => setServiceForm((f) => ({ ...f, category: e.target.value }))}
+                  className="w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-sm text-neutral-200 focus:border-teal-400/50 focus:outline-none">
+                  <option value="infra">Infra</option>
+                  <option value="ops">Ops</option>
+                  <option value="admin">Admin</option>
+                  <option value="business">Business</option>
+                  <option value="personal">Personal</option>
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs text-neutral-400">Access Mode *</label>
+                <select value={serviceForm.access_mode} onChange={(e) => setServiceForm((f) => ({ ...f, access_mode: e.target.value }))}
+                  className="w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-sm text-neutral-200 focus:border-teal-400/50 focus:outline-none">
+                  <option value="public">Public</option>
+                  <option value="sso">SSO</option>
+                  <option value="vpn_only">VPN Only</option>
+                  <option value="internal">Internal</option>
+                  <option value="mtls">mTLS</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Runtime + Backup */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="mb-1 block text-xs text-neutral-400">Runtime *</label>
+                <select value={serviceForm.runtime_type} onChange={(e) => setServiceForm((f) => ({ ...f, runtime_type: e.target.value }))}
+                  className="w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-sm text-neutral-200 focus:border-teal-400/50 focus:outline-none">
+                  <option value="docker">Docker</option>
+                  <option value="podman">Podman</option>
+                  <option value="vm">VM</option>
+                  <option value="lxc">LXC</option>
+                  <option value="external">External</option>
+                  <option value="api">API</option>
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs text-neutral-400">Backup Policy *</label>
+                <select value={serviceForm.backup_policy} onChange={(e) => setServiceForm((f) => ({ ...f, backup_policy: e.target.value }))}
+                  className="w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-sm text-neutral-200 focus:border-teal-400/50 focus:outline-none">
+                  <option value="none">None</option>
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
+                  <option value="manual">Manual</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Owner + Workspace */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="mb-1 block text-xs text-neutral-400">Owner *</label>
+                <input value={serviceForm.owner} onChange={(e) => setServiceForm((f) => ({ ...f, owner: e.target.value }))}
+                  placeholder="tristian"
+                  className="w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-sm text-neutral-200 focus:border-teal-400/50 focus:outline-none" />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs text-neutral-400">Workspace</label>
+                <select value={serviceForm.workspace_id} onChange={(e) => setServiceForm((f) => ({ ...f, workspace_id: e.target.value }))}
+                  className="w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-sm text-neutral-200 focus:border-teal-400/50 focus:outline-none">
+                  <option value="">— none —</option>
+                  {workspacesData.map((w) => (
+                    <option key={w.id} value={w.id}>{w.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Access URL */}
+            <div>
+              <label className="mb-1 block text-xs text-neutral-400">Access URL</label>
+              <input value={serviceForm.access_url} onChange={(e) => setServiceForm((f) => ({ ...f, access_url: e.target.value }))}
+                placeholder="https://nextcloud.tresemme.space"
                 className="w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-sm text-neutral-200 font-mono focus:border-teal-400/50 focus:outline-none" />
             </div>
-          </div>
 
-          <div>
-            <label className="mb-1 block text-xs text-neutral-400">Description</label>
-            <input value={serviceForm.description} onChange={(e) => setServiceForm((f) => ({ ...f, description: e.target.value }))}
-              className="w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-sm text-neutral-200 focus:border-teal-400/50 focus:outline-none" />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
+            {/* Health Endpoint */}
             <div>
-              <label className="mb-1 block text-xs text-neutral-400">Category *</label>
-              <select value={serviceForm.category} onChange={(e) => setServiceForm((f) => ({ ...f, category: e.target.value }))}
-                className="w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-sm text-neutral-200 focus:border-teal-400/50 focus:outline-none">
-                <option value="infra">Infra</option>
-                <option value="ops">Ops</option>
-                <option value="admin">Admin</option>
-                <option value="business">Business</option>
-                <option value="personal">Personal</option>
-              </select>
+              <label className="mb-1 block text-xs text-neutral-400">Health Endpoint</label>
+              <input value={serviceForm.health_endpoint} onChange={(e) => setServiceForm((f) => ({ ...f, health_endpoint: e.target.value }))}
+                placeholder="https://.../health or /api/health"
+                className="w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-sm text-neutral-200 font-mono focus:border-teal-400/50 focus:outline-none" />
             </div>
-            <div>
-              <label className="mb-1 block text-xs text-neutral-400">Access Mode *</label>
-              <select value={serviceForm.access_mode} onChange={(e) => setServiceForm((f) => ({ ...f, access_mode: e.target.value }))}
-                className="w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-sm text-neutral-200 focus:border-teal-400/50 focus:outline-none">
-                <option value="public">Public</option>
-                <option value="sso">SSO</option>
-                <option value="vpn_only">VPN Only</option>
-                <option value="internal">Internal</option>
-                <option value="mtls">mTLS</option>
-              </select>
-            </div>
-          </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="mb-1 block text-xs text-neutral-400">Runtime *</label>
-              <select value={serviceForm.runtime_type} onChange={(e) => setServiceForm((f) => ({ ...f, runtime_type: e.target.value }))}
-                className="w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-sm text-neutral-200 focus:border-teal-400/50 focus:outline-none">
-                <option value="docker">Docker</option>
-                <option value="podman">Podman</option>
-                <option value="vm">VM</option>
-                <option value="lxc">LXC</option>
-                <option value="external">External</option>
-                <option value="api">API</option>
-              </select>
-            </div>
-            <div>
-              <label className="mb-1 block text-xs text-neutral-400">Backup Policy *</label>
-              <select value={serviceForm.backup_policy} onChange={(e) => setServiceForm((f) => ({ ...f, backup_policy: e.target.value }))}
-                className="w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-sm text-neutral-200 focus:border-teal-400/50 focus:outline-none">
-                <option value="none">None</option>
-                <option value="daily">Daily</option>
-                <option value="weekly">Weekly</option>
-                <option value="monthly">Monthly</option>
-                <option value="manual">Manual</option>
-              </select>
-            </div>
-          </div>
-
-          <div>
-            <label className="mb-1 block text-xs text-neutral-400">Owner *</label>
-            <input value={serviceForm.owner} onChange={(e) => setServiceForm((f) => ({ ...f, owner: e.target.value }))}
-              className="w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-sm text-neutral-200 focus:border-teal-400/50 focus:outline-none" />
-          </div>
-
-          <div>
-            <label className="mb-1 block text-xs text-neutral-400">Access URL</label>
-            <input value={serviceForm.access_url} onChange={(e) => setServiceForm((f) => ({ ...f, access_url: e.target.value }))}
-              placeholder="https://" className="w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-sm text-neutral-200 font-mono focus:border-teal-400/50 focus:outline-none" />
-          </div>
-
-          <div>
-            <label className="mb-1 block text-xs text-neutral-400">Health Endpoint</label>
-            <input value={serviceForm.health_endpoint} onChange={(e) => setServiceForm((f) => ({ ...f, health_endpoint: e.target.value }))}
-              placeholder="https://.../health" className="w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-sm text-neutral-200 font-mono focus:border-teal-400/50 focus:outline-none" />
           </div>
         </div>
 
-        {serviceFormError && (
-          <div className="mt-3 rounded-lg bg-rose-500/15 px-3 py-2 text-xs text-rose-300">{serviceFormError}</div>
-        )}
-
-        <div className="mt-5 flex justify-end gap-2">
-          <button onClick={() => setShowServiceModal(false)} className="rounded-lg border border-neutral-700 px-4 py-2 text-xs text-neutral-400 hover:text-white">Cancel</button>
-          <button onClick={saveService} disabled={serviceSaving}
-            className="rounded-lg bg-teal-500/20 border border-teal-400/30 px-4 py-2 text-xs text-teal-300 hover:bg-teal-500/30 disabled:opacity-50">
-            {serviceSaving ? "Saving…" : editingService ? "Save Changes" : "Register Service"}
-          </button>
+        {/* Footer */}
+        <div className="shrink-0 border-t border-neutral-800 px-6 py-4">
+          {serviceFormError && (
+            <div className="mb-3 rounded-lg bg-rose-500/15 px-3 py-2 text-xs text-rose-300">{serviceFormError}</div>
+          )}
+          <div className="flex justify-end gap-2">
+            <button onClick={() => setShowServiceModal(false)} className="rounded-lg border border-neutral-700 px-4 py-2 text-xs text-neutral-400 hover:text-white">Cancel</button>
+            <button onClick={saveService} disabled={serviceSaving}
+              className="rounded-lg border border-teal-400/30 bg-teal-500/20 px-4 py-2 text-xs text-teal-300 hover:bg-teal-500/30 disabled:opacity-50">
+              {serviceSaving ? "Saving…" : editingService ? "Save Changes" : "Register Service"}
+            </button>
+          </div>
         </div>
       </div>
     </div>
