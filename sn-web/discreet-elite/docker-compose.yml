@@ -1,9 +1,0 @@
-services:
-  discreet-elite:
-    image: nginx:alpine
-    container_name: discreet-elite
-    restart: always
-    volumes:
-      - ./html:/usr/share/nginx/html:ro
-    ports:
-      - "8002:80"
