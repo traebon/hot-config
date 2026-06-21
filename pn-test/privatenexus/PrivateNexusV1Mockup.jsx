@@ -6042,18 +6042,16 @@ export default function PrivateNexusV1Mockup() {
   const API_BASE = "";
   const [authUser, setAuthUser] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
+  const [authed, setAuthed] = useState(false);
 
   useEffect(() => {
     fetch(`${API_BASE}/api/auth/me`)
       .then((r) => {
-        if (r.status === 401) {
-          window.location.href = "/api/auth/login";
-          return null;
-        }
+        if (r.status === 401) { setAuthChecked(true); return null; }
         return r.json();
       })
       .then((data) => {
-        if (data) setAuthUser(data);
+        if (data) { setAuthUser(data); setAuthed(true); }
         setAuthChecked(true);
       })
       .catch(() => setAuthChecked(true));
@@ -6061,8 +6059,45 @@ export default function PrivateNexusV1Mockup() {
 
   if (!authChecked) {
     return (
-      <div className="flex h-screen items-center justify-center bg-neutral-950 text-neutral-400 text-sm">
-        Authenticating…
+      <div className="flex h-screen items-center justify-center bg-neutral-950">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 rounded-full border-2 border-cyan-400/30 border-t-cyan-400 animate-spin" />
+          <span className="text-xs text-neutral-600 tracking-widest uppercase">Authenticating</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!authed) {
+    return (
+      <div className="flex h-screen flex-col items-center justify-center bg-neutral-950 px-6">
+        <div className="w-full max-w-sm">
+          {/* Logo / wordmark */}
+          <div className="mb-10 text-center">
+            <div className="mb-3 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-500/20 to-blue-500/10 border border-cyan-400/20 text-2xl shadow-[0_0_30px_rgba(34,211,238,0.1)]">
+              🔐
+            </div>
+            <div className="text-xl font-bold tracking-tight text-neutral-100">PrivateNexus</div>
+            <div className="mt-1 text-xs text-neutral-500 tracking-widest uppercase">House of Trae — Secure Operations</div>
+          </div>
+
+          {/* Sign-in card */}
+          <div className="rounded-2xl border border-neutral-800 bg-neutral-900/80 p-6 backdrop-blur">
+            <div className="mb-1 text-sm font-semibold text-neutral-200">Welcome back</div>
+            <div className="mb-6 text-xs text-neutral-500">Sign in with your HoT account to continue.</div>
+            <a
+              href="/api/auth/login"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_0_20px_rgba(34,211,238,0.2)] transition hover:shadow-[0_0_30px_rgba(34,211,238,0.35)] hover:opacity-90"
+            >
+              <span>Sign in with SSO</span>
+              <span className="text-base">→</span>
+            </a>
+          </div>
+
+          <div className="mt-6 text-center text-[10px] text-neutral-700 tracking-wider uppercase">
+            Secured by Keycloak · SecureNexus realm
+          </div>
+        </div>
       </div>
     );
   }

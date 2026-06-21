@@ -83,7 +83,8 @@ authRouter.get("/logout", (req, res) => {
   req.session.destroy(() => {
     const logoutUrl = `${KEYCLOAK_URL}/realms/${KEYCLOAK_REALM}/protocol/openid-connect/logout`
       + `?client_id=${CLIENT_ID}`
-      + (idTokenHint ? `&id_token_hint=${encodeURIComponent(idTokenHint)}&post_logout_redirect_uri=${encodeURIComponent(POST_LOGOUT_URI)}` : "");
+      + `&post_logout_redirect_uri=${encodeURIComponent(POST_LOGOUT_URI)}`
+      + (idTokenHint ? `&id_token_hint=${encodeURIComponent(idTokenHint)}` : "");
     res.redirect(logoutUrl);
   });
 });
