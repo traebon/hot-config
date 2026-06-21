@@ -531,6 +531,14 @@ function PrivateNexusDashboard({ authUser }) {
   const [catalogueCategory, setCatalogueCategory] = useState("all");
   const [catalogueSearch, setCatalogueSearch] = useState("");
   const [catalogueLoading, setCatalogueLoading] = useState(false);
+  // Workspace management state
+  const [workspacesMgmt, setWorkspacesMgmt] = useState([]);
+  const [workspacesMgmtLoading, setWorkspacesMgmtLoading] = useState(false);
+  const [showWorkspaceModal, setShowWorkspaceModal] = useState(false);
+  const [editingWorkspace, setEditingWorkspace] = useState(null);
+  const [workspaceForm, setWorkspaceForm] = useState({ name: "", slug: "" });
+  const [workspaceFormError, setWorkspaceFormError] = useState(null);
+  const [workspaceFormSaving, setWorkspaceFormSaving] = useState(false);
   // File register modal state
   const [showRegisterFileModal, setShowRegisterFileModal] = useState(false);
   const [registerFileForm, setRegisterFileForm] = useState({ id:"", label:"", path:"", stack:"", type:"compose", editable:true, validatable:false, applyStrategy:null });
@@ -667,6 +675,16 @@ function PrivateNexusDashboard({ authUser }) {
       .catch((e) => setDnsError(e.message))
       .finally(() => setDnsZoneLoading(false));
   }, [dnsSelectedZone, activeBoard, API_BASE]);
+
+  useEffect(() => {
+    if (adminView !== "workspaces") return;
+    setWorkspacesMgmtLoading(true);
+    fetch(`${API_BASE}/api/services/workspaces`)
+      .then((r) => r.json())
+      .then((d) => { if (d.ok) setWorkspacesMgmt(d.workspaces); })
+      .catch(() => {})
+      .finally(() => setWorkspacesMgmtLoading(false));
+  }, [adminView, activeBoard, API_BASE]);
 
   useEffect(() => {
     if (activeBoard !== "Catalogue") return;
