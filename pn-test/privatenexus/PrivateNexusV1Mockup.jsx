@@ -613,6 +613,28 @@ function PrivateNexusDashboard({ authUser }) {
   }, [activeBoard, API_BASE]);
 
   useEffect(() => {
+    if (activeBoard !== "Inventory") return;
+    setHealthChecking(true);
+    fetch(`${API_BASE}/api/services/health`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.ok) {
+          const map = {};
+          for (const r of data.results) {
+            map[r.id] = { status: r.status, latencyMs: r.latencyMs, statusCode: r.statusCode, error: r.error, checkedAt: data.ts };
+          }
+          setHealthResults(map);
+          setServicesData((prev) => prev.map((svc) => {
+            const h = map[svc.id];
+            return h ? { ...svc, status: h.status } : svc;
+          }));
+        }
+      })
+      .catch(() => {})
+      .finally(() => setHealthChecking(false));
+  }, [activeBoard, API_BASE]);
+
+  useEffect(() => {
     let mounted = true;
 
     const loadMetrics = async () => {

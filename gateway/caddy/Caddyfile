@@ -55,7 +55,10 @@ dickson-supplies.com, www.dickson-supplies.com {
     import crowdsec
     reverse_proxy 10.10.30.102:8006
 }
-privatenexus.net, www.privatenexus.net {
+www.privatenexus.net {
+    redir https://privatenexus.net{uri} permanent
+}
+privatenexus.net {
     import crowdsec
     reverse_proxy 10.10.60.105:5173
 }

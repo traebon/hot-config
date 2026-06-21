@@ -57,6 +57,7 @@ app.use(
       httpOnly: true,
       maxAge: 8 * 60 * 60 * 1000, // 8h
       sameSite: "lax",
+      domain: process.env.SESSION_COOKIE_DOMAIN || undefined,
     },
   })
 );
