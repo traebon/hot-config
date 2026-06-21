@@ -1844,9 +1844,9 @@ function PrivateNexusDashboard({ authUser }) {
             const cpuW = `${Math.min(vm.cpu ?? 0, 100)}%`;
             const ramW = `${Math.min(vm.ram ?? 0, 100)}%`;
             return (
-              <div key={vm.host} className="rounded-xl border border-neutral-800 bg-neutral-950/60 p-2.5">
+              <div key={vm.name} className="rounded-xl border border-neutral-800 bg-neutral-950/60 p-2.5">
                 <div className="flex items-center justify-between mb-1.5">
-                  <span className="font-mono text-[11px] font-semibold text-neutral-200 truncate">{vm.host.replace(/\..*$/, "")}</span>
+                  <span className="font-mono text-[11px] font-semibold text-neutral-200 truncate">{vm.name}</span>
                   <span className="shrink-0 ml-1 h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
                 </div>
                 <div className="space-y-1.5">
@@ -1874,10 +1874,10 @@ function PrivateNexusDashboard({ authUser }) {
                       <span className={diskColor}>{vm.disk}%</span>
                     </div>
                   )}
-                  {vm.uptime != null && (
+                  {vm.uptimeSeconds != null && (
                     <div className="flex justify-between text-[9px]">
                       <span className="text-neutral-600">Up</span>
-                      <span className="text-neutral-500">{formatUptime(vm.uptime)}</span>
+                      <span className="text-neutral-500">{formatUptime(vm.uptimeSeconds)}</span>
                     </div>
                   )}
                 </div>
