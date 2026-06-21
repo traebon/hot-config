@@ -63,6 +63,7 @@ authRouter.get("/callback", async (req, res) => {
       email:    claims.email || "",
       roles:    claims.realm_access?.roles?.filter((r) => !r.startsWith("default-")) ?? [],
     };
+    req.session.idToken = tokenSet.id_token;
     delete req.session.oidcState;
     delete req.session.oidcNonce;
     await new Promise((resolve, reject) =>
@@ -77,11 +78,12 @@ authRouter.get("/callback", async (req, res) => {
 
 authRouter.get("/logout", (req, res) => {
   const userSnap = req.session?.user ? { ...req.session.user, role: null } : null;
+  const idTokenHint = req.session?.idToken || "";
   if (userSnap) recordAudit(req, "auth.logout", null, "success", null, userSnap);
   req.session.destroy(() => {
     const logoutUrl = `${KEYCLOAK_URL}/realms/${KEYCLOAK_REALM}/protocol/openid-connect/logout`
-      + `?post_logout_redirect_uri=${encodeURIComponent(POST_LOGOUT_URI)}`
-      + `&client_id=${CLIENT_ID}`;
+      + `?client_id=${CLIENT_ID}`
+      + (idTokenHint ? `&id_token_hint=${encodeURIComponent(idTokenHint)}&post_logout_redirect_uri=${encodeURIComponent(POST_LOGOUT_URI)}` : "");
     res.redirect(logoutUrl);
   });
 });

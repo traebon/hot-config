@@ -642,8 +642,8 @@ function PrivateNexusDashboard({ authUser }) {
         const res = await fetch(`${API_BASE}/api/metrics`);
         const data = await res.json();
         if (mounted) {
-          setMetricsData(data);
-          setMetricsError(false);
+          if (Array.isArray(data.cpu)) { setMetricsData(data); setMetricsError(false); }
+          else setMetricsError(true);
         }
       } catch (err) {
         console.error("Failed to load metrics", err);
@@ -1514,10 +1514,10 @@ function PrivateNexusDashboard({ authUser }) {
   // Ops board — graph helpers
   // -------------------------------------------------------------------------
   const graphSeries = {
-    cpu:     metricsData.cpu,
-    memory:  metricsData.memory,
-    storage: metricsData.storage,
-    network: metricsData.network,
+    cpu:     metricsData.cpu     ?? [],
+    memory:  metricsData.memory  ?? [],
+    storage: metricsData.storage ?? [],
+    network: metricsData.network ?? [],
   };
 
   // Backend-computed stats; fall back to null (frontend will compute from series)
@@ -3465,7 +3465,7 @@ function PrivateNexusDashboard({ authUser }) {
                     const freshness = getMetricsFreshness();
                     return (
                       <span className={`text-[10px] ${freshness.cls}`}>
-                        {metricsData.cpu.length} pt · {freshness.label}
+                        {metricsData.cpu?.length ?? 0} pt · {freshness.label}
                       </span>
                     );
                   })()}
