@@ -13,7 +13,7 @@ From here you can SSH into every VM and the Proxmox host via pre-configured alia
 All infrastructure decisions should respect the hardware limits, operational rules, and
 architecture principles documented in this file.
 
-Roadmap & full infrastructure state: /root/hot/docs/HoT_Infrastructure_State_Roadmap_v3_3.docx
+Roadmap & full infrastructure state: /root/hot/docs/HoT_Infrastructure_State_Roadmap_v*.docx (use the highest version present)
 (Canonical source: https://git.securenexus.net/house-of-trae/hot-infrastructure)
 
 ---
@@ -24,7 +24,7 @@ All reference documents are in /root/hot/docs/. Use docx2txt or pdftotext (both 
 
 | File                                                    | Type  | Purpose                                                                         |
 |---------------------------------------------------------|-------|---------------------------------------------------------------------------------|
-| HoT_Infrastructure_State_Roadmap_v3_3.docx              | DOCX  | Master infrastructure state & roadmap v3.3 — single source of truth            |
+| HoT_Infrastructure_State_Roadmap_v*.docx                | DOCX  | Master infrastructure state & roadmap — single source of truth (highest version) |
 | HoT_Infrastructure_Architecture_Specification_v3.0.pdf  | PDF   | Architecture specification v3.0 — core pillars, platform layers                |
 | HoT_Operations_Runbook.pdf                              | PDF   | Operations runbook — incident severity (P1–P3), recovery order, DR checklist   |
 | PrivateNexus_Product_Specification.pdf                  | PDF   | PrivateNexus product spec — mission, MVP v1.0, v2–v4 scope                     |
