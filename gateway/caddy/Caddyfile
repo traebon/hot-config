@@ -1,4 +1,5 @@
 {
+    admin :2019
     email admin@house-of-trae.com
     acme_dns powerdns {
         server_url http://powerdns:8081

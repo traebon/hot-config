@@ -18,6 +18,7 @@ services:
       - 0.0.0.0:80:80
       - 0.0.0.0:443:443
       - 0.0.0.0:443:443/udp # HTTP/3 QUIC
+      - 10.10.0.1:2019:2019  # Admin API — WireGuard only, for PrivateNexus Discovery scanner
     networks:
       - hotinfra_edge
       - hotinfra_internal
