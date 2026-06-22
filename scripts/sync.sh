@@ -28,8 +28,17 @@ log "Syncing Gateway VPS configs..."
 # CLAUDE.md (master infra context)
 sync_file /root/hot/CLAUDE.md "$REPO/CLAUDE.md"
 
-# Infrastructure roadmap (master state & roadmap — DOCX)
-sync_file /root/hot/docs/HoT_Infrastructure_State_Roadmap_v3_3.docx "$REPO/docs/HoT_Infrastructure_State_Roadmap_v3_3.docx"
+# Infrastructure roadmap (master state & roadmap — DOCX, version-agnostic)
+# Picks the highest-versioned roadmap docx and drops any older tracked copy,
+# so version bumps (v3.3 -> v3.4 -> ...) are followed automatically.
+ROADMAP_SRC=$(ls -1 /root/hot/docs/HoT_Infrastructure_State_Roadmap_v*.docx 2>/dev/null | sort -V | tail -1 || true)
+if [ -n "$ROADMAP_SRC" ]; then
+  mkdir -p "$REPO/docs"
+  rm -f "$REPO"/docs/HoT_Infrastructure_State_Roadmap_v*.docx
+  cp "$ROADMAP_SRC" "$REPO/docs/$(basename "$ROADMAP_SRC")"
+else
+  log "WARN: no infrastructure roadmap docx found to sync"
+fi
 
 # Caddy
 sync_file "$STACKS/caddy/Caddyfile"      "$REPO/gateway/caddy/Caddyfile"
