@@ -28,6 +28,9 @@ log "Syncing Gateway VPS configs..."
 # CLAUDE.md (master infra context)
 sync_file /root/hot/CLAUDE.md "$REPO/CLAUDE.md"
 
+# Infrastructure roadmap (master state & roadmap — DOCX)
+sync_file /root/hot/docs/HoT_Infrastructure_State_Roadmap_v3_3.docx "$REPO/docs/HoT_Infrastructure_State_Roadmap_v3_3.docx"
+
 # Caddy
 sync_file "$STACKS/caddy/Caddyfile"      "$REPO/gateway/caddy/Caddyfile"
 sync_file "$STACKS/caddy/compose.yml"    "$REPO/gateway/caddy/compose.yml"
