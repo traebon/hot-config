@@ -396,10 +396,11 @@ Notification policy: group by severity/alertname/instance — group_wait 30s, re
 3. Apply UFW rule: allow from 10.10.0.0/16
 4. If new VLAN: update WireGuard AllowedIPs on Gateway VPS AND bare metal; wg-quick down/up
 5. Add new VM alias to /root/.ssh/config on this Gateway
-6. Install node-exporter and Promtail, configure to ship to 10.10.50.104:3100
-7. Add to Prometheus scrape targets on sn-monitor
-8. Add to Uptime Kuma monitors
-9. Add Watchtower v1.5.3 on the new VM
+6. Install qemu-guest-agent (`apt-get install -y qemu-guest-agent && systemctl start qemu-guest-agent`); confirm `agent: enabled=1` in the VM's Proxmox config and verify from host with `qm agent <id> ping` — without it `qm reboot`/`qm shutdown` time out and need a forced power-cycle
+7. Install node-exporter and Promtail, configure to ship to 10.10.50.104:3100
+8. Add to Prometheus scrape targets on sn-monitor
+9. Add to Uptime Kuma monitors
+10. Add Watchtower v1.5.3 on the new VM
 
 ---
 
