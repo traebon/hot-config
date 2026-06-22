@@ -385,6 +385,7 @@ Notification policy: group by severity/alertname/instance — group_wait 30s, re
 | Secrets management                | Docker secrets for all credentials — never plain environment variables                                                                 |
 | Namevault pg.Pool idle drop       | Add `keepAlive: true`, `idleTimeoutMillis: 60000`, `connectionTimeoutMillis: 5000` — Docker DNS returns EAI_AGAIN when pool connections go idle overnight and session pruner fires |
 | Keycloak post-logout redirect     | `post.logout.redirect.uris` on the client must match exactly what the app sends — old dev Tailscale address causes silent redirect failure after logout |
+| qemu-guest-agent on all VMs       | Every VM (100–106) runs `qemu-guest-agent` with `agent: enabled=1` in its Proxmox config. Without the in-guest package, `qm reboot`/`qm shutdown` fall back to ACPI and time out (guest-ping fails), forcing a hard `qm stop`/`qm reset` — this bit 101 and 105. The service is `static` (virtio-serial activated): it auto-starts on boot and cannot be `systemctl enable`d. Reinstall on any new clone: `apt-get install -y qemu-guest-agent && systemctl start qemu-guest-agent`; verify from host with `qm agent <id> ping`. |
 
 ---
 
