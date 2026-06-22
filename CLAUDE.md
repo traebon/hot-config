@@ -141,8 +141,8 @@ SSH config: /root/.ssh/config
 - **RAM:** 44 GB allocated vs 32 GB physical — KVM balloon keeps actual usage low. Do not add RAM-heavy VMs without checking pressure.
 - **vCPU:** 14 vCPUs across 8 physical threads — flag further additions
 - **Disk:** ~6.05 TB free on ZFS (1.09 TB used) — snapshots + backups consume this too
-- **sn-personal disk:** Only 98 GB of the 250 GB disk is in the LVM — LV can be extended if needed
-- **sn-personal (500 GB)** and **sn-business (300 GB)** are the only VMs suitable for disk-heavy services
+- **sn-personal disk:** 250 GB total. Root LV is 100 GB (98 GB filesystem) of a ~248 GB LVM VG — ~148 GB free in the VG, extend the LV with `lvextend` + `resize2fs` as needed before growing the Proxmox disk
+- **sn-personal (250 GB)** and **sn-business (300 GB)** are the largest VMs and the only ones suitable for disk-heavy services
 
 ---
 
