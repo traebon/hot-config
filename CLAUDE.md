@@ -1,6 +1,6 @@
 # CLAUDE.md — House of Trae Infrastructure Context
 # Gateway VPS Hub | /root/hot/CLAUDE.md
-# Version: 1.9 | June 2026
+# Version: 2.0 | June 2026
 # Always address the operator as Mr. Byrne.
 
 ---
@@ -30,6 +30,11 @@ All reference documents are in /root/hot/docs/. Use docx2txt or pdftotext (both 
 | PrivateNexus_Product_Specification.pdf                  | PDF   | PrivateNexus product spec — mission, MVP v1.0, v2–v4 scope                     |
 | PrivateNexus_Build_Implementation_Guide_v1.0.docx       | DOCX  | PrivateNexus build guide v1.0 — phases, repo layout, security baseline         |
 | PrivateNexus_Commercial_Product_Strategy.docx           | DOCX  | PrivateNexus commercial strategy — positioning, revenue ladder, GTM             |
+| PrivateNexus_Phase0_Freeze.md                           | MD    | Phase 0 locked decisions — Node.js Express backend, stack freeze, v1.0 scope   |
+| PrivateNexus_Release_Roadmap_v1.0.md                    | MD    | Detailed release roadmap v0.8 → v5.0 with sprints, acceptance gates, risks     |
+| PrivateNexus_PRD_v1.0.md                                | MD    | Product Requirements Document — current build state, all functional reqs, gaps |
+| PrivateNexus_Multitenancy_RBAC_Design.md                | MD    | Multi-tenancy and RBAC design — schema, isolation rules, migration path         |
+| PrivateNexus_Commercial_Packaging_Licensing.md          | MD    | Commercial packaging — edition model, pricing logic, open-core boundary, GTM   |
 | dnssec-ds-records.md                                    | MD    | DNSSEC DS record reference for managed zones                                    |
 
 ---
@@ -250,9 +255,11 @@ node-exporter UFW gotcha: Prometheus runs in bridge network 172.18.0.0/16 — UF
 ### pn-test (ssh pn-test — 10.10.60.105)
 Domain: privatenexus.net — active dev VM
 
-| Service      | Path               | Notes                                       |
-|--------------|--------------------|---------------------------------------------|
-| PrivateNexus | /opt/privatenexus/ | Active dev — React + Go/NestJS + PostgreSQL |
+| Service      | Path               | Notes                                                                          |
+|--------------|--------------------|--------------------------------------------------------------------------------|
+| PrivateNexus | /opt/privatenexus/ | Active dev — React (frontend) + **Node.js Express v4 ESM** (API, v1.9.0) + PostgreSQL 16 + Redis |
+
+**Phase 0 freeze (locked 22 June 2026):** Backend = Node.js Express v4 (ESM). Frontend = React. DB = PostgreSQL 16. Cache/queue = Redis. Identity = Keycloak (privatenexus realm). Gateway = Caddy. Do not suggest Go or NestJS as a rewrite — the codebase is at v1.9 and this decision is closed. See `/root/hot/docs/PrivateNexus_Phase0_Freeze.md` for full rationale and checklist.
 
 ### sn-security (ssh sn-security — 10.10.70.106)
 VM provisioned (4 vCPU / 8 GB / 250 GB, VLAN 70). Planned: Wazuh SIEM (not yet configured).
@@ -484,8 +491,9 @@ Auth files: `/opt/stacks/tor/data/erp/authorized_clients/` (chown 100:101, chmod
 | Wasabi backup bucket        | hot-proxmox-backups-secondary                        |
 | PrivateNexus dev VM         | pn-test — VLAN 60, 10.10.60.105                      |
 | This project directory      | /root/hot/                                           |
-| Full roadmap                | /root/hot/docs/roadmap.md                            |
+| Full roadmap                | /root/hot/docs/HoT_Infrastructure_State_Roadmap_v3_2.docx (use docx2txt) |
+| PN Phase 0 freeze           | /root/hot/docs/PrivateNexus_Phase0_Freeze.md         |
 
 ---
-# End of CLAUDE.md — v1.8
+# End of CLAUDE.md — v2.0
 # "Sometimes you gotta run before you can walk." — Tony Stark
