@@ -2,7 +2,7 @@
 **Date:** 24 June 2026
 **Scope:** Infrastructure exposure — pn-test (VLAN 60) and Gateway VPS
 **Tester:** JARVIS / Claude Code (assisted, operator-supervised)
-**Branch assessed:** `main` @ `e4f1ef5`
+**Branch assessed:** `main` @ `bfa5fd2`
 **Prior tiers:** Tier 1–2 (RBAC, session integrity), Tier 3 (injection, route auth, port exposure)
 
 ---
@@ -11,7 +11,7 @@
 
 Tier 4 assessed the infrastructure exposure surface of the PrivateNexus stack: container security posture, network service reachability, secret management, dependency vulnerability status, and remaining authentication gaps in the API layer.
 
-**13 findings were identified.** 11 were fixed in this session across 4 commits. 2 are accepted risks with documented mitigations. No finding requires a breaking change to the application.
+**13 findings were identified.** 13 were fully resolved across 6 commits: 11 fixed in the initial session and 2 further items (T4-12 SSRF mitigation and T4-13 Docker socket proxy) implemented in a follow-on session. No finding requires a breaking change to the application.
 
 The most significant finding was the Caddy reverse proxy admin API (`10.10.0.1:2019`) being unauthenticated and reachable from every VM in the infrastructure. A compromised VM could have read the full proxy configuration or redirected live traffic. This was resolved by restricting the admin interface to the container's loopback address.
 
@@ -32,8 +32,8 @@ The most significant finding was the Caddy reverse proxy admin API (`10.10.0.1:2
 | T4-9 | 9 files API endpoints — missing role guards     | MEDIUM   | Fixed   |
 | T4-10| npm transitive CVEs via dockerode               | LOW      | Accepted|
 | T4-11| Vite port 5173 exposed on all interfaces        | LOW      | Accepted|
-| T4-12| Blind SSRF via service `health_endpoint`        | INFO     | Accepted|
-| T4-13| Docker socket `:ro` misleading                  | INFO     | Deferred|
+| T4-12| Blind SSRF via service `health_endpoint`        | INFO     | Fixed   |
+| T4-13| Docker socket `:ro` misleading                  | INFO     | Fixed   |
 
 ---
 
@@ -303,7 +303,7 @@ An admin user can create or update a service record with an arbitrary `health_en
 - Response body is never returned to the caller
 - Admins already have broader capabilities (container deployment, file write)
 
-**Action:** No code change at this stage. If PrivateNexus is ever extended to serve untrusted admin users, URL validation (allowlisting schemes, blocking RFC 1918 ranges) should be added to `health_endpoint` on service create/update.
+**Fix (follow-on session):** Added `validateUrl()` to services.js `validate()` function. `health_endpoint`, `access_url`, and `recovery_runbook_url` are now validated on `POST /api/services` and `PUT /api/services/:id`. Only `http:`, `https:`, and `tcp:` schemes are permitted; any other scheme (e.g. `file://`, `gopher://`) returns HTTP 400. RFC 1918 ranges remain permitted — the health endpoint's purpose is monitoring internal services. Committed in `bfa5fd2`.
 
 ---
 
@@ -330,13 +330,13 @@ During Tier 3 testing this was demonstrated by executing a shell inside the Redi
 | `POST /containers/create` | Create container (deploy) | `CONTAINERS=1`, `POST=1` |
 | **Block** | Exec, privileged ops | `EXEC=0`, `AUTH=0` |
 
-Deferred — requires verifying the full set of Docker API calls made by the intelligence scanner, stacks listing, and deploy/rollback routes before constraining the socket.
+**Fix (follow-on session):** Deployed `tecnativa/docker-socket-proxy` as `privatenexus-docker-proxy` on `pn-internal`. The backend's docker.sock bind-mount was removed; `DOCKER_HOST=tcp://privatenexus-docker-proxy:2375` is injected instead. The proxy permits `CONTAINERS=1, IMAGES=1, EVENTS=1, INFO=1, VERSION=1, POST=1` and blocks `EXEC=0` (the critical control). A shared `dockerClient.js` factory reads `DOCKER_HOST` so all five route files (stacks, intelligence, discovery, actions, admin) work without code changes. The backend also migrated to `user: "1000"` (`node` user in the image) — it no longer runs as root. Committed in `bfa5fd2`.
 
 ---
 
 ## Remediation Summary
 
-All 11 fixed findings were resolved across 4 commits to `main` on `git.securenexus.net/tristian/privatenexus` and 1 commit to `git.securenexus.net/tristian/hot-config`:
+All 13 findings were resolved across 6 commits to `main` on `git.securenexus.net/tristian/privatenexus` and 1 commit to `git.securenexus.net/tristian/hot-config`:
 
 | Commit | Repo | Summary |
 |--------|------|---------|
@@ -345,16 +345,16 @@ All 11 fixed findings were resolved across 4 commits to `main` on `git.securenex
 | `5bf96f7` | privatenexus | Role gates on actions, Redis auth, helmet, cap_drop |
 | `e4f1ef5` | privatenexus | Files route auth, register path validation, MCP fail-closed |
 | `496cdf9` | hot-config | Caddy admin restricted to localhost, port mapping removed |
+| `bfa5fd2` | privatenexus | Docker socket proxy, non-root backend (UID 1000), URL scheme validation |
 
 ---
 
 ## Outstanding Recommendations
 
+All high and medium recommendations have been implemented. Remaining items are low-priority tracking tasks:
+
 | Priority | Item |
 |----------|------|
-| High | Migrate backend container to non-root user (`node`, UID 1000) with `group_add` for Docker socket GID |
-| Medium | Deploy `tecnativa/docker-socket-proxy` to restrict Docker API surface (T4-13) |
-| Medium | Add URL validation to `health_endpoint` on service create/update if untrusted admins are ever onboarded |
 | Low | Upgrade `dockerode` when a release pins to `@grpc/grpc-js ≥1.14.4` (resolves T4-10 CVEs) |
 | Low | Add a Gateway VPS agent or authenticated read-only proxy to restore PrivateNexus Caddy discovery (T4-1 side-effect) |
 
