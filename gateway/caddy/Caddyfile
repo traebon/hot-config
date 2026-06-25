@@ -62,6 +62,7 @@ www.privatenexus.net {
 privatenexus.net {
     import crowdsec
     reverse_proxy 10.10.60.105:5173
+    header Strict-Transport-Security "max-age=31536000; includeSubDomains"
 }
 tresemme.space {
     import crowdsec
