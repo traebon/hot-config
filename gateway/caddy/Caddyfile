@@ -148,30 +148,15 @@ prometheus.securenexus.net {
 # tresemme.space
 actual.tresemme.space {
     import crowdsec
-    reverse_proxy https://10.10.40.103:443 {
-        transport http {
-            tls_insecure_skip_verify
-        }
-        header_up Host actual.tresemme.space
-    }
+    reverse_proxy 10.10.40.103:8083
 }
 firefly-iii.tresemme.space {
     import crowdsec
-    reverse_proxy https://10.10.40.103:443 {
-        transport http {
-            tls_insecure_skip_verify
-        }
-        header_up Host firefly-iii.tresemme.space
-    }
+    reverse_proxy 10.10.40.103:8082
 }
 vaultwarden.tresemme.space {
     import crowdsec
-    reverse_proxy https://10.10.40.103:443 {
-        transport http {
-            tls_insecure_skip_verify
-        }
-        header_up Host vaultwarden.tresemme.space
-    }
+    reverse_proxy 10.10.40.103:8081
 }
 nextcloud.tresemme.space {
     import crowdsec
@@ -188,4 +173,8 @@ dns-admin.house-of-trae.com {
 namevault.co.uk {
     import crowdsec
     reverse_proxy 10.10.10.100:8010
+}
+ntfy.house-of-trae.com {
+    import crowdsec
+    reverse_proxy 10.10.10.100:8080
 }
