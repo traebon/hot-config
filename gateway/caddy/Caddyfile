@@ -103,7 +103,8 @@ git.securenexus.net, git.house-of-trae.com {
     }
 }
 wazuh.house-of-trae.com {
-    reverse_proxy 10.10.70.106:443 {
+    import crowdsec
+    reverse_proxy https://10.10.70.106:443 {
         transport http {
             tls_insecure_skip_verify
         }
@@ -166,6 +167,11 @@ nextcloud.tresemme.space {
 photos.tresemme.space {
     import crowdsec
     reverse_proxy 10.10.40.103:2283
+}
+pn.tresemme.space {
+    import crowdsec
+    reverse_proxy 10.10.40.103:5173
+    header Strict-Transport-Security "max-age=31536000; includeSubDomains"
 }
 dns-admin.house-of-trae.com {
     reverse_proxy 10.10.10.100:9191
