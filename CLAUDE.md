@@ -195,7 +195,7 @@ All VMs run as root.
 | Roundcube         | /opt/stacks/roundcube/  | webmail.house-of-trae.com                             |
 | CrowdSec          | /opt/stacks/crowdsec/   | LAPI mode + Caddy forward auth bouncer                |
 | Tor               | /opt/stacks/tor/        | v3 hidden service for erp.dickson-supplies.com        |
-| Tang              | systemd (tangd.socket)  | NBDE unlock for sn-infra — 10.10.0.1:7500 (WireGuard only, NOT Docker) |
+| Tang              | systemd (tangd.socket)  | NBDE unlock for ALL 7 VMs — 10.10.0.1:7500 (WireGuard only, NOT Docker) |
 
 ### sn-infra (ssh sn-infra — 10.10.10.100)
 | Service        | Path                    | URL                           | Port |
@@ -263,7 +263,7 @@ Domain: privatenexus.net — active dev VM
 **Phase 0 freeze (locked 22 June 2026):** Backend = Node.js Express v4 (ESM). Frontend = React. DB = PostgreSQL 16. Cache/queue = Redis. Identity = Keycloak (privatenexus realm). Gateway = Caddy. Do not suggest Go or NestJS as a rewrite — the codebase is at v1.9 and this decision is closed. See `/root/hot/docs/PrivateNexus_Phase0_Freeze.md` for full rationale and checklist.
 
 ### sn-security (ssh sn-security — 10.10.70.106)
-VM: 4 vCPU / 8 GB RAM / 250 GB / VLAN 70. LUKS2 encrypted root (Clevis Tang → sn-infra). Dashboard: wazuh.house-of-trae.com
+VM: 4 vCPU / 8 GB RAM / 250 GB / VLAN 70. LUKS2 encrypted root (Clevis Tang → Gateway VPS preferred, sn-infra fallback). Dashboard: wazuh.house-of-trae.com
 
 | Service        | Path                        | Notes                                                     |
 |----------------|-----------------------------|------------------------------------------------------------|
@@ -400,7 +400,7 @@ Notification policy: group by severity/alertname/instance — group_wait 30s, re
 | Namevault pg.Pool idle drop       | Add `keepAlive: true`, `idleTimeoutMillis: 60000`, `connectionTimeoutMillis: 5000` — Docker DNS returns EAI_AGAIN when pool connections go idle overnight and session pruner fires |
 | Keycloak post-logout redirect     | `post.logout.redirect.uris` on the client must match exactly what the app sends — old dev Tailscale address causes silent redirect failure after logout |
 | qemu-guest-agent on all VMs       | Every VM (100–106) runs `qemu-guest-agent` with `agent: enabled=1` in its Proxmox config. Without the in-guest package, `qm reboot`/`qm shutdown` fall back to ACPI and time out (guest-ping fails), forcing a hard `qm stop`/`qm reset` — this bit 101 and 105. The service is `static` (virtio-serial activated): it auto-starts on boot and cannot be `systemctl enable`d. Reinstall on any new clone: `apt-get install -y qemu-guest-agent && systemctl start qemu-guest-agent`; verify from host with `qm agent <id> ping`. |
-| NBDE unlock chain                 | Full automated LUKS unlock on bare metal reboot: (1) Proxmox boots → WireGuard up → **sn-infra** initramfs contacts Tang on **Gateway VPS** (`http://10.10.0.1:7500`) → sn-infra LUKS unlocks. (2) sn-infra Tang (`http://10.10.10.100:80`) becomes available → **sn-security** initramfs contacts it → sn-security LUKS unlocks. Boot order enforced: sn-infra order=1,up=300; sn-security order=2,up=120. Tang on Gateway VPS is a systemd socket service (NOT Docker) bound to WireGuard interface only. To add future VMs: `clevis luks bind -d /dev/sdX tang '{"url":"http://10.10.10.100"}' -y -k -`. |
+| NBDE unlock chain                 | ALL 7 VMs have LUKS2-encrypted root on `/dev/sda3`. All use dual-binding: **slot 3 (preferred) → Gateway VPS Tang** (`http://10.10.0.1:7500`), **slot 2 (fallback) → sn-infra Tang** (`http://10.10.10.100:80`). Gateway Tang is a systemd socket service (NOT Docker) bound to WireGuard interface only. On bare metal reboot: Proxmox boots → WireGuard up → all VMs start at order=1 in parallel → each initramfs contacts Gateway Tang (always-on) → LUKS unlocks. sn-infra Tang is only needed if Gateway is unreachable. To bind a new VM: (1) get key: `clevis luks pass -d /dev/sda3 -s 2`, (2) bind: `echo KEY \| clevis luks bind -d /dev/sda3 tang '{"url":"http://10.10.0.1:7500"}' -y -k -` (needs PTY — use Python pty script), (3) set preferred: `cryptsetup config --priority prefer --key-slot 3 /dev/sda3`. |
 | sn-security LUKS offline access   | Offline disk access from Proxmox: `qemu-nbd --connect=/dev/nbd0 -f raw /dev/zvol/rpool/data/vm-106-disk-0` → `clevis luks unlock -d /dev/nbd0p3 -n vm106root` → `vgchange -ay ubuntu-vg` → `mount /dev/ubuntu-vg/ubuntu-lv /mnt/vm106`. Boot partition is separate: also mount `mount /dev/nbd0p2 /mnt/vm106/boot`. |
 | Wazuh needs 8 GB RAM             | OpenSearch JVM heap is 1 GB but total process RSS during initialization peaks at 3-4 GB. sn-security must stay at 8 GB; reducing below 6 GB causes OOM and indexer crash-loops during startup, keeping the dashboard in permanent 503. |
 | Proxmox NIC PCIe link loss        | Intel I350 NIC (`igb 0000:03:00.0 nic0`) has intermittent PCIe link loss causing complete outages (Jun 26, Jun 27). Fix: `pcie_aspm=off` added to Proxmox GRUB (takes effect on next host reboot). Hostkey ticket pending: reseat NIC + check chassis temps. NIC watchdog cron at `/etc/cron.d/nic-watchdog` attempts `ip link down/up` + `wg-quick up` on link loss. |
@@ -463,7 +463,6 @@ Auth files: `/opt/stacks/tor/data/erp/authorized_clients/` (chown 100:101, chmod
 
 - Wazuh SIEM on sn-security (VLAN 70)
 - CrowdSec custom scenarios
-- Tang/Clevis NBDE (automated LUKS unlock)
 - Keycloak passkeys (WebAuthn)
 - PrivateNexus PN-1 → PN-4 + Cosmos retirement
 - HoT Sync (Flutter) — Immich + Nextcloud + Notesnook + Vaultwarden
