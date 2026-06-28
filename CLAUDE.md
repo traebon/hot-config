@@ -139,7 +139,7 @@ SSH config: /root/.ssh/config
 | 103 | sn-personal | 2     | 8 GB | 250 GB | VLAN 40 / 10.10.40.103 | Nextcloud, Vaultwarden, Immich, Notesnook |
 | 104 | sn-monitor  | 1     | 4 GB | 250 GB | VLAN 50 / 10.10.50.104 | Prometheus, Grafana, Loki, Uptime Kuma    |
 | 105 | pn-test     | 2     | 8 GB | 250 GB | VLAN 60 / 10.10.60.105 | PrivateNexus dev/test                     |
-| 106 | sn-security | 4     | 8 GB | 250 GB | VLAN 70 / 10.10.70.106 | Wazuh SIEM (provisioned, not configured)  |
+| 106 | sn-security | 4     | 8 GB | 250 GB | VLAN 70 / 10.10.70.106 | Wazuh SIEM 4.14.5 (single-node)          |
 |     | **TOTAL**   | **14**|**44 GB**|**1.75 TB**|                   | Over-provisioned — actual RSS ~7 GB across all VMs |
 
 ### ⚠️ Hard Limits — Do Not Exceed Without Approval
@@ -262,11 +262,17 @@ Domain: privatenexus.net — active dev VM
 **Phase 0 freeze (locked 22 June 2026):** Backend = Node.js Express v4 (ESM). Frontend = React. DB = PostgreSQL 16. Cache/queue = Redis. Identity = Keycloak (privatenexus realm). Gateway = Caddy. Do not suggest Go or NestJS as a rewrite — the codebase is at v1.9 and this decision is closed. See `/root/hot/docs/PrivateNexus_Phase0_Freeze.md` for full rationale and checklist.
 
 ### sn-security (ssh sn-security — 10.10.70.106)
-VM provisioned (4 vCPU / 8 GB / 250 GB, VLAN 70). Planned: Wazuh SIEM (not yet configured).
+VM: 4 vCPU / 8 GB RAM / 250 GB / VLAN 70. LUKS2 encrypted root (Clevis Tang → sn-infra). Dashboard: wazuh.house-of-trae.com
 
-| Service        | Path                        | Notes                                           |
-|----------------|-----------------------------|-------------------------------------------------|
-| Forgejo Runner | /opt/stacks/forgejo-runner/ | CI/CD runner for git.securenexus.net            |
+| Service        | Path                        | Notes                                                     |
+|----------------|-----------------------------|------------------------------------------------------------|
+| Wazuh SIEM     | /opt/stacks/wazuh/          | wazuh.house-of-trae.com — manager + indexer + dashboard   |
+| Forgejo Runner | /opt/stacks/forgejo-runner/ | CI/CD runner for git.securenexus.net                      |
+
+Wazuh creds (save to Vaultwarden):
+- Dashboard/admin login: `admin` / `bRSsn8P2v1YIbemCHejpEb6l`
+- Wazuh API (wazuh-wui): `mHB2UhhMw0wTc3q8@22vJeOvr`
+- OpenSearch kibanaserver: `h2huT1B1TrUXQg8Wri5FqhdP`
 
 ---
 
@@ -393,6 +399,11 @@ Notification policy: group by severity/alertname/instance — group_wait 30s, re
 | Namevault pg.Pool idle drop       | Add `keepAlive: true`, `idleTimeoutMillis: 60000`, `connectionTimeoutMillis: 5000` — Docker DNS returns EAI_AGAIN when pool connections go idle overnight and session pruner fires |
 | Keycloak post-logout redirect     | `post.logout.redirect.uris` on the client must match exactly what the app sends — old dev Tailscale address causes silent redirect failure after logout |
 | qemu-guest-agent on all VMs       | Every VM (100–106) runs `qemu-guest-agent` with `agent: enabled=1` in its Proxmox config. Without the in-guest package, `qm reboot`/`qm shutdown` fall back to ACPI and time out (guest-ping fails), forcing a hard `qm stop`/`qm reset` — this bit 101 and 105. The service is `static` (virtio-serial activated): it auto-starts on boot and cannot be `systemctl enable`d. Reinstall on any new clone: `apt-get install -y qemu-guest-agent && systemctl start qemu-guest-agent`; verify from host with `qm agent <id> ping`. |
+| sn-security LUKS + Tang           | VM 106 has LUKS2 encryption (AES-XTS-512) on its root partition, auto-unlocked via Clevis Tang (`http://10.10.10.100` — sn-infra). sn-infra **must** be running before sn-security boots or LUKS unlock fails. Boot order: sn-infra order=1,up=300; sn-security order=2,up=120. Offline disk access from Proxmox: `qemu-nbd --connect=/dev/nbd0 /dev/zvol/rpool/data/vm-106-disk-0` → `clevis luks unlock -d /dev/nbd0p3 -n vm106root` → `vgchange -ay ubuntu-vg` → `mount /dev/ubuntu-vg/ubuntu-lv /mnt/vm106`. |
+| Wazuh needs 8 GB RAM             | OpenSearch JVM heap is 1 GB but total process RSS during initialization peaks at 3-4 GB. sn-security must stay at 8 GB; reducing below 6 GB causes OOM and indexer crash-loops during startup, keeping the dashboard in permanent 503. |
+| Proxmox NIC PCIe link loss        | Intel I350 NIC (`igb 0000:03:00.0 nic0`) has intermittent PCIe link loss causing complete outages (Jun 26, Jun 27). Fix: `pcie_aspm=off` added to Proxmox GRUB (takes effect on next host reboot). Hostkey ticket pending: reseat NIC + check chassis temps. NIC watchdog cron at `/etc/cron.d/nic-watchdog` attempts `ip link down/up` + `wg-quick up` on link loss. |
+| Wazuh offline disk edit           | Wazuh compose and config can be edited offline: stop VM → mount disk via NBD → Clevis unlock → LVM activate → mount → edit → unmount all → `qemu-nbd --disconnect` → start VM. |
+| Wazuh dashboard wazuh.yml default password | `/opt/stacks/wazuh/config/wazuh_dashboard/wazuh.yml` ships with placeholder password `MyS3cr37P450r.*-` for the `wazuh-wui` API user. Must be replaced with the real API password after every fresh deploy, then `docker restart wazuh-wazuh.dashboard-1`. Symptom: dashboard shows "could not accept any API entry". |
 
 ---
 
