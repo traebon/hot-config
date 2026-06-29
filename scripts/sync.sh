@@ -58,7 +58,8 @@ sync_file "$STACKS/unbound/compose.yml"  "$REPO/gateway/unbound/compose.yml"
 sync_file "$STACKS/unbound/unbound.conf" "$REPO/gateway/unbound/unbound.conf"
 
 # Keycloak
-sync_file "$STACKS/keycloak/compose.yaml" "$REPO/gateway/keycloak/compose.yaml"
+sync_file "$STACKS/keycloak/compose.yaml"                        "$REPO/gateway/keycloak/compose.yaml"
+sync_file "/opt/hot-config/scripts/backup-keycloak.sh"           "$REPO/scripts/backup-keycloak.sh"
 
 # Mailserver
 sync_file "$STACKS/mailserver/compose.yaml" "$REPO/gateway/mailserver/compose.yaml"
