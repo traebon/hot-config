@@ -66,12 +66,7 @@ privatenexus.net {
 }
 tresemme.space {
     import crowdsec
-    reverse_proxy https://10.10.40.103:443 {
-        transport http {
-            tls_insecure_skip_verify
-        }
-        header_up Host tresemme.space
-    }
+    redir https://pn.tresemme.space{uri} permanent
 }
 # Transition Domain
 cloud-architects.online, www.cloud-architects.online {
@@ -147,27 +142,6 @@ prometheus.securenexus.net {
     reverse_proxy 10.10.50.104:9090
 }
 # tresemme.space
-actual.tresemme.space {
-    import crowdsec
-    reverse_proxy 10.10.40.103:8083
-}
-firefly-iii.tresemme.space {
-    import crowdsec
-    reverse_proxy 10.10.40.103:8082
-}
-vaultwarden.tresemme.space {
-    import crowdsec
-    reverse_proxy 10.10.40.103:8081
-}
-nextcloud.tresemme.space {
-    import crowdsec
-    reverse_proxy 10.10.40.103:8080
-    header Strict-Transport-Security "max-age=15552000; includeSubDomains; preload"
-}
-photos.tresemme.space {
-    import crowdsec
-    reverse_proxy 10.10.40.103:2283
-}
 pn.tresemme.space {
     import crowdsec
     reverse_proxy 10.10.40.103:5173
