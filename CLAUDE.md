@@ -49,7 +49,7 @@ All reference documents are in /root/hot/docs/. Use docx2txt or pdftotext (both 
 | Stratus Digital     | stratus-digital.com      | Web design & dev (formerly Cloud Architects)      |
 | Discreet Elite      | discreet-elite.uk        | Private console application                       |
 | Emerald Markets     | emerald-markets.net      | Second-hand ecommerce & in-person POS             |
-| PrivateNexus        | privatenexus.net         | PrivateNexus dev (pn-test) — NOT sn-personal      |
+| PrivateNexus        | privatenexus.net         | PrivateNexus test env (sn-personal) — dev/build on pn-test |
 
 ---
 
@@ -136,11 +136,11 @@ SSH config: /root/.ssh/config
 | 100 | sn-infra    | 1     | 4 GB | 250 GB | VLAN 10 / 10.10.10.100 | Forgejo, PowerDNS-Admin, Namevault, Ntfy  |
 | 101 | sn-business | 2     | 8 GB | 300 GB | VLAN 20 / 10.10.20.101 | ERPNext v16, Dickson Supplies POS         |
 | 102 | sn-web      | 2     | 4 GB | 250 GB | VLAN 30 / 10.10.30.102 | Client sites (6 sites)                    |
-| 103 | sn-personal | 2     | 8 GB | 250 GB | VLAN 40 / 10.10.40.103 | Nextcloud, Vaultwarden, Immich, Notesnook |
+| 103 | sn-personal | 2     | 8 GB | 250 GB | VLAN 40 / 10.10.40.103 | PrivateNexus staging (registry images)    |
 | 104 | sn-monitor  | 1     | 4 GB | 250 GB | VLAN 50 / 10.10.50.104 | Prometheus, Grafana, Loki, Uptime Kuma    |
-| 105 | pn-test     | 2     | 8 GB | 250 GB | VLAN 60 / 10.10.60.105 | PrivateNexus dev/test                     |
+| 105 | pn-test     | 1     | 4 GB | 250 GB | VLAN 60 / 10.10.60.105 | PrivateNexus dev/test                     |
 | 106 | sn-security | 4     | 8 GB | 250 GB | VLAN 70 / 10.10.70.106 | Wazuh SIEM 4.14.5 (single-node)          |
-|     | **TOTAL**   | **14**|**44 GB**|**1.75 TB**|                   | Over-provisioned — actual RSS ~7 GB across all VMs |
+|     | **TOTAL**   | **13**|**40 GB**|**1.75 TB**|                   | Over-provisioned — actual RSS ~7 GB across all VMs |
 
 ### ⚠️ Hard Limits — Do Not Exceed Without Approval
 - **RAM:** 44 GB allocated vs 32 GB physical — KVM balloon keeps actual usage low. Do not add RAM-heavy VMs without checking pressure.
@@ -203,7 +203,7 @@ All VMs run as root.
 | Forgejo        | /opt/stacks/forgejo/    | git.securenexus.net           | 3000 |
 | PowerDNS-Admin | /opt/stacks/pdns-admin/ | dns-admin.house-of-trae.com   | 9191 |
 | Namevault      | /opt/stacks/namegen/    | namevault.co.uk               | 8010 |
-| Ntfy (planned) | /opt/stacks/ntfy/       | ntfy.house-of-trae.com        | 8080 |
+| Ntfy           | /opt/stacks/ntfy/       | ntfy.house-of-trae.com        | 8080 |
 
 ### sn-business (ssh sn-business — 10.10.20.101)
 | Service     | Path                 | URL                      | Port |
@@ -225,21 +225,15 @@ Stack: custom image (`/opt/stacks/dickson/docker/Dockerfile`) — `frappe/erpnex
 All 6 are nginx:alpine + static "Coming Soon" pages, reverse-proxied via Caddy (root + www).
 
 ### sn-personal (ssh sn-personal — 10.10.40.103)
-Domain: tresemme.space — NOT privatenexus.net (privatenexus.net belongs to pn-test)
+Domain: privatenexus.net — primary PrivateNexus test environment (registry images from git.securenexus.net).
+This is the environment used for all end-to-end testing. pn-test is dev/build (source builds + personal services).
 
-⚠️ NON-STANDARD: Several services are NOT in /opt/stacks/ and/or managed by Cosmos (banned).
-Cosmos is running at /opt/stacks/cosmos/ — managing Vaultwarden, Firefly-III, Actual via Docker named volumes.
-Immich and Notesnook have data in /opt/immich/ and /opt/notesnook/ but NO running containers.
-Migration to proper /opt/stacks/ compose files is required.
+Cosmos was fully removed (Jun 2026). All former personal services (Vaultwarden, Immich, Firefly III,
+Actual Budget, Nextcloud, Notesnook) are GONE from this VM — data was never populated so no loss.
 
-| Service       | Path (actual)             | URL                          | Port | Status                        |
-|---------------|---------------------------|------------------------------|------|-------------------------------|
-| Nextcloud     | /opt/stacks/nextcloud/    | nextcloud.tresemme.space     | 8080 | Active                        |
-| Vaultwarden   | Cosmos-managed (volume)   | vaultwarden.tresemme.space   | —    | Active (via Cosmos — migrate) |
-| Immich        | Cosmos-managed (volume)   | photos.tresemme.space        | 2283 | Active (via Cosmos — migrate) |
-| Notesnook     | /opt/notesnook/ (data)    | notes.tresemme.space         | —    | DOWN — env never configured   |
-| Firefly III   | Cosmos-managed (volume)   | firefly.tresemme.space       | —    | Dormant (via Cosmos)          |
-| Actual Budget | Cosmos-managed (volume)   | actual.tresemme.space        | —    | Dormant (via Cosmos)          |
+| Service                  | Path                       | URL                 | Port | Status |
+|--------------------------|----------------------------|---------------------|------|--------|
+| PrivateNexus (test env)  | /opt/privatenexus/compose/ | privatenexus.net    | 5173 | Active |
 
 ### sn-monitor (ssh sn-monitor — 10.10.50.104)
 | Service     | Path                    | URL                       | Port |
@@ -254,7 +248,8 @@ Grafana admin password: reset via `grafana cli admin reset-admin-password` — G
 node-exporter UFW gotcha: Prometheus runs in bridge network 172.18.0.0/16 — UFW must allow that subnet to port 9100.
 
 ### pn-test (ssh pn-test — 10.10.60.105)
-Domain: privatenexus.net — active dev VM
+Domain: tresemme.space — personal services VM. Also hosts PrivateNexus dev/build (local source builds at /opt/privatenexus/).
+Note: privatenexus.net routes to sn-personal (the primary PN test environment, registry images). pn-test = dev + personal services.
 
 | Service      | Path               | Notes                                                                          |
 |--------------|--------------------|--------------------------------------------------------------------------------|
@@ -312,7 +307,8 @@ Zones managed (confirmed live):
   cloud-architects.online (legacy)
 
 tresemme.space records — all → 151.241.217.91:
-  nextcloud, vaultwarden, photos, notes, firefly, firefly-iii, actual, apex
+  apex (placeholder), subdomains added as personal services deploy on pn-test
+  Removed: nextcloud, vaultwarden, photos, notes, firefly, firefly-iii, actual, pn
 
 ---
 
