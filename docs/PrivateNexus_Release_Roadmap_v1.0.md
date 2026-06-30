@@ -1,5 +1,5 @@
 # PrivateNexus — Detailed Release Roadmap
-**Version: 1.1**
+**Version: 1.2**
 **Date: 30 June 2026**
 **Owner: House of Trae / PrivateNexus Programme**
 **Classification: Internal — Strategic Planning**
@@ -673,6 +673,32 @@ confirmed PrivateNexus is stable enough to open to external users.
 - First Professional beta: 2–3 small businesses or MSPs at free or heavily discounted rate
 - Beta feedback triaged before v6.0 GA tag is cut
 
+**Security lockdown mode**
+
+Tiered automated response to confirmed intrusion events. Triggered by Wazuh active response
+or CrowdSec decision webhook, or manually from the PrivateNexus UI by an admin/superadmin.
+All tier actions are audit-logged with actor, trigger source, tier, timestamp, and duration.
+
+| Tier | Trigger examples | Actions |
+|---|---|---|
+| **Alert** | Any level 7+ Wazuh rule, any CrowdSec ban | Ntfy hot-critical push with full details. No service changes. |
+| **Soft** | Brute force confirmed, credential stuffing, active scan | Flush all Redis sessions (force re-auth), tighten Caddy rate limits, ban offending IP range via CrowdSec API, SMS escalation |
+| **Hard** | Confirmed intrusion, lateral movement detected | Stop Keycloak, PrivateNexus backend, and ERPNext containers. Public auth and ops surfaces go dark. SMS + Ntfy urgent. |
+| **Full** | Active data exfiltration, worst-case scenario | `qm stop` all VMs. LUKS seals all data at rest. Nothing decrypts without Tang (Gateway VPS). Manual restart required. |
+
+Implementation:
+- `POST /api/lockdown` endpoint (superadmin/breakglass only) — accepts tier, duration, trigger_source, reason
+- Wazuh active response script calls the PN lockdown API on level 12+ rules
+- CrowdSec HTTP notification triggers soft lockdown on range bans (subnet-scale attacks)
+- Lockdown state stored in Redis with TTL — auto-expires for soft tier, manual release for hard/full
+- UI indicator: red banner across PN dashboard when any lockdown is active, with tier label and elapsed time
+- Recovery: explicit `POST /api/lockdown/release` (admin+) with reason recorded in audit log
+
+Hard guardrails:
+- Full lockdown (`qm stop`) requires breakglass role — cannot be triggered by automated response alone
+- All lockdown actions are reversible except Full (which requires manual VM restart + Tang unlock)
+- Rate limit: lockdown API is limited to 3 calls per minute to prevent API-based denial of service
+
 **JARVIS MCP expansion**
 - Prometheus MCP: JARVIS queries metrics and alert states directly without SSH to sn-monitor
 - PostgreSQL MCP: JARVIS direct read access to PN and Keycloak DBs for incident context queries
@@ -699,6 +725,12 @@ confirmed PrivateNexus is stable enough to open to external users.
 - [ ] First Professional beta customer onboarded (even at £0 for beta period)
 - [ ] RBAC tested with two users in different roles (closes the commercial proof point)
 - [ ] No critical security issues open at release tag
+- [ ] Lockdown API endpoint live and tested for all four tiers (Alert, Soft, Hard, Full)
+- [ ] Wazuh active response calls lockdown API on level 12+ alert (end-to-end test in staging)
+- [ ] CrowdSec range ban triggers soft lockdown via webhook
+- [ ] Full lockdown (`qm stop` path) requires breakglass role — verified that lower roles are rejected
+- [ ] Lockdown state visible in PN dashboard with tier label and elapsed time
+- [ ] Lockdown and release events appear in audit log with full actor and trigger context
 
 ### Commercial Relevance
 
