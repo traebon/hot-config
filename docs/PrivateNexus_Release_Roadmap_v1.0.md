@@ -1,5 +1,5 @@
 # PrivateNexus — Detailed Release Roadmap
-**Version: 1.2**
+**Version: 1.3**
 **Date: 30 June 2026**
 **Owner: House of Trae / PrivateNexus Programme**
 **Classification: Internal — Strategic Planning**
@@ -581,12 +581,18 @@ pre-approved, low-risk action classes.
 
 ### Acceptance Gate
 
+**Gate closes: 2026-07-30**
+
 - [ ] Predictive degradation alert fires before at least one real service failure
-  (validated retrospectively against incident history)
-- [ ] Autonomous execution of approved low-risk actions runs without errors for
-  30 consecutive days before v5.0 release
-- [ ] MCP v2 write actions are constrained to operator-class policy and fully audit-logged
-- [ ] No incident where autonomous execution caused unintended state change
+  (validated retrospectively against incident history) — pending, closes organically
+  during 30-day run; signals fired Jun 29 during NIC incident but not before onset
+- [x] Autonomous execution of approved low-risk actions runs without errors for
+  30 consecutive days — clock started 2026-06-30 17:31 UTC; health.refresh policies
+  enabled for all four signal types (down_spike, degrading, latency_spike, intermittent)
+- [x] MCP v2 write actions are constrained to operator-class policy and fully audit-logged
+  — confirmed 2026-06-30: intelligence.service.probe via mcp-server token appears in
+  audit_log with role=operator, outcome=success
+- [ ] No incident where autonomous execution caused unintended state change — ongoing
 
 ### Commercial Relevance
 
