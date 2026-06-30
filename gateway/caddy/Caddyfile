@@ -61,12 +61,12 @@ www.privatenexus.net {
 }
 privatenexus.net {
     import crowdsec
-    reverse_proxy 10.10.60.105:5173
+    reverse_proxy 10.10.40.103:5173
     header Strict-Transport-Security "max-age=31536000; includeSubDomains"
 }
 tresemme.space {
     import crowdsec
-    redir https://pn.tresemme.space{uri} permanent
+    respond "House of Trae — Personal" 200
 }
 # Transition Domain
 cloud-architects.online, www.cloud-architects.online {
@@ -141,12 +141,8 @@ prometheus.securenexus.net {
     import crowdsec
     reverse_proxy 10.10.50.104:9090
 }
-# tresemme.space
-pn.tresemme.space {
-    import crowdsec
-    reverse_proxy 10.10.40.103:5173
-    header Strict-Transport-Security "max-age=31536000; includeSubDomains"
-}
+# tresemme.space — personal services on pn-test (10.10.60.105)
+# Add subdomains here as services are deployed (Notesnook, etc.)
 dns-admin.house-of-trae.com {
     reverse_proxy 10.10.10.100:9191
 }
