@@ -1,0 +1,196 @@
+x-server-discovery: &server-discovery
+  NOTESNOOK_SERVER_PORT: 5264
+  NOTESNOOK_SERVER_HOST: notesnook-server
+  IDENTITY_SERVER_PORT: 8264
+  IDENTITY_SERVER_HOST: identity-server
+  SSE_SERVER_PORT: 7264
+  SSE_SERVER_HOST: sse-server
+  SELF_HOSTED: 1
+  IDENTITY_SERVER_URL: ${AUTH_SERVER_PUBLIC_URL}
+  NOTESNOOK_APP_HOST: ${NOTESNOOK_APP_PUBLIC_URL}
+
+services:
+  validate:
+    image: vandot/alpine-bash
+    entrypoint: /bin/bash
+    env_file: .env
+    command:
+      - -c
+      - |
+        for var in INSTANCE_NAME NOTESNOOK_API_SECRET SMTP_USERNAME SMTP_PASSWORD SMTP_HOST SMTP_PORT AUTH_SERVER_PUBLIC_URL NOTESNOOK_APP_PUBLIC_URL MONOGRAPH_PUBLIC_URL ATTACHMENTS_SERVER_PUBLIC_URL; do
+          if [ -z "$(eval echo \$$var)" ]; then echo "Error: $var is not set."; exit 1; fi
+        done
+        echo "All required env vars set."
+    restart: "no"
+
+  notesnook-db:
+    image: mongo:7.0.12
+    container_name: notesnook-db
+    restart: unless-stopped
+    volumes:
+      - dbdata:/data/db
+    networks:
+      - notesnook
+    command: --replSet rs0 --bind_ip_all
+    depends_on:
+      validate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: echo 'try { rs.status() } catch (err) { rs.initiate() }; db.runCommand("ping").ok' | mongosh mongodb://localhost:27017 --quiet
+      interval: 40s
+      timeout: 30s
+      retries: 3
+      start_period: 60s
+
+  notesnook-s3:
+    # cpuv1 tag required — EPYC 3151 Zen 1 has no AVX-512
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z-cpuv1
+    container_name: notesnook-s3
+    restart: unless-stopped
+    ports:
+      - "10.10.60.105:9000:9000"
+    networks:
+      - notesnook
+    volumes:
+      - s3data:/data/s3
+    environment:
+      MINIO_BROWSER: "on"
+      MINIO_SERVER_URL: "https://s3.tresemme.space"
+    env_file: .env
+    command: server /data/s3 --console-address :9090
+    depends_on:
+      validate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: timeout 5s bash -c ':> /dev/tcp/127.0.0.1/9000' || exit 1
+      interval: 40s
+      timeout: 30s
+      retries: 3
+      start_period: 60s
+
+  setup-s3:
+    # cpuv1 tag required — EPYC 3151 Zen 1 has no AVX-512
+    image: minio/mc:RELEASE.2025-08-13T08-35-41Z-cpuv1
+    container_name: notesnook-setup-s3
+    depends_on:
+      notesnook-s3:
+        condition: service_healthy
+    networks:
+      - notesnook
+    env_file: .env
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        until mc alias set minio http://notesnook-s3:9000 ${MINIO_ROOT_USER:-minioadmin} ${MINIO_ROOT_PASSWORD:-minioadmin}; do sleep 1; done
+        mc mb minio/attachments -p
+
+  identity-server:
+    image: streetwriters/identity:latest
+    container_name: notesnook-identity
+    restart: unless-stopped
+    ports:
+      - "10.10.60.105:8264:8264"
+    networks:
+      - notesnook
+    env_file: .env
+    depends_on:
+      notesnook-db:
+        condition: service_healthy
+    healthcheck:
+      test: wget --tries=1 -nv -q http://localhost:8264/health -O- || exit 1
+      interval: 40s
+      timeout: 30s
+      retries: 3
+      start_period: 60s
+    environment:
+      <<: *server-discovery
+      MONGODB_CONNECTION_STRING: mongodb://notesnook-db:27017/identity?replSet=rs0
+      MONGODB_DATABASE_NAME: identity
+
+  notesnook-server:
+    image: streetwriters/notesnook-sync:latest
+    container_name: notesnook-sync
+    restart: unless-stopped
+    ports:
+      - "10.10.60.105:5264:5264"
+    networks:
+      - notesnook
+    env_file: .env
+    depends_on:
+      notesnook-s3:
+        condition: service_healthy
+      setup-s3:
+        condition: service_completed_successfully
+      identity-server:
+        condition: service_healthy
+    healthcheck:
+      test: wget --tries=1 -nv -q http://localhost:5264/health -O- || exit 1
+      interval: 40s
+      timeout: 30s
+      retries: 3
+      start_period: 60s
+    environment:
+      <<: *server-discovery
+      MONGODB_CONNECTION_STRING: mongodb://notesnook-db:27017/?replSet=rs0
+      MONGODB_DATABASE_NAME: notesnook
+      S3_INTERNAL_SERVICE_URL: http://notesnook-s3:9000
+      S3_INTERNAL_BUCKET_NAME: attachments
+      S3_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minioadmin}
+      S3_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      S3_SERVICE_URL: ${ATTACHMENTS_SERVER_PUBLIC_URL}
+      S3_REGION: us-east-1
+      S3_BUCKET_NAME: attachments
+
+  sse-server:
+    image: streetwriters/sse:latest
+    container_name: notesnook-sse
+    restart: unless-stopped
+    ports:
+      - "10.10.60.105:7264:7264"
+    networks:
+      - notesnook
+    env_file: .env
+    depends_on:
+      identity-server:
+        condition: service_healthy
+      notesnook-server:
+        condition: service_healthy
+    healthcheck:
+      test: wget --tries=1 -nv -q http://localhost:7264/health -O- || exit 1
+      interval: 40s
+      timeout: 30s
+      retries: 3
+      start_period: 60s
+    environment:
+      <<: *server-discovery
+
+  monograph-server:
+    image: streetwriters/monograph:latest
+    container_name: notesnook-monograph
+    restart: unless-stopped
+    ports:
+      - "10.10.60.105:6264:3000"
+    networks:
+      - notesnook
+    env_file: .env
+    depends_on:
+      notesnook-server:
+        condition: service_healthy
+    healthcheck:
+      test: wget --tries=1 -nv -q http://localhost:3000/api/health -O- || exit 1
+      interval: 40s
+      timeout: 30s
+      retries: 3
+      start_period: 60s
+    environment:
+      <<: *server-discovery
+      API_HOST: http://notesnook-server:5264
+      PUBLIC_URL: ${MONOGRAPH_PUBLIC_URL}
+
+networks:
+  notesnook:
+
+volumes:
+  dbdata:
+  s3data:

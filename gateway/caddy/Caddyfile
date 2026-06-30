@@ -142,7 +142,33 @@ prometheus.securenexus.net {
     reverse_proxy 10.10.50.104:9090
 }
 # tresemme.space — personal services on pn-test (10.10.60.105)
-# Add subdomains here as services are deployed (Notesnook, etc.)
+pn.tresemme.space {
+    redir https://privatenexus.net{uri} permanent
+}
+notes.tresemme.space {
+    import crowdsec
+    redir https://app.notesnook.com permanent
+}
+sync.tresemme.space {
+    import crowdsec
+    reverse_proxy 10.10.60.105:5264
+}
+identity.tresemme.space {
+    import crowdsec
+    reverse_proxy 10.10.60.105:8264
+}
+sse.tresemme.space {
+    import crowdsec
+    reverse_proxy 10.10.60.105:7264
+}
+s3.tresemme.space {
+    import crowdsec
+    reverse_proxy 10.10.60.105:9000
+}
+monograph.tresemme.space {
+    import crowdsec
+    reverse_proxy 10.10.60.105:6264
+}
 dns-admin.house-of-trae.com {
     reverse_proxy 10.10.10.100:9191
 }
