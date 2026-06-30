@@ -343,14 +343,16 @@ SMS relay: Node.js sms-relay on sn-infra (Ntfy webhook → Twilio API).
 
 ## Backup Architecture
 
-| Tier           | Tool                  | Schedule    | Destination             | Encryption                      |
-|----------------|-----------------------|-------------|-------------------------|---------------------------------|
-| VM snapshots   | Proxmox Backup Server | 02:00 daily | QNAP NAS over Tailscale | AES-256-GCM                     |
-| Config sync    | git + cron            | 01:00 daily | Forgejo → Codeberg + GH | Forgejo auth                    |
-| Cloud (B2)     | rclone crypt + B2     | 03:00 daily | Backblaze B2            | rclone crypt — hard_delete=true |
-| Cloud (Wasabi) | rclone crypt + Wasabi | 04:00 daily | Wasabi EU-Central-1     | Separate crypt key from B2      |
+| Tier           | Tool                  | Schedule    | Destination             | Encryption                         |
+|----------------|-----------------------|-------------|-------------------------|------------------------------------|
+| VM snapshots   | vzdump (Proxmox)      | 02:00 daily | /var/lib/vz/dump (ZFS)  | zstd compressed                    |
+| Config sync    | git + cron            | 01:00 daily | Forgejo → Codeberg + GH | Forgejo auth                       |
+| Cloud (Hetzner)| rclone crypt          | 06:00 daily | Hetzner Storage Box     | rclone crypt (hetzner-crypt remote)|
+| Cloud (B2)     | rclone crypt + B2     | 07:30 daily | Backblaze B2            | rclone crypt — hard_delete=true    |
 
-Cron: 01:00 config sync → 02:00 vzdump → 03:00 B2 → 04:00 Wasabi → 04:30 Watchtower monitor-only
+Cron: 01:00 config sync → 02:00 vzdump (~3h, done ~05:00) → 06:00 Hetzner → 07:30 B2
+⚠️ vzdump runs 3h on 7 VMs. Cloud uploads must NOT start before 06:00 — concurrent HDD I/O caused nightly crashes (Jun 26–28).
+Config repo: /opt/hot-config → Forgejo (git.securenexus.net) + Codeberg + GitHub mirrors
 Config repo: /opt/hot-config → Forgejo (git.securenexus.net) + Codeberg + GitHub mirrors
 
 ---
@@ -403,7 +405,7 @@ Notification policy: group by severity/alertname/instance — group_wait 30s, re
 | NBDE unlock chain                 | ALL 7 VMs have LUKS2-encrypted root on `/dev/sda3`. All use dual-binding: **slot 3 (preferred) → Gateway VPS Tang** (`http://10.10.0.1:7500`), **slot 2 (fallback) → sn-infra Tang** (`http://10.10.10.100:80`). Gateway Tang is a systemd socket service (NOT Docker) bound to WireGuard interface only. On bare metal reboot: Proxmox boots → WireGuard up → all VMs start at order=1 in parallel → each initramfs contacts Gateway Tang (always-on) → LUKS unlocks. sn-infra Tang is only needed if Gateway is unreachable. To bind a new VM: (1) get key: `clevis luks pass -d /dev/sda3 -s 2`, (2) bind: `echo KEY \| clevis luks bind -d /dev/sda3 tang '{"url":"http://10.10.0.1:7500"}' -y -k -` (needs PTY — use Python pty script), (3) set preferred: `cryptsetup config --priority prefer --key-slot 3 /dev/sda3`. |
 | sn-security LUKS offline access   | Offline disk access from Proxmox: `qemu-nbd --connect=/dev/nbd0 -f raw /dev/zvol/rpool/data/vm-106-disk-0` → `clevis luks unlock -d /dev/nbd0p3 -n vm106root` → `vgchange -ay ubuntu-vg` → `mount /dev/ubuntu-vg/ubuntu-lv /mnt/vm106`. Boot partition is separate: also mount `mount /dev/nbd0p2 /mnt/vm106/boot`. |
 | Wazuh needs 8 GB RAM             | OpenSearch JVM heap is 1 GB but total process RSS during initialization peaks at 3-4 GB. sn-security must stay at 8 GB; reducing below 6 GB causes OOM and indexer crash-loops during startup, keeping the dashboard in permanent 503. |
-| Proxmox NIC PCIe link loss        | Intel I350 NIC (`igb 0000:03:00.0 nic0`) has intermittent PCIe link loss causing complete outages (Jun 26, Jun 27). Fix: `pcie_aspm=off` added to Proxmox GRUB (takes effect on next host reboot). Hostkey ticket pending: reseat NIC + check chassis temps. NIC watchdog cron at `/etc/cron.d/nic-watchdog` attempts `ip link down/up` + `wg-quick up` on link loss. |
+| Proxmox NIC PCIe link loss        | Intel I350 NIC (`igb 0000:03:00.0 nic0`) has intermittent PCIe link loss causing complete outages (Jun 26, Jun 27, Jun 28). Fix: `pcie_aspm=off` in `/etc/kernel/cmdline` (NOT /etc/default/grub — Proxmox uses proxmox-boot-tool/systemd-boot, not GRUB). Run `proxmox-boot-tool refresh` after editing cmdline. Fix is LIVE as of Jun 28 18:55 boot on kernel 7.0.12-1-pve. Hostkey ticket pending: physical NIC reseat + chassis temp check. NIC watchdog cron at `/etc/cron.d/nic-watchdog` attempts `ip link down/up` + `wg-quick up` on link loss. |
 | Wazuh offline disk edit           | Wazuh compose and config can be edited offline: stop VM → mount disk via NBD → Clevis unlock → LVM activate → mount → edit → unmount all → `qemu-nbd --disconnect` → start VM. |
 | Wazuh dashboard wazuh.yml default password | `/opt/stacks/wazuh/config/wazuh_dashboard/wazuh.yml` ships with placeholder password `MyS3cr37P450r.*-` for the `wazuh-wui` API user. Must be replaced with the real API password after every fresh deploy, then `docker restart wazuh-wazuh.dashboard-1`. Symptom: dashboard shows "could not accept any API entry". |
 
