@@ -6,6 +6,13 @@
         server_id localhost
         api_token {env.PDNS_API_KEY}
     }
+    log {
+        output file /data/access.log {
+            roll_size 100mb
+            roll_keep 10
+        }
+        format json
+    }
 }
 (crowdsec) {
     forward_auth crowdsec-bouncer:8083 {
@@ -179,4 +186,14 @@ namevault.co.uk {
 ntfy.house-of-trae.com {
     import crowdsec
     reverse_proxy 10.10.10.100:8080
+}
+ds.house-of-trae.com {
+    import crowdsec
+    reverse_proxy 10.10.10.100:4180
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        Referrer-Policy strict-origin-when-cross-origin
+    }
 }

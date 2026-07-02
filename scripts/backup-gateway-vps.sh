@@ -37,13 +37,22 @@ tar -czf "$BACKUP_DIR/mailserver/mailserver-$DATE.tar.gz" \
     data state config mailserver.env
 log "  Mailserver: $(du -sh "$BACKUP_DIR/mailserver/mailserver-$DATE.tar.gz" | cut -f1)"
 
-# ── Push to Proxmox ────────────────────────────────────────────────────────
+# ── Push to Proxmox (non-fatal — Proxmox may be unreachable during outage) ──
 log "Pushing to $REMOTE_HOST:$REMOTE_PATH ..."
-ssh "$REMOTE_HOST" "mkdir -p $REMOTE_PATH"
-scp "$BACKUP_DIR/tor/tor-hidden-service-$DATE.tar.gz"    "$REMOTE_HOST:$REMOTE_PATH/"
-scp "$BACKUP_DIR/powerdns/powerdns-db-$DATE.sql.gz"      "$REMOTE_HOST:$REMOTE_PATH/"
-scp "$BACKUP_DIR/mailserver/mailserver-$DATE.tar.gz"     "$REMOTE_HOST:$REMOTE_PATH/"
-log "  Push complete."
+if ssh -o ConnectTimeout=10 -o BatchMode=yes "$REMOTE_HOST" "mkdir -p $REMOTE_PATH" 2>/dev/null; then
+    scp "$BACKUP_DIR/tor/tor-hidden-service-$DATE.tar.gz"    "$REMOTE_HOST:$REMOTE_PATH/"
+    scp "$BACKUP_DIR/powerdns/powerdns-db-$DATE.sql.gz"      "$REMOTE_HOST:$REMOTE_PATH/"
+    scp "$BACKUP_DIR/mailserver/mailserver-$DATE.tar.gz"     "$REMOTE_HOST:$REMOTE_PATH/"
+    log "  Push complete."
+else
+    log "  WARNING: Proxmox unreachable — backups retained locally for ${RETENTION_DAYS}d."
+    curl -s -o /dev/null \
+        -H "Title: Gateway Backup — Proxmox Push Failed" \
+        -H "Priority: high" \
+        -H "Tags: warning,floppy_disk" \
+        -d "Gateway VPS nightly backup completed locally but could not push to Proxmox (unreachable). Archives retained for ${RETENTION_DAYS} days in ${BACKUP_DIR}." \
+        "http://10.10.10.100:8080/hot-alerts" || true
+fi
 
 # ── Local retention ────────────────────────────────────────────────────────
 log "Pruning local backups older than ${RETENTION_DAYS}d..."
