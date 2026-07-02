@@ -23,13 +23,23 @@
 (compress) {
     encode zstd gzip
 }
+(secure_headers) {
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options SAMEORIGIN
+        Referrer-Policy strict-origin-when-cross-origin
+        Permissions-Policy "geolocation=(), microphone=(), camera=()"
+    }
+}
 # Group Domains
 house-of-trae.com, www.house-of-trae.com {
     import crowdsec
+    import secure_headers
     respond "House of Trae — Coming Soon" 200
 }
 securenexus.net, www.securenexus.net {
     import crowdsec
+    import secure_headers
     handle /.well-known/webfinger {
         header Content-Type "application/jrd+json"
         respond `{"subject":"acct:tristian@securenexus.net","links":[{"rel":"http://openid.net/specs/connect/1.0/issuer","href":"https://auth.house-of-trae.com/realms/securenexus"}]}` 200
@@ -40,6 +50,7 @@ securenexus.net, www.securenexus.net {
 }
 byrne-accounts.org, www.byrne-accounts.org {
     import crowdsec
+    import secure_headers
     respond "Byrne Accounts — Coming Soon" 200
 }
 stratus-digital.com, www.stratus-digital.com {
@@ -77,11 +88,13 @@ privatenexus.net {
 }
 tresemme.space {
     import crowdsec
+    import secure_headers
     respond "House of Trae — Personal" 200
 }
 # Transition Domain
 cloud-architects.online, www.cloud-architects.online {
     import crowdsec
+    import secure_headers
     respond "Stratus Digital — Coming Soon" 200
 }
 # Auth (Keycloak SSO)

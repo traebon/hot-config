@@ -1,0 +1,13 @@
+name: hot-admin-whitelist
+description: Whitelist for HoT admin IP ranges — WireGuard, Tailscale, loopback
+whitelist:
+  reason: "HoT admin network — WireGuard tunnel, Tailscale overlay, Docker bridge"
+  ip:
+    - "127.0.0.1"
+    - "10.10.0.1"
+    - "10.10.0.2"
+    - "100.106.41.10"
+  cidr:
+    - "10.10.0.0/16"
+    - "100.64.0.0/10"
+    - "172.16.0.0/12"
