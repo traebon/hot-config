@@ -13,8 +13,10 @@ services:
       - crowdsec_config:/etc/crowdsec
       - /var/log:/var/log/host:ro
       - caddy_data:/var/log/caddy:ro
+      - /opt/stacks/mailserver/logs:/var/log/mailserver:ro
     ports:
       - "100.106.41.10:8082:8080"
+      - "10.10.0.1:6060:6060"
     networks:
       - hotinfra_edge
 
