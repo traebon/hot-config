@@ -18,6 +18,25 @@ scrape_configs:
           host: gateway-vps
           __path__: /var/log/*.log
 
+  - job_name: caddy_access
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: caddy
+          host: gateway-vps
+          __path__: /caddy-data/access.log
+    pipeline_stages:
+      - json:
+          expressions:
+            status: status
+            method: request.method
+            uri: request.uri
+            duration: duration
+      - labels:
+          status:
+          method:
+
   - job_name: docker
     docker_sd_configs:
       - host: unix:///var/run/docker.sock

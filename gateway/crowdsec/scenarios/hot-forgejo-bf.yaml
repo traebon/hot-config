@@ -1,7 +1,7 @@
 type: leaky
 name: hot/forgejo-bf
 description: "Detect brute force against Forgejo git API and web auth"
-filter: "evt.Meta.service == http && evt.Meta.http_status in [401, 403] && (evt.Meta.http_path startsWith /api/v1/ || evt.Meta.http_path startsWith /user/login)"
+filter: "evt.Meta.service == 'http' && evt.Meta.http_status in ['401', '403'] && (evt.Meta.http_path startsWith '/api/v1/' || evt.Meta.http_path startsWith '/user/login')"
 groupby: "evt.Meta.source_ip"
 distinct: "evt.Parsed.target_fqdn"
 capacity: 6

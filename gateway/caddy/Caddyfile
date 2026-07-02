@@ -1,5 +1,5 @@
 {
-    admin localhost:2019
+    admin off
     email admin@house-of-trae.com
     acme_dns powerdns {
         server_url http://powerdns:8081

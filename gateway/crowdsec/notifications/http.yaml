@@ -1,0 +1,19 @@
+type: http
+name: http_default
+log_level: info
+group_wait: 30s
+group_threshold: 10
+timeout: 10s
+
+url: http://10.10.10.100:8080/hot-alerts
+method: POST
+headers:
+  Title: "CrowdSec: IP Banned"
+  Priority: high
+  Tags: shield,no_entry
+  Authorization: Bearer tk_uunofa67t4km1rpk5a7ot9ir1gjse
+  Content-Type: text/plain
+
+format: |
+  {{range .}}{{.Source.Value}} banned ({{(index .Decisions 0).Duration}}) — {{(index .Decisions 0).Scenario}}
+  {{end}}
