@@ -225,7 +225,7 @@ namevault.co.uk {
 ntfy.house-of-trae.com {
     import crowdsec
     import compress
-    reverse_proxy 10.10.10.100:8080
+    reverse_proxy ntfy:80
 }
 ds.house-of-trae.com {
     import crowdsec
@@ -236,4 +236,24 @@ ds.house-of-trae.com {
         X-Frame-Options DENY
         Referrer-Policy strict-origin-when-cross-origin
     }
+}
+vault.house-of-trae.com {
+    import crowdsec
+    import compress
+    reverse_proxy vaultwarden:80
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options nosniff
+        X-Frame-Options SAMEORIGIN
+        Referrer-Policy same-origin
+    }
+}
+rspamd.securenexus.net {
+    import crowdsec
+    import compress
+    @local_only {
+        not remote_ip 10.10.0.0/16 151.241.217.91
+    }
+    respond @local_only 403
+    reverse_proxy mailserver:11334
 }

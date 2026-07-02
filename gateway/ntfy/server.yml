@@ -1,0 +1,8 @@
+base-url: "https://ntfy.house-of-trae.com"
+listen-http: ":80"
+auth-default-access: "deny-all"
+auth-file: "/var/lib/ntfy/user.db"
+cache-file: "/var/cache/ntfy/cache.db"
+attachment-cache-dir: "/var/cache/ntfy/attachments"
+attachment-total-size-limit: "1G"
+attachment-file-size-limit: "15M"

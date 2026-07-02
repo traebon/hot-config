@@ -1,0 +1,23 @@
+services:
+  ntfy:
+    image: binwiederhier/ntfy:latest
+    container_name: ntfy
+    restart: unless-stopped
+    mem_limit: 128m
+    command: serve
+    environment:
+      - TZ=Europe/London
+    volumes:
+      - ./server.yml:/etc/ntfy/server.yml:ro
+      - ntfy_data:/var/lib/ntfy
+      - ntfy_cache:/var/cache/ntfy
+    networks:
+      - hotinfra_edge
+
+volumes:
+  ntfy_data:
+  ntfy_cache:
+
+networks:
+  hotinfra_edge:
+    external: true

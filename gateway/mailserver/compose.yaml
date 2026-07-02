@@ -4,7 +4,7 @@ services:
     container_name: mailserver
     hostname: mail.house-of-trae.com
     restart: unless-stopped
-    mem_limit: 768m
+    mem_limit: 1024m
     env_file: mailserver.env
     ports:
       - "0.0.0.0:25:25"       # SMTP inbound

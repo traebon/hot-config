@@ -1,0 +1,24 @@
+services:
+  vaultwarden:
+    image: vaultwarden/server:latest
+    container_name: vaultwarden
+    restart: unless-stopped
+    mem_limit: 128m
+    environment:
+      DOMAIN: "https://vault.house-of-trae.com"
+      SIGNUPS_ALLOWED: "false"
+      INVITATIONS_ALLOWED: "true"
+      ADMIN_TOKEN: "$$argon2id$$v=19$$m=19456,t=2,p=1$$W/aTsVsaSaUyPRqXo+xbZg$$dSwZyewBB9mn8mTNpMoHEGc/2YdGqzP/zKfauii7+4I"
+      LOG_LEVEL: "warn"
+      # SMTP: add once bare metal is back and SMTP password is retrievable from Vaultwarden
+    volumes:
+      - vaultwarden_data:/data
+    networks:
+      - hotinfra_edge
+
+volumes:
+  vaultwarden_data:
+
+networks:
+  hotinfra_edge:
+    external: true
