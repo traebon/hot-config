@@ -23,19 +23,7 @@ services:
       - hotinfra_mail
       - hotinfra_edge
 
-  webmail:
-    image: roundcube/roundcubemail:latest
-    container_name: roundcube
-    restart: unless-stopped
-    volumes:
-      - roundcube_data:/var/roundcube/config
-    networks:
-      - hotinfra_mail
-      - hotinfra_edge
-
 volumes:
-  roundcube_data:
-    name: roundcube_data
   caddy_certs:
     external: true
 

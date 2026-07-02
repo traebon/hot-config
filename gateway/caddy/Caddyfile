@@ -55,26 +55,32 @@ byrne-accounts.org, www.byrne-accounts.org {
 }
 stratus-digital.com, www.stratus-digital.com {
     import crowdsec
+    import compress
     reverse_proxy 10.10.30.102:8001
 }
 discreet-elite.uk, www.discreet-elite.uk {
     import crowdsec
+    import compress
     reverse_proxy 10.10.30.102:8002
 }
 emerald-markets.net, www.emerald-markets.net {
     import crowdsec
+    import compress
     reverse_proxy 10.10.30.102:8003
 }
 rubyosiris.com, www.rubyosiris.com {
     import crowdsec
+    import compress
     reverse_proxy 10.10.30.102:8004
 }
 evilrabbitart.com, www.evilrabbitart.com {
     import crowdsec
+    import compress
     reverse_proxy 10.10.30.102:8005
 }
 dickson-supplies.com, www.dickson-supplies.com {
     import crowdsec
+    import compress
     reverse_proxy 10.10.30.102:8006
 }
 www.privatenexus.net {
@@ -126,6 +132,7 @@ git.securenexus.net, git.house-of-trae.com {
 }
 wazuh.house-of-trae.com {
     import crowdsec
+    import compress
     reverse_proxy https://10.10.70.106:443 {
         transport http {
             tls_insecure_skip_verify
@@ -160,14 +167,17 @@ grafana.house-of-trae.com {
 }
 monitor.securenexus.net {
     import crowdsec
+    import compress
     reverse_proxy 10.10.50.104:3001
 }
 status.house-of-trae.com {
     import crowdsec
+    import compress
     reverse_proxy 10.10.50.104:3001
 }
 prometheus.securenexus.net {
     import crowdsec
+    import compress
     reverse_proxy 10.10.50.104:9090
 }
 # tresemme.space — personal services on pn-test (10.10.60.105)
@@ -180,14 +190,17 @@ notes.tresemme.space {
 }
 sync.tresemme.space {
     import crowdsec
+    import compress
     reverse_proxy 10.10.60.105:5264
 }
 identity.tresemme.space {
     import crowdsec
+    import compress
     reverse_proxy 10.10.60.105:8264
 }
 sse.tresemme.space {
     import crowdsec
+    import compress
     reverse_proxy 10.10.60.105:7264
 }
 s3.tresemme.space {
@@ -196,18 +209,22 @@ s3.tresemme.space {
 }
 monograph.tresemme.space {
     import crowdsec
+    import compress
     reverse_proxy 10.10.60.105:6264
 }
 dns-admin.house-of-trae.com {
     import crowdsec
+    import compress
     reverse_proxy 10.10.10.100:9191
 }
 namevault.co.uk {
     import crowdsec
+    import compress
     reverse_proxy 10.10.10.100:8010
 }
 ntfy.house-of-trae.com {
     import crowdsec
+    import compress
     reverse_proxy 10.10.10.100:8080
 }
 ds.house-of-trae.com {

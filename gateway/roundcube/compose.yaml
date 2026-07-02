@@ -3,6 +3,7 @@ services:
     image: roundcube/roundcubemail:latest
     container_name: roundcube
     restart: unless-stopped
+    mem_limit: 256m
     environment:
       - ROUNDCUBEMAIL_DEFAULT_HOST=ssl://mailserver
       - ROUNDCUBEMAIL_DEFAULT_PORT=993
