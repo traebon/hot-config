@@ -20,6 +20,9 @@
         copy_headers X-Forwarded-For
     }
 }
+(compress) {
+    encode zstd gzip
+}
 # Group Domains
 house-of-trae.com, www.house-of-trae.com {
     import crowdsec
@@ -68,6 +71,7 @@ www.privatenexus.net {
 }
 privatenexus.net {
     import crowdsec
+    import compress
     reverse_proxy 10.10.40.103:5173
     header Strict-Transport-Security "max-age=31536000; includeSubDomains"
 }
@@ -83,6 +87,7 @@ cloud-architects.online, www.cloud-architects.online {
 # Auth (Keycloak SSO)
 auth.house-of-trae.com {
     import crowdsec
+    import compress
     reverse_proxy keycloak:8080
 }
 # Mail
@@ -92,10 +97,12 @@ mail.house-of-trae.com {
 }
 webmail.house-of-trae.com {
     import crowdsec
+    import compress
     reverse_proxy roundcube:80
 }
 git.securenexus.net, git.house-of-trae.com {
     import crowdsec
+    import compress
     reverse_proxy 10.10.10.100:3000
     header {
         Strict-Transport-Security "max-age=31536000; includeSubDomains"
@@ -121,6 +128,7 @@ http://qcrzygpg5qbzch4c2qlcgiktuvzf3xwqwtd7mkcn5r4g4mxebmpptkid.onion {
 # Dickson Supplies - ERPNext
 erp.dickson-supplies.com {
     import crowdsec
+    import compress
     reverse_proxy 10.10.20.101:8000 {
         header_up Host {host}
     }
@@ -134,6 +142,7 @@ erp.dickson-supplies.com {
 # Monitoring Stack
 grafana.house-of-trae.com {
     import crowdsec
+    import compress
     reverse_proxy 10.10.50.104:3000
 }
 monitor.securenexus.net {
