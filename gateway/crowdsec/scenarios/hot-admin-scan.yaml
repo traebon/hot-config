@@ -1,0 +1,22 @@
+type: leaky
+name: hot/admin-scan
+description: "Detect probing of admin and sensitive paths (wp-admin, .env, phpMyAdmin etc)"
+filter: >-
+  evt.Meta.service == 'http' && evt.Meta.http_status in ['404', '403', '400'] &&
+  (evt.Meta.http_path contains 'wp-admin' || evt.Meta.http_path contains '.env' ||
+   evt.Meta.http_path contains 'phpMyAdmin' || evt.Meta.http_path contains 'phpmyadmin' ||
+   evt.Meta.http_path contains 'wp-login' || evt.Meta.http_path contains 'xmlrpc' ||
+   evt.Meta.http_path contains '/admin' || evt.Meta.http_path contains '/.git' ||
+   evt.Meta.http_path contains '/config' || evt.Meta.http_path contains '/backup')
+groupby: "evt.Meta.source_ip"
+distinct: "evt.Meta.http_path"
+capacity: 3
+leakspeed: "30s"
+blackhole: 30m
+labels:
+  service: http
+  type: scan
+  behavior: "http:scan"
+  remediation: true
+  confidence: 3
+  spoofable: 0
