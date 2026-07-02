@@ -13,12 +13,17 @@
         }
         format json
     }
+    crowdsec {
+        api_url http://crowdsec:8080
+        api_key {env.CROWDSEC_API_KEY}
+        enable_streaming
+        tick_interval 10s
+        appsec_url http://crowdsec:7422
+        appsec_failure_hard_fail false
+    }
 }
 (crowdsec) {
-    forward_auth crowdsec-bouncer:8083 {
-        uri /api/v1/forwardAuth
-        copy_headers X-Forwarded-For
-    }
+    crowdsec
 }
 (compress) {
     encode zstd gzip
@@ -229,13 +234,22 @@ ntfy.house-of-trae.com {
 }
 ds.house-of-trae.com {
     import crowdsec
-    reverse_proxy 10.10.10.100:4180
+    reverse_proxy oauth2-proxy:4180
     header {
         Strict-Transport-Security "max-age=31536000; includeSubDomains"
         X-Content-Type-Options nosniff
         X-Frame-Options DENY
         Referrer-Policy strict-origin-when-cross-origin
     }
+}
+gatus.securenexus.net {
+    import crowdsec
+    import compress
+    @internal_only {
+        not remote_ip 10.10.0.0/16 10.10.90.0/24 151.241.217.91
+    }
+    respond @internal_only 403
+    reverse_proxy gatus:8080
 }
 vault.house-of-trae.com {
     import crowdsec

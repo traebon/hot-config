@@ -5,6 +5,7 @@ services:
     restart: unless-stopped
     secrets:
       - pdns_api_key
+      - crowdsec_api_key
     environment:
       PDNS_API_KEY_FILE: /run/secrets/pdns_api_key
     entrypoint: ["/bin/sh", "/etc/caddy/entrypoint.sh"]
@@ -26,6 +27,8 @@ services:
 secrets:
   pdns_api_key:
     file: ./secrets/pdns_api_key.txt
+  crowdsec_api_key:
+    file: ./secrets/crowdsec_api_key.txt
 volumes:
   caddy_data:
     name: caddy_data
