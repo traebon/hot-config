@@ -267,7 +267,7 @@ VM: 4 vCPU / 8 GB RAM / 250 GB / VLAN 70. LUKS2 encrypted root (Clevis Tang → 
 | Wazuh SIEM     | /opt/stacks/wazuh/          | wazuh.house-of-trae.com — manager + indexer + dashboard   |
 | Forgejo Runner | /opt/stacks/forgejo-runner/ | CI/CD runner for git.securenexus.net                      |
 
-Wazuh creds (save to Vaultwarden):
+Wazuh creds (saved in Vaultwarden, "House of Trae — Gateway VPS" folder):
 - Dashboard/admin login: `admin` / `bRSsn8P2v1YIbemCHejpEb6l`
 - Wazuh API (wazuh-wui): `mHB2UhhMw0wTc3q8@22vJeOvr`
 - OpenSearch kibanaserver: `h2huT1B1TrUXQg8Wri5FqhdP`
@@ -513,7 +513,7 @@ Auth files: `/opt/stacks/tor/data/erp/authorized_clients/` (chown 100:101, chmod
 | Caddy reload                | cd /opt/stacks/caddy && docker compose restart caddy |
 | Universal SMTP              | notifications@house-of-trae.com:587 STARTTLS         |
 | Keycloak URL                | https://auth.house-of-trae.com                       |
-| All secrets                 | Vaultwarden — vaultwarden.tresemme.space             |
+| All secrets                 | Vaultwarden — vault.house-of-trae.com (Gateway VPS)  |
 | Config git repo             | /opt/hot-config                                      |
 | B2 backup bucket            | hot-proxmox-backups                                  |
 | Wasabi backup bucket        | hot-proxmox-backups-secondary                        |
