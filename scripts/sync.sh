@@ -143,8 +143,22 @@ log "Committing $CHANGED changed file(s)..."
 
 $GIT commit -m "chore: nightly config sync $(date '+%Y-%m-%d %H:%M')"
 
-$GIT push origin main
-$GIT push github main
-$GIT push codeberg main
+# Push to all three remotes independently — one unreachable remote (most
+# often origin/Forgejo, which sits behind the internal WireGuard tunnel)
+# must not block the others. External mirrors go first since they're the
+# most likely to still be reachable during an internal network outage.
+PUSH_FAILED=0
+for remote in github codeberg origin; do
+  if $GIT push "$remote" main; then
+    log "Pushed to $remote."
+  else
+    log "WARN: push to $remote failed."
+    PUSH_FAILED=1
+  fi
+done
 
-log "Push complete."
+if [ "$PUSH_FAILED" -eq 1 ]; then
+  log "Push complete with one or more failures — see WARNs above."
+else
+  log "Push complete."
+fi
