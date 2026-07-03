@@ -24,6 +24,16 @@
 (crowdsec) {
     crowdsec
 }
+(block_probes) {
+    # Edge-level block for common webshell/exploit-kit probe paths, independent of
+    # backend status or CrowdSec's own detection layers. Scoped to sites with zero
+    # legitimate PHP/ASP/JSP usage (static nginx placeholders) so this can't false-positive.
+    @exploit_probe {
+        path *.php *.php3 *.php4 *.php5 *.phtml *.asp *.aspx *.jsp *.cgi
+        path /.git/* /.env /wp-admin* /wp-login* /wp-content* /wp-includes* /wp-json* /xmlrpc.php
+    }
+    respond @exploit_probe 403
+}
 (compress) {
     encode zstd gzip
 }
@@ -78,31 +88,37 @@ byrne-accounts.org, www.byrne-accounts.org {
 stratus-digital.com, www.stratus-digital.com {
     import crowdsec
     import compress
+    import block_probes
     reverse_proxy 10.10.30.102:8001
 }
 discreet-elite.uk, www.discreet-elite.uk {
     import crowdsec
     import compress
+    import block_probes
     reverse_proxy 10.10.30.102:8002
 }
 emerald-markets.net, www.emerald-markets.net {
     import crowdsec
     import compress
+    import block_probes
     reverse_proxy 10.10.30.102:8003
 }
 rubyosiris.com, www.rubyosiris.com {
     import crowdsec
     import compress
+    import block_probes
     reverse_proxy 10.10.30.102:8004
 }
 evilrabbitart.com, www.evilrabbitart.com {
     import crowdsec
     import compress
+    import block_probes
     reverse_proxy 10.10.30.102:8005
 }
 dickson-supplies.com, www.dickson-supplies.com {
     import crowdsec
     import compress
+    import block_probes
     reverse_proxy 10.10.30.102:8006
 }
 www.privatenexus.net {
