@@ -164,9 +164,10 @@ SSH config: /root/.ssh/config
 | Role      | Edge ONLY — Caddy, DNS, Mail, WireGuard, CrowdSec |
 
 ### ⚠️ VPS Resource Warning
-- 8 GB RAM shared across: Caddy, PowerDNS, Unbound, Docker Mailserver, Roundcube, CrowdSec, WireGuard, Keycloak
+- 8 GB RAM shared across: Caddy, PowerDNS, Unbound, Docker Mailserver, Roundcube, CrowdSec, WireGuard, Keycloak, Vaultwarden
 - Keycloak alone uses ~512 MB–1 GB at idle
 - VPS = edge/proxy only — never deploy databases, media, or ERPNext here
+- **Exception: Vaultwarden.** Deliberately placed on the Gateway VPS (not a bare-metal VM) specifically so credentials stay reachable during a bare-metal/Proxmox outage — proven necessary during the Jul 2026 NIC/PCIe outage (ticket CS-471548), when every VM behind the bare metal host was unreachable but the Gateway VPS itself stayed up. Its bundled SQLite backend (128 MB mem_limit) is an accepted trade-off for this availability guarantee. Do not "fix" this by relocating it to a VM without recognizing the trade-off you'd be reintroducing.
 
 ---
 
@@ -177,7 +178,7 @@ SSH config: /root/.ssh/config
 3. Any image without explicit version tag → verify Zen 1 / cpuv1 compatibility
 4. Disk-heavy services → sn-personal or sn-business only
 5. Monitoring/logging growth → watch sn-monitor disk (Loki retention policy)
-6. Never deploy databases or media services on the Gateway VPS
+6. Never deploy databases or media services on the Gateway VPS (Vaultwarden is the one deliberate exception — see VPS Resource Warning above)
 
 ---
 
@@ -198,6 +199,7 @@ All VMs run as root.
 | CrowdSec          | /opt/stacks/crowdsec/   | LAPI mode + Caddy native bouncer module (caddy-cs-bouncer) |
 | Tor               | /opt/stacks/tor/        | v3 hidden service for erp.dickson-supplies.com        |
 | Tang              | systemd (tangd.socket)  | NBDE unlock for ALL 7 VMs — 10.10.0.1:7500 (WireGuard only, NOT Docker) |
+| Vaultwarden       | /opt/stacks/vaultwarden/ | vault.house-of-trae.com — deliberately on the Gateway VPS, not a VM, so secrets stay reachable if bare metal goes down. `ADMIN_TOKEN_FILE` docker secret (pre-hashed argon2id PHC string, not plaintext). |
 
 ### sn-infra (ssh sn-infra — 10.10.10.100)
 | Service        | Path                    | URL                           | Port |
