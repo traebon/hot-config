@@ -1,5 +1,6 @@
 {
     admin off
+    order crowdsec first
     email admin@house-of-trae.com
     acme_dns powerdns {
         server_url http://powerdns:8081
@@ -16,10 +17,8 @@
     crowdsec {
         api_url http://crowdsec:8080
         api_key {env.CROWDSEC_API_KEY}
-        enable_streaming
-        tick_interval 10s
+        ticker_interval 10s
         appsec_url http://crowdsec:7422
-        appsec_failure_hard_fail false
     }
 }
 (crowdsec) {
@@ -34,6 +33,24 @@
         X-Frame-Options SAMEORIGIN
         Referrer-Policy strict-origin-when-cross-origin
         Permissions-Policy "geolocation=(), microphone=(), camera=()"
+    }
+}
+# Keycloak SSO gate via oauth2-proxy — import into any app block to require
+# a house-of-trae.com login before the upstream is reached. Cookie domain is
+# .house-of-trae.com so one login covers every app that imports this.
+(sso) {
+    reverse_proxy /oauth2/* oauth2-proxy:4180 {
+        header_up X-Real-IP {remote}
+    }
+    @not_oauth2 not path /oauth2/*
+    forward_auth @not_oauth2 oauth2-proxy:4180 {
+        uri /oauth2/auth
+        header_up X-Real-IP {remote}
+        copy_headers X-Auth-Request-User X-Auth-Request-Email X-Auth-Request-Preferred-Username Authorization
+        @error status 401
+        handle_response @error {
+            redir * /oauth2/start?rd={http.request.orig_uri} temporary
+        }
     }
 }
 # Group Domains
@@ -122,6 +139,7 @@ mail.house-of-trae.com {
 webmail.house-of-trae.com {
     import crowdsec
     import compress
+    import sso
     reverse_proxy roundcube:80
 }
 git.securenexus.net, git.house-of-trae.com {

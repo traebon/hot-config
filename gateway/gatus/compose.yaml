@@ -1,0 +1,17 @@
+services:
+  gatus:
+    image: twinproduction/gatus:latest
+    container_name: gatus
+    restart: unless-stopped
+    mem_limit: 64m
+    volumes:
+      - ./config.yaml:/config/config.yaml:ro
+    networks:
+      - hotinfra_edge
+      - hotinfra_internal
+
+networks:
+  hotinfra_edge:
+    external: true
+  hotinfra_internal:
+    external: true

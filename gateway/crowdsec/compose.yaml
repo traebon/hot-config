@@ -20,20 +20,6 @@ services:
     networks:
       - hotinfra_edge
 
-  crowdsec-bouncer:
-    image: fbonalair/traefik-crowdsec-bouncer:latest
-    container_name: crowdsec-bouncer
-    restart: unless-stopped
-    depends_on:
-      - crowdsec
-    environment:
-      GIN_MODE: release
-      CROWDSEC_BOUNCER_API_KEY: ${BOUNCER_KEY}
-      CROWDSEC_AGENT_HOST: crowdsec:8080
-      PORT: 8083
-    networks:
-      - hotinfra_edge
-
 volumes:
   crowdsec_data:
     name: crowdsec_data

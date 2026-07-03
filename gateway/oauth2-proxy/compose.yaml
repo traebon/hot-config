@@ -1,0 +1,38 @@
+services:
+  oauth2-proxy:
+    image: quay.io/oauth2-proxy/oauth2-proxy:latest
+    container_name: oauth2-proxy
+    restart: unless-stopped
+    mem_limit: 64m
+    command:
+      - --provider=oidc
+      - --provider-display-name=HoT SSO
+      - --oidc-issuer-url=https://auth.house-of-trae.com/realms/securenexus
+      - --client-id=oauth2-proxy
+      - --client-secret-file=/run/secrets/client_secret
+      - --cookie-secret-file=/run/secrets/cookie_secret
+      - --cookie-secure=true
+      - --cookie-domain=.house-of-trae.com
+      - --email-domain=securenexus.net
+      - --email-domain=house-of-trae.com
+      - --upstream=static://202
+      - --http-address=0.0.0.0:4180
+      - --redirect-url=https://ds.house-of-trae.com/oauth2/callback
+      - --skip-provider-button=true
+      - --pass-access-token=true
+      - --set-xauthrequest=true
+    secrets:
+      - client_secret
+      - cookie_secret
+    networks:
+      - hotinfra_edge
+
+secrets:
+  client_secret:
+    file: ./secrets/client_secret.txt
+  cookie_secret:
+    file: ./secrets/cookie_secret.txt
+
+networks:
+  hotinfra_edge:
+    external: true

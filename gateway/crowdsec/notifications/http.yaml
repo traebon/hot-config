@@ -5,13 +5,13 @@ group_wait: 30s
 group_threshold: 10
 timeout: 10s
 
-url: http://10.10.10.100:8080/hot-alerts
+url: http://ntfy:80/hot-alerts
 method: POST
 headers:
   Title: "CrowdSec: IP Banned"
   Priority: high
   Tags: shield,no_entry
-  Authorization: Bearer tk_uunofa67t4km1rpk5a7ot9ir1gjse
+  Authorization: Bearer tk_c2efkgyxtt24uf48bo1snua86tthb
   Content-Type: text/plain
 
 format: |

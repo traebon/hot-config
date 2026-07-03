@@ -36,6 +36,7 @@ All reference documents are in /root/hot/docs/. Use docx2txt or pdftotext (both 
 | PrivateNexus_Multitenancy_RBAC_Design.md                | MD    | Multi-tenancy and RBAC design — schema, isolation rules, migration path         |
 | PrivateNexus_Commercial_Packaging_Licensing.md          | MD    | Commercial packaging — edition model, pricing logic, open-core boundary, GTM   |
 | dnssec-ds-records.md                                    | MD    | DNSSEC DS record reference for managed zones                                    |
+| HoT_Bare_Metal_Migration_Checklist.md                   | MD    | Hostkey bare-metal server replacement — phased migration/rebuild checklist      |
 
 ---
 
@@ -83,6 +84,7 @@ Tailscale overlay (admin access ONLY — never production traffic):
     sn-security:         100.112.71.39
     Ubuntu workstation:  100.116.130.37
     Windows (latitude):  100.106.225.126
+    Windows (traebake):  100.127.229.35
     Tailscale suffix:    spangled-atlas.ts.net
 ```
 
@@ -193,7 +195,7 @@ All VMs run as root.
 | Keycloak          | /opt/stacks/keycloak/   | auth.house-of-trae.com                                |
 | Docker Mailserver | /opt/stacks/mailserver/ | mail.house-of-trae.com                                |
 | Roundcube         | /opt/stacks/roundcube/  | webmail.house-of-trae.com                             |
-| CrowdSec          | /opt/stacks/crowdsec/   | LAPI mode + Caddy forward auth bouncer                |
+| CrowdSec          | /opt/stacks/crowdsec/   | LAPI mode + Caddy native bouncer module (caddy-cs-bouncer) |
 | Tor               | /opt/stacks/tor/        | v3 hidden service for erp.dickson-supplies.com        |
 | Tang              | systemd (tangd.socket)  | NBDE unlock for ALL 7 VMs — 10.10.0.1:7500 (WireGuard only, NOT Docker) |
 
@@ -436,7 +438,22 @@ Notification policy: group by severity/alertname/instance — group_wait 30s, re
 10. Add to Uptime Kuma monitors
 11. Add Prometheus scrape target if service exposes metrics
 12. Configure SMTP (notifications@house-of-trae.com) if service sends notifications
-13. If SSO required: create Keycloak client in appropriate realm
+13. **SSO is default, not optional.** Gate the app behind Keycloak: if the app has a native OIDC option, wire it to the appropriate realm directly; otherwise `import sso` in its Caddy block (see below) to gate it with the shared oauth2-proxy instance. Only skip this for services that can't sensibly support a browser login gate (e.g. raw SMTP/IMAP ports, API-only backends called machine-to-machine) — note the exception inline in the Caddy block if so.
+
+### SSO via oauth2-proxy (default pattern for new web apps)
+
+Gateway runs a shared `oauth2-proxy` (`/opt/stacks/oauth2-proxy/`) as an OIDC client (`oauth2-proxy` in the `securenexus` Keycloak realm), with `--cookie-domain=.house-of-trae.com` so one login covers every app that gates behind it, and a fixed `--redirect-url=https://ds.house-of-trae.com/oauth2/callback` (must stay the sole Keycloak-registered redirect URI regardless of which app initiated login — oauth2-proxy carries the original app URL through the OAuth `state` param and 302s back to it after auth).
+
+The Caddyfile has an `(sso)` snippet (global snippets section) that wires this up correctly — including the path-matcher fix needed so `/oauth2/*` callback requests don't get caught by their own auth check (`forward_auth` has no path scoping by default, so without a `not path /oauth2/*` matcher it loops on itself). To gate a new app, just add `import sso` alongside `import crowdsec` in its site block:
+```
+newapp.house-of-trae.com {
+    import crowdsec
+    import compress
+    import sso
+    reverse_proxy newapp:PORT
+}
+```
+First deployed for `webmail.house-of-trae.com` (Roundcube) — Roundcube's own IMAP/SMTP login still runs after the gate (this is a pre-auth wall using centralized identity, not a skip-login IMAP OAUTH2 integration). True passwordless SSO into Roundcube would require enabling Docker Mailserver's OAUTH2/XOAUTH2 support against Keycloak plus the Roundcube `oauth2` plugin — bigger scope, not yet done, evaluate only if the pre-auth wall proves insufficient.
 
 ---
 
@@ -488,6 +505,7 @@ Auth files: `/opt/stacks/tor/data/erp/authorized_clients/` (chown 100:101, chmod
 | Tailscale sn-security       | 100.112.71.39                                        |
 | Tailscale Ubuntu WS         | 100.116.130.37                                       |
 | Tailscale Windows (latitude)| 100.106.225.126                                      |
+| Tailscale Windows (traebake)| 100.127.229.35                                       |
 | Tailscale suffix            | spangled-atlas.ts.net                                |
 | PowerDNS API key            | pdnsKj7xM9pL2vR5n                                    |
 | PowerDNS API port           | 8081 (on 10.10.0.1)                                  |
