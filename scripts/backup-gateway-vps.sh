@@ -78,15 +78,20 @@ else
     SIZES+=" powerdns:$(du -sh "$BACKUP_DIR/powerdns/powerdns-db-$DATE.sql.gz" | cut -f1)"
     SIZES+=" mailserver:$(du -sh "$BACKUP_DIR/mailserver/mailserver-$DATE.tar.gz" | cut -f1)"
 
-    # Direct rclone push if configured (runs when rclone is set up with hetzner-crypt remote)
-    if command -v rclone &>/dev/null && rclone listremotes 2>/dev/null | grep -q "^hetzner-crypt:"; then
-        log "  Pushing direct to hetzner-crypt via rclone..."
-        for f in \
-            "$BACKUP_DIR/tor/tor-hidden-service-$DATE.tar.gz" \
-            "$BACKUP_DIR/powerdns/powerdns-db-$DATE.sql.gz" \
-            "$BACKUP_DIR/mailserver/mailserver-$DATE.tar.gz"; do
-            rclone copy "$f" "hetzner-crypt:gateway-vps-backups/" \
-                --no-traverse 2>&1 | while IFS= read -r l; do log "    rclone: $l"; done
+    # Direct rclone push to both cloud remotes — belt-and-suspenders
+    if command -v rclone &>/dev/null; then
+        REMOTES=$(rclone listremotes 2>/dev/null)
+        for REMOTE in hetzner-crypt b2-hot-crypt; do
+            echo "$REMOTES" | grep -q "^${REMOTE}:" || continue
+            log "  Pushing to ${REMOTE}..."
+            for f in \
+                "$BACKUP_DIR/tor/tor-hidden-service-$DATE.tar.gz" \
+                "$BACKUP_DIR/powerdns/powerdns-db-$DATE.sql.gz" \
+                "$BACKUP_DIR/mailserver/mailserver-$DATE.tar.gz"; do
+                subdir=$(basename $(dirname "$f"))
+                rclone copy "$f" "${REMOTE}:gateway-vps-backups/${subdir}/" \
+                    --no-traverse 2>&1 | while IFS= read -r l; do log "    rclone: $l"; done
+            done
         done
         log "  rclone push complete."
     fi

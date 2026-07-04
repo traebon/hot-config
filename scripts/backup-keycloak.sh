@@ -59,12 +59,19 @@ else
     log "WARNING: Proxmox unreachable — extending retention to ${RETENTION_DAYS_EXTENDED}d."
     PRUNED_AFTER=$RETENTION_DAYS_EXTENDED
 
-    # Direct rclone push if configured (runs when rclone is set up with hetzner-crypt remote)
-    if command -v rclone &>/dev/null && rclone listremotes 2>/dev/null | grep -q "^hetzner-crypt:"; then
-        log "Pushing direct to hetzner-crypt via rclone..."
-        rclone copy "$OUTFILE" "hetzner-crypt:gateway-vps-backups/keycloak/" \
-            --no-traverse 2>&1 | while IFS= read -r l; do log "  rclone: $l"; done
-        log "rclone push complete."
+    # Direct rclone push to both cloud remotes — belt-and-suspenders
+    if command -v rclone &>/dev/null; then
+        REMOTES=$(rclone listremotes 2>/dev/null)
+        if echo "$REMOTES" | grep -q "^hetzner-crypt:"; then
+            log "Pushing to hetzner-crypt..."
+            rclone copy "$OUTFILE" "hetzner-crypt:gateway-vps-backups/keycloak/" \
+                --no-traverse 2>&1 | while IFS= read -r l; do log "  rclone: $l"; done
+        fi
+        if echo "$REMOTES" | grep -q "^b2-hot-crypt:"; then
+            log "Pushing to b2-hot-crypt..."
+            rclone copy "$OUTFILE" "b2-hot-crypt:gateway-vps-backups/keycloak/" \
+                --no-traverse 2>&1 | while IFS= read -r l; do log "  rclone: $l"; done
+        fi
     fi
 
     send_alert \
