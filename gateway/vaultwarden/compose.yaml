@@ -8,13 +8,28 @@ services:
       DOMAIN: "https://vault.house-of-trae.com"
       SIGNUPS_ALLOWED: "false"
       INVITATIONS_ALLOWED: "true"
-      ADMIN_TOKEN: "$$argon2id$$v=19$$m=19456,t=2,p=1$$W/aTsVsaSaUyPRqXo+xbZg$$dSwZyewBB9mn8mTNpMoHEGc/2YdGqzP/zKfauii7+4I"
+      ADMIN_TOKEN_FILE: /run/secrets/admin_token
       LOG_LEVEL: "warn"
-      # SMTP: add once bare metal is back and SMTP password is retrievable from Vaultwarden
+      SMTP_HOST: "mail.house-of-trae.com"
+      SMTP_PORT: "587"
+      SMTP_SECURITY: "starttls"
+      SMTP_FROM: "notifications@house-of-trae.com"
+      SMTP_FROM_NAME: "Vaultwarden"
+      SMTP_USERNAME: "notifications@house-of-trae.com"
+      SMTP_PASSWORD_FILE: /run/secrets/smtp_password
+    secrets:
+      - admin_token
+      - smtp_password
     volumes:
       - vaultwarden_data:/data
     networks:
       - hotinfra_edge
+
+secrets:
+  admin_token:
+    file: ./secrets/admin_token.txt
+  smtp_password:
+    file: ./secrets/smtp_password.txt
 
 volumes:
   vaultwarden_data:
