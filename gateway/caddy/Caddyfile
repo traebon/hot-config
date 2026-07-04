@@ -265,6 +265,12 @@ dns-admin.house-of-trae.com {
     import secure_headers
     reverse_proxy 10.10.10.100:9191
 }
+wiki.house-of-trae.com {
+    import crowdsec
+    import compress
+    import secure_headers
+    reverse_proxy 10.10.10.100:3030
+}
 namevault.co.uk {
     import crowdsec
     import compress
