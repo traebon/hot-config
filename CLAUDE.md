@@ -290,10 +290,18 @@ Backend: Gateway VPS — PostgreSQL backend
 | discreet-elite  | Discreet Elite users                                         |
 | emerald-markets | Emerald Markets users                                        |
 | clients         | Client portal users                                          |
-| (8th realm)     | House of Trae parent                                         |
+| house-of-trae   | House of Trae parent — master identity-provider-redirector broker |
+| master          | Keycloak's own built-in admin realm (not app-facing)         |
+| privatenexus    | PrivateNexus app users (dev/test env, pn-test + sn-personal) |
 
-All realms: MFA enforced, brute force detection, strong password policy.
+10 realms total. All realms: MFA enforced, brute force detection, strong password policy.
 Keycloak OIDC API URL must point to realm root: `.../realms/<realm-name>` (NOT the protocol endpoint — causes 500 errors).
+
+**WebAuthn/passkey policy (rolled out 2026-07-02, verified 2026-07-04 via admin API against all 10 realms):**
+- 2FA WebAuthn policy: `rpId=house-of-trae.com`, signature algorithm `ES256`, `userVerification=preferred`
+- Passwordless policy: same `rpId`/`ES256`, `userVerification=required`, `requireResidentKey=required`, `authenticatorAttachment=platform` (passkey-grade — platform authenticator + resident key forces a real synced/hardware passkey, not just any FIDO2 token)
+- Required actions `webauthn-register` and `webauthn-register-passwordless` enabled (not default) on every realm — so users can register a passkey from their account console, but aren't force-enrolled
+- Config is identical across all 10 realms including `master` — confirmed via `admin/realms/<realm>` and `admin/realms/<realm>/authentication/required-actions` REST calls, not just inferred from the commit message
 
 ---
 
@@ -480,7 +488,6 @@ Auth files: `/opt/stacks/tor/data/erp/authorized_clients/` (chown 100:101, chmod
 
 - Wazuh SIEM on sn-security (VLAN 70)
 - CrowdSec custom scenarios
-- Keycloak passkeys (WebAuthn)
 - PrivateNexus PN-1 → PN-4 + Cosmos retirement
 - HoT Sync (Flutter) — Immich + Nextcloud + Notesnook + Vaultwarden
 - HoT Command (Flutter) — Mobile ops dashboard
