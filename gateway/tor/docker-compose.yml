@@ -5,6 +5,8 @@ services:
     container_name: tor
     network_mode: host
     restart: unless-stopped
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"
     volumes:
       - ./torrc:/etc/tor/torrc:ro
       - ./data:/var/lib/tor

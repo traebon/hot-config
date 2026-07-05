@@ -3,6 +3,8 @@ services:
     build: .
     container_name: caddy
     restart: unless-stopped
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"
     secrets:
       - pdns_api_key
       - crowdsec_api_key
