@@ -19,8 +19,15 @@ sync_file() {
 
 sync_remote() {
   local vm="$1" src="$2" dst="$3"
+  local tmp
+  tmp=$(mktemp)
   mkdir -p "$(dirname "$dst")"
-  ssh "$vm" "cat $src" > "$dst" 2>/dev/null || log "WARN: could not sync $vm:$src"
+  if ssh "$vm" "cat $src" > "$tmp" 2>/dev/null && [ -s "$tmp" ]; then
+    mv "$tmp" "$dst"
+  else
+    log "WARN: could not sync $vm:$src — leaving $dst untouched"
+    rm -f "$tmp"
+  fi
 }
 
 log "Syncing Gateway VPS configs..."
