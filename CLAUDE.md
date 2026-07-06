@@ -86,10 +86,20 @@ Tailscale overlay (admin access ONLY — never production traffic):
     Windows (latitude):  100.106.225.126
     Windows (traebake):  100.127.229.35
     Tailscale suffix:    spangled-atlas.ts.net
-```
+
+Other WireGuard interfaces on the Gateway VPS (separate from the wg0 bare-metal tunnel above):
+    wg1 — Mr. Byrne's personal road-warrior VPN. 10.10.90.0/24 (Gateway 10.10.90.1), port 51821.
+          Client configs: phone/windows/laptop.conf in /root/hot/wireguard-clients/. Predates this
+          doc; discovered 2026-07-06 when a new tunnel was almost given the same interface name —
+          check `wg show` before reusing wg<N>/ports on this box.
+    wg2 — TEMPORARY tunnel to erp-temp VPS (46.202.129.86) for the ERPNext stand-in during the
+          bare-metal outage. Gateway 10.10.1.1 / erp-temp 10.10.1.2, port 51822. See
+          hostkey_server_replacement memory and /opt/hot-config/erp-temp/dickson/README.md — tear
+          down once bare metal is restored and reverted.
 
 **Key rule:** Production traffic never routes through Tailscale. Tailscale = admin SSH only.
 **Key rule:** Bare metal has zero public-facing ports. All public traffic enters via the Gateway VPS.
+**Key rule:** Before creating a new WireGuard interface on the Gateway VPS, run `wg show` first — wg1 (personal VPN) is easy to collide with by guessing sequential names.
 
 ---
 
@@ -273,6 +283,25 @@ Wazuh creds (saved in Vaultwarden, "House of Trae — Gateway VPS" folder):
 - Dashboard/admin login: `admin` / `bRSsn8P2v1YIbemCHejpEb6l`
 - Wazuh API (wazuh-wui): `mHB2UhhMw0wTc3q8@22vJeOvr`
 - OpenSearch kibanaserver: `h2huT1B1TrUXQg8Wri5FqhdP`
+
+---
+
+### erp-temp (ssh erp-temp — 46.202.129.86, public VPS, not a Proxmox VM) — TEMPORARY
+Stood up 2026-07-06 as a stand-in for sn-business's ERPNext while bare metal is down (see
+Hostkey Server Replacement in memory). 2 vCPU / 7.7 GB RAM / 96 GB disk, AMD EPYC 9354P (Zen 4,
+full AVX-512 — no cpuv1 concerns here, unlike the bare-metal EPYC 3151). Reached from the
+Gateway VPS over the dedicated `wg2` tunnel (10.10.1.1 ↔ 10.10.1.2) — see Network Topology.
+
+| Service     | Path                | Notes                                                          |
+|-------------|---------------------|------------------------------------------------------------------|
+| ERPNext v16 | /opt/stacks/dickson/ | erp.dickson-supplies.com (Caddy repointed here) — **fresh site, no historical data**. Config synced to /opt/hot-config/erp-temp/dickson/ (README there has full rebuild notes/gotchas). |
+
+Caddy's `erp.dickson-supplies.com` block is temporarily pointed at `10.10.1.2:8000` instead of
+`10.10.20.101:8000` — commented inline in the Caddyfile with the revert path. **Revert once bare
+metal is restored** — see `/opt/hot-config/erp-temp/dickson/README.md` for the full revert plan
+and what's genuinely different from the real sn-business stack (reconstructed Dockerfile,
+posawesome source, etc. — several one-time setup gotchas that were never captured in
+docker-compose.yml originally).
 
 ---
 
