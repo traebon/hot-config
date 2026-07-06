@@ -190,7 +190,12 @@ http://qcrzygpg5qbzch4c2qlcgiktuvzf3xwqwtd7mkcn5r4g4mxebmpptkid.onion {
 erp.dickson-supplies.com {
     import crowdsec
     import compress
-    reverse_proxy 10.10.20.101:8000 {
+    # TEMPORARY: bare metal (sn-business, 10.10.20.101) down since 2026-07-02
+    # (Hostkey ticket CS-471548, full server replacement in progress). Backend
+    # stood up fresh (no historical data) on erp-temp over wg2 tunnel.
+    # Revert to 10.10.20.101:8000 once bare metal is restored and real data
+    # is migrated back -- see hostkey_server_replacement memory.
+    reverse_proxy 10.10.1.2:8000 {
         header_up Host {host}
     }
     header {
