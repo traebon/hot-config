@@ -59,7 +59,7 @@
         copy_headers X-Auth-Request-User X-Auth-Request-Email X-Auth-Request-Preferred-Username Authorization
         @error status 401
         handle_response @error {
-            redir * /oauth2/start?rd={http.request.orig_uri} temporary
+            redir * /oauth2/start?rd={http.request.scheme}://{http.request.host}{http.request.orig_uri} temporary
         }
     }
 }

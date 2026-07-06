@@ -13,6 +13,9 @@ services:
       - --cookie-secret-file=/run/secrets/cookie_secret
       - --cookie-secure=true
       - --cookie-domain=.house-of-trae.com
+      - --cookie-domain=.securenexus.net
+      - --whitelist-domain=.house-of-trae.com
+      - --whitelist-domain=.securenexus.net
       - --email-domain=securenexus.net
       - --email-domain=house-of-trae.com
       - --upstream=static://202
