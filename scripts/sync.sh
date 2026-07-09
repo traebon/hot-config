@@ -47,6 +47,20 @@ else
   log "WARN: no infrastructure roadmap docx found to sync"
 fi
 
+# All other reference docs (.md/.pdf/.docx) — mirror everything except the
+# versioned roadmap above, which has its own "keep only the latest" handling.
+# Without this, docs added under /root/hot/docs/ (PRDs, design docs, runbooks,
+# checklists...) silently never reach git and are lost if the Gateway VPS disk is.
+log "Syncing remaining docs..."
+mkdir -p "$REPO/docs"
+for f in /root/hot/docs/*.md /root/hot/docs/*.pdf /root/hot/docs/*.docx; do
+  [ -e "$f" ] || continue
+  case "$(basename "$f")" in
+    HoT_Infrastructure_State_Roadmap_v*.docx) continue ;;
+  esac
+  sync_file "$f" "$REPO/docs/$(basename "$f")"
+done
+
 # Caddy
 sync_file "$STACKS/caddy/Caddyfile"      "$REPO/gateway/caddy/Caddyfile"
 sync_file "$STACKS/caddy/compose.yml"    "$REPO/gateway/caddy/compose.yml"
