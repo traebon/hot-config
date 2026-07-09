@@ -555,7 +555,7 @@ Auth files: `/opt/stacks/tor/data/erp/authorized_clients/` (chown 100:101, chmod
 | All secrets                 | Vaultwarden — vault.house-of-trae.com (Gateway VPS)  |
 | Config git repo             | /opt/hot-config                                      |
 | B2 backup bucket            | hot-proxmox-backups                                  |
-| Wasabi backup bucket        | hot-proxmox-backups-secondary                        |
+| Hetzner Storage Box         | u622237@u622237.your-storagebox.de:23 (hetzner:vzdump)|
 | PrivateNexus dev VM         | pn-test — VLAN 60, 10.10.60.105                      |
 | This project directory      | /root/hot/                                           |
 | Full roadmap                | /root/hot/docs/HoT_Infrastructure_State_Roadmap_v3_2.docx (use docx2txt) |
