@@ -37,6 +37,7 @@ All reference documents are in /root/hot/docs/. Use docx2txt or pdftotext (both 
 | PrivateNexus_Commercial_Packaging_Licensing.md          | MD    | Commercial packaging — edition model, pricing logic, open-core boundary, GTM   |
 | dnssec-ds-records.md                                    | MD    | DNSSEC DS record reference for managed zones                                    |
 | HoT_Bare_Metal_Migration_Checklist.md                   | MD    | Hostkey bare-metal server replacement — phased migration/rebuild checklist      |
+| PrivateNexus_Security_Report_Tier4.md ... Tier19.md      | MD    | Progressive PrivateNexus security assessment series (Tiers 1-3 predate this archive) — infra exposure, RBAC, injection, deploy pipeline, dependency CVEs. All findings fixed; Tier 19 (25 Jun 2026) is the final/most recent tier. |
 
 ---
 
@@ -155,8 +156,8 @@ SSH config: /root/.ssh/config
 |     | **TOTAL**   | **13**|**40 GB**|**1.75 TB**|                   | Over-provisioned — actual RSS ~7 GB across all VMs |
 
 ### ⚠️ Hard Limits — Do Not Exceed Without Approval
-- **RAM:** 44 GB allocated vs 32 GB physical — KVM balloon keeps actual usage low. Do not add RAM-heavy VMs without checking pressure.
-- **vCPU:** 14 vCPUs across 8 physical threads — flag further additions
+- **RAM:** 40 GB allocated vs 32 GB physical — KVM balloon keeps actual usage low. Do not add RAM-heavy VMs without checking pressure.
+- **vCPU:** 13 vCPUs across 8 physical threads — flag further additions
 - **Disk:** ~6.05 TB free on ZFS (1.09 TB used) — snapshots + backups consume this too
 - **sn-personal disk:** 250 GB total. Root LV is 100 GB (98 GB filesystem) of a ~248 GB LVM VG — ~148 GB free in the VG, extend the LV with `lvextend` + `resize2fs` as needed before growing the Proxmox disk
 - **sn-personal (250 GB)** and **sn-business (300 GB)** are the largest VMs and the only ones suitable for disk-heavy services
@@ -558,7 +559,7 @@ Auth files: `/opt/stacks/tor/data/erp/authorized_clients/` (chown 100:101, chmod
 | Hetzner Storage Box         | u622237@u622237.your-storagebox.de:23 (hetzner:vzdump)|
 | PrivateNexus dev VM         | pn-test — VLAN 60, 10.10.60.105                      |
 | This project directory      | /root/hot/                                           |
-| Full roadmap                | /root/hot/docs/HoT_Infrastructure_State_Roadmap_v3_2.docx (use docx2txt) |
+| Full roadmap                | /root/hot/docs/HoT_Infrastructure_State_Roadmap_v*.docx — use highest version present (currently v3.3), docx2txt |
 | PN Phase 0 freeze           | /root/hot/docs/PrivateNexus_Phase0_Freeze.md         |
 
 ---
