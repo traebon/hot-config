@@ -6,13 +6,49 @@ replacement in progress, see `hostkey_server_replacement` memory). This is a fre
 posawesome deployment on a separate VPS (46.202.129.86), standing in for the real sn-business
 instance until bare metal is restored.
 
-## This is NOT a restore
+## Data restore (2026-07-09)
 
-**No historical ERPNext data.** The real vzdump backups for sn-business live encrypted on the
-Hetzner Storage Box (`hetzner:vzdump/`), but the rclone crypt password for those backups lives
-only on Proxmox itself (bare metal), not on the Gateway VPS or anywhere else reachable during
-this outage — confirmed by trying to decrypt the backup directory name and failing. Per Mr.
-Byrne's explicit decision (2026-07-06), this is a fresh empty site, not a data restore.
+**Historical ERPNext data has been restored.** The 2026-07-06 "fresh site" decision assumed the
+rclone crypt password for the Hetzner vzdump backups lived only on Proxmox (unreachable during
+the outage) — that assumption was wrong; the password had already been recovered to Vaultwarden
+on 2026-07-04, just mislabeled (see `rclone_crypt_password_vaultwarden` memory). Once found, a
+full restore was done from `vzdump-qemu-101-2026_06_29-02_19_44.vma.zst` (the last sn-business
+backup before the 2026-07-02 outage):
+
+1. Downloaded the backup from Hetzner. rclone's own SFTP client stalled deterministically at the
+   same byte offset (~8.4GB/25%) on two separate attempts — a client-side bug, not a network
+   issue. Worked around it with the plain OpenSSH `sftp` client using password auth (the SFTP
+   account's key is registered SFTP-subsystem-only; a bare `ssh <host> <cmd>` test confirmed exec
+   access is rejected, ruling out `rsync` too) — completed cleanly this way.
+2. Decrypted the raw file locally: a temporary rclone `crypt` remote pointing at a local directory
+   (same password/salt as `hetzner-crypt`, so no network involved) turned the downloaded blob back
+   into the real `.vma.zst` — this sidesteps the SFTP stall entirely for future restores, since only
+   the download needs the network.
+3. Decompressed with `zstd -d --rm` (36GB compressed → 36GB decompressed — the VMA container format
+   already strips zero blocks, so it isn't sparse-inflated like the original 300GB disk).
+4. Extracted with Proxmox's `vma` tool (built standalone via `dpkg-deb -x` on the missing
+   `libproxmox-backup-qemu`/`librbd`/`librados` .debs, no system package install) — produced a
+   300GB-apparent, ~34GB-actual sparse raw disk image.
+5. Attached via `losetup -fP`, unlocked `/dev/loop0p3` (LUKS2) with `clevis luks unlock` — same
+   dual-Tang binding as every other HoT VM. erp-temp has no route to the Gateway's `wg0`-bound Tang
+   (`10.10.0.1:7500`), so a temporary bridge (`ssh -R 127.0.0.1:7500:10.10.0.1:7500` + an `iptables`
+   `OUTPUT` NAT redirect on erp-temp) stood in for it — torn down after use, no persistent routing
+   changes.
+6. Activated the LV, mounted it, and copied the real `dickson_dickson-db-data`,
+   `dickson_dickson-sites-data`, and `dickson_dickson-assets-data` volume contents over erp-temp's
+   fresh ones (originals kept as `_data.fresh-backup` alongside each volume, ~730MB total, not yet
+   deleted). Patched `common_site_config.json`'s `redis_cache`/`redis_queue`/`redis_socketio`
+   entries to erp-temp's actual redis passwords — the recovered site's own credentials for those
+   were sn-business-specific and don't apply here; DB name/password and encryption keys were left
+   as recovered since they matched the copied database's own grants.
+7. Verified: `frappe.ping` returns `pong` through erp.dickson-supplies.com (public HTTPS, through
+   Caddy), and a direct query against `tabItem` with the site's own DB credentials shows real
+   inventory data dated back to February/March 2026 — not the fresh site's empty schema.
+
+**Known gap:** anything entered into the fresh site between 2026-07-06 and 2026-07-09 is *not*
+merged into the restored data — it only exists in the `.fresh-backup` volume copies on erp-temp.
+Per Mr. Byrne (2026-07-06), erp-temp had been sitting unused, so this is expected to be nothing,
+but hasn't been independently verified against the fresh-backup contents.
 
 ## What's different from the real sn-business/dickson stack
 
@@ -65,9 +101,10 @@ Caddy site block.
 1. Confirm sn-business (10.10.20.101) is reachable and ERPNext there is healthy
 2. Change Caddy's `erp.dickson-supplies.com` block back to `reverse_proxy 10.10.20.101:8000`
    (the commented-out original is right there in the Caddyfile)
-3. Decide what to do with any orders/data entered into erp-temp during the outage window — this
-   needs Mr. Byrne's input on how to reconcile/migrate it into the real instance, not an automated
-   step
+3. Historical data through 2026-06-29 is already restored (see "Data restore" above). Decide what
+   to do with anything entered into erp-temp during the fresh-site window (2026-07-06 → restore
+   date) — it's preserved in the `_data.fresh-backup` volume copies, not merged. Needs Mr. Byrne's
+   input on how to reconcile/migrate it into the real instance, not an automated step
 4. Tear down erp-temp's containers/volumes once confirmed no longer needed, `wg-quick down wg2`
    on both ends, remove the wg2 UFW rules, and decide whether to keep or release the VPS itself
 5. Update this README and `CLAUDE.md`'s Service Locations table to remove references to erp-temp

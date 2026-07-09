@@ -295,7 +295,7 @@ Gateway VPS over the dedicated `wg2` tunnel (10.10.1.1 ↔ 10.10.1.2) — see Ne
 
 | Service     | Path                | Notes                                                          |
 |-------------|---------------------|------------------------------------------------------------------|
-| ERPNext v16 | /opt/stacks/dickson/ | erp.dickson-supplies.com (Caddy repointed here) — **fresh site, no historical data**. Config synced to /opt/hot-config/erp-temp/dickson/ (README there has full rebuild notes/gotchas). |
+| ERPNext v16 | /opt/stacks/dickson/ | erp.dickson-supplies.com (Caddy repointed here) — **historical data restored 2026-07-09** from the 2026-06-29 Hetzner vzdump backup (the rclone crypt password was recovered — see [[rclone_crypt_password_vaultwarden]] — so the earlier "fresh site" decision was superseded). Live data now current as of the outage start (2026-07-02); anything entered into erp-temp between 2026-07-06 and 2026-07-09 was on the old fresh site and is in `.fresh-backup` volume copies on erp-temp, not merged in — needs Mr. Byrne's input if that window's data matters. Config synced to /opt/hot-config/erp-temp/dickson/ (README there has full rebuild notes/gotchas + the restore procedure). |
 
 Caddy's `erp.dickson-supplies.com` block is temporarily pointed at `10.10.1.2:8000` instead of
 `10.10.20.101:8000` — commented inline in the Caddyfile with the revert path. **Revert once bare
