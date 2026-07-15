@@ -180,9 +180,9 @@ Requirements are tagged: **[BUILT]** = exists in v1.9, **[MISSING]** = not yet b
 | Req | Description | Status |
 |---|---|---|
 | AUD-01 | Immutable audit log — no UPDATE or DELETE permitted | BUILT |
-| AUD-02 | Every write operation (create/update/archive) creates audit event | BUILT |
+| AUD-02 | Every write operation (create/update/archive) creates audit event | Fixed 2026-07-15 (`hot-privatenexus` `6f3ab9e`, `07ba00e`) — was not actually true: `governance.js`'s rule toggle + exception create/delete, `services.js`'s workspace create/update/delete, and `recovery.js`'s simulation/restore-test delete all had zero audit trail (imported `recordAudit`, never called it). All fixed; verified no other route file has the same gap. |
 | AUD-03 | Every auth event (login/logout/failed) creates audit event | BUILT |
-| AUD-04 | Every action attempt creates audit event | BUILT |
+| AUD-04 | Every action attempt creates audit event | Fixed 2026-07-15 — same fix as AUD-02, see that row. |
 | AUD-05 | Audit records carry: ts, tenant_id, user_sub, username, role, action, target, outcome, detail, ip | BUILT |
 | AUD-06 | Admin can query audit log, filtered by actor/action/date range | BUILT — corrected 2026-07-15, duplicate of FE-04's Activity board (`/api/activity`, has `from_ts`/`to_ts` date-range plus username/action/outcome). Note: an older, more limited `admin/audit` panel (`/api/admin/audit` — no date range) also still exists as a separate Admin menu tab — mild duplication, not a gap, worth consolidating eventually but not urgent. |
 | AUD-07 | Audit log is tenant-scoped — admin cannot see other tenants' events | BUILT |
