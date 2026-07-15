@@ -18,6 +18,12 @@ RUN cd apps \
  && printf '\nposawesome\n' >> sites/apps.txt \
  && bench build
 
+# Custom Dickson Supplies branding, injected via Website Settings' custom
+# CSS/JS fields. The originals were lost on 2026-07-09 (see custom-assets/
+# comments) and are recreated placeholders, not the real branding.
+COPY custom-assets/css/dickson-theme.css sites/assets/css/dickson-theme.css
+COPY custom-assets/js/inject_dickson_theme.js sites/assets/js/inject_dickson_theme.js
+
 # sites/assets is a named Docker volume, not an image layer -- after any image
 # rebuild (new app code, new posawesome version) the volume still holds the
 # previous image's assets until something overwrites it, causing hash
