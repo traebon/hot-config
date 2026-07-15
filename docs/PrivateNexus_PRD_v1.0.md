@@ -200,8 +200,8 @@ Requirements are tagged: **[BUILT]** = exists in v1.9, **[MISSING]** = not yet b
 | FE-07 | Access mode badges on service cards | BUILT — corrected 2026-07-15, `ACCESS_MODE_STYLES[svc.access_mode]` badge verified present on every Inventory card, no fix needed |
 | FE-08 | Missing metadata flags (owner, backup_policy, health_endpoint) | BUILT — corrected 2026-07-15, `missingFields` computed per-card and rendered as a visible amber warning badge ("Missing: owner, backup policy, ...") — verified in source, no fix needed |
 | FE-09 | Catalogue board | PARTIAL (route built, static `APPS` array — becoming a real local update repository, see roadmap v6.0) |
-| FE-10 | Files board (file registry, backup/restore) | PARTIAL (route built) |
-| FE-11 | Logs board | PARTIAL (route built) |
+| FE-10 | Files board (file registry, backup/restore) | BUILT — corrected 2026-07-15. `routes/files.js` has 22 endpoints (read/draft/validate/write/apply, backup CRUD + LKG/labels/prune, restore/restore-and-apply/restore-plan/restore-log, apply-log, register). All 22 verified called from the frontend; the Files board itself is a substantial, fully-built UI (~150 lines), not a stub. |
+| FE-11 | Logs board | BUILT, plus a live bug found and fixed 2026-07-15 (`hot-config` commit `f80c6b1`). `routes/logs.js` (Loki-backed, LogQL injection guards, range/level/search filters) was fully wired in the frontend — but pn-vps's `monitoring-temp` Promtail config (deployed earlier the same day) stripped the leading slash from the `container` label, while `logs.js`'s query selector assumes Docker's raw `/name` convention (confirmed against the Gateway's real Promtail config, which has no such stripping). Every Logs board query on pn-vps was silently returning zero results. Fixed the Promtail relabel rule to match; verified post-fix with a real returned log line. |
 
 ---
 
