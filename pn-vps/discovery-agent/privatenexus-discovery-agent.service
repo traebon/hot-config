@@ -1,0 +1,9 @@
+[Unit]
+Description=PrivateNexus discovery agent (push host + container facts)
+After=docker.service network-online.target
+Requires=docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/privatenexus/scripts/discovery-agent.sh
