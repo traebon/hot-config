@@ -1,0 +1,199 @@
+# PrivateNexus v2.0.0 — Dependency Intelligence + MCP server
+services:
+  privatenexus-db:
+    image: postgres:16-alpine
+    container_name: privatenexus-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: privatenexus
+      POSTGRES_USER: privatenexus
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+    secrets:
+      - db_password
+    volumes:
+      - pn-db-data:/var/lib/postgresql/data
+    networks:
+      - pn-internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U privatenexus"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  privatenexus-redis:
+    image: redis:7-alpine
+    container_name: privatenexus-redis
+    restart: unless-stopped
+    command: sh -c 'redis-server --requirepass $$(cat /run/secrets/redis_password)'
+    secrets:
+      - redis_password
+    networks:
+      - pn-internal
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a $$(cat /run/secrets/redis_password) ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  privatenexus-docker-proxy:
+    image: tecnativa/docker-socket-proxy
+    container_name: privatenexus-docker-proxy
+    restart: unless-stopped
+    environment:
+      CONTAINERS: 1   # list + inspect
+      IMAGES: 1       # list images (deploy)
+      POST: 1         # start / stop / restart / pull / create
+      EXEC: 0         # block exec — key security control
+      BUILD: 0
+      COMMIT: 0
+      AUTH: 0
+      CONFIGS: 0
+      DISTRIBUTION: 0
+      EVENTS: 1
+      INFO: 1
+      NETWORKS: 0
+      NODES: 0
+      PLUGINS: 0
+      SECRETS: 0
+      SERVICES: 0
+      SESSION: 0
+      SWARM: 0
+      SYSTEM: 0
+      TASKS: 0
+      VERSION: 1
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - pn-internal
+
+  privatenexus-backend:
+    build:
+      context: ..
+      dockerfile: docker/backend.Dockerfile
+    container_name: privatenexus-backend
+    restart: unless-stopped
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"
+    environment:
+      PORT: ${PRIVATENEXUS_BACKEND_PORT:-3001}
+      PROMETHEUS_URL: ${PROMETHEUS_URL:-http://10.10.50.104:9090}
+      LOKI_URL: ${LOKI_URL:-http://10.10.50.104:3100}
+      NODE_INSTANCE: ${NODE_INSTANCE:-pn-test}
+      KEYCLOAK_URL: ${KEYCLOAK_URL:-https://auth.house-of-trae.com}
+      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-privatenexus}
+      KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID:-privatenexus}
+      AUTH_REDIRECT_URI: ${AUTH_REDIRECT_URI:-https://privatenexus.net/api/auth/callback}
+      AUTH_POST_LOGOUT_URI: ${AUTH_POST_LOGOUT_URI:-https://privatenexus.net}
+      DB_HOST: privatenexus-db
+      DB_PORT: 5432
+      DB_NAME: privatenexus
+      DB_USER: privatenexus
+      REDIS_URL: redis://privatenexus-redis:6379
+      HEALTH_CHECK_INTERVAL_MS: ${HEALTH_CHECK_INTERVAL_MS:-60000}
+      HEALTH_EVENT_RETENTION_DAYS: ${HEALTH_EVENT_RETENTION_DAYS:-30}
+      PROXMOX_URL: ${PROXMOX_URL:-https://10.10.0.2:8006/api2/json}
+      CADDY_ADMIN_URL: ${CADDY_ADMIN_URL:-http://10.10.0.1:2019}
+      DOCKER_HOST: tcp://privatenexus-docker-proxy:2375
+    secrets:
+      - db_password
+      - keycloak_client_secret
+      - session_secret
+      - proxmox_token
+      - discovery_agent_token
+      - mcp_token
+      - redis_password
+      - pdns_api_key
+    ports:
+      - "127.0.0.1:${PRIVATENEXUS_BACKEND_PORT:-3001}:3001"
+    volumes:
+      - /opt/privatenexus:/opt/privatenexus
+    depends_on:
+      privatenexus-db:
+        condition: service_healthy
+      privatenexus-redis:
+        condition: service_healthy
+      privatenexus-docker-proxy:
+        condition: service_started
+    user: "1000"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - pn-internal
+      - pn-edge
+
+  privatenexus-frontend:
+    build:
+      context: ..
+      dockerfile: docker/frontend.Dockerfile
+    container_name: privatenexus-frontend
+    restart: unless-stopped
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"
+    ports:
+      - "10.10.2.2:${PRIVATENEXUS_FRONTEND_PORT:-5173}:80"
+    depends_on:
+      - privatenexus-backend
+    # cap_drop not applied — nginx master requires CAP_CHOWN + CAP_SETUID/GID for worker setup
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - pn-edge
+
+  privatenexus-mcp:
+    build:
+      context: ..
+      dockerfile: docker/mcp.Dockerfile
+    container_name: privatenexus-mcp
+    restart: unless-stopped
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"
+    environment:
+      MCP_PORT: 3002
+      DB_HOST: privatenexus-db
+      DB_PORT: 5432
+      DB_NAME: privatenexus
+      DB_USER: privatenexus
+    secrets:
+      - db_password
+      - mcp_token
+    ports:
+      - "127.0.0.1:3002:3002"
+    depends_on:
+      privatenexus-db:
+        condition: service_healthy
+    user: "node"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - pn-internal
+      - pn-edge
+
+volumes:
+  pn-db-data:
+
+networks:
+  pn-internal:
+    internal: true
+  pn-edge:
+
+secrets:
+  redis_password:
+    file: ../secrets/redis_password.txt
+  pdns_api_key:
+    file: ../secrets/pdns_api_key.txt
+  db_password:
+    file: ../secrets/db_password.txt
+  keycloak_client_secret:
+    file: ../secrets/keycloak_client_secret.txt
+  session_secret:
+    file: ../secrets/session_secret.txt
+  proxmox_token:
+    file: ../secrets/proxmox_token.txt
+  discovery_agent_token:
+    file: ../secrets/discovery_agent_token.txt
+  mcp_token:
+    file: ../secrets/mcp_token.txt
