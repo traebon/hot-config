@@ -56,18 +56,23 @@ As of 22 June 2026, the following is deployed and running on pn-test.
 
 ### 2.2 Known gaps vs. v1.0 target
 
+**Correction (2026-07-15):** this table had drifted badly out of date — a source-level audit this
+session found nearly every row below already resolved, several since well before 22 June. Rows are
+kept (struck through, not deleted) so the history of what was fixed and when isn't lost. See §4 for
+the corresponding per-requirement corrections (HLT-05/06/07, REC-10/11/12/13, ACT-04/05/06, FE-03/06).
+
 | Gap | Priority | Notes |
 |---|---|---|
-| No git repository on pn-test | High | `git init` needed; all changes are unversioned |
+| No git repository on pn-test | High | Not re-verified this session (pn-test itself, not pn-vps) — leave open until checked |
 | HOT_TENANT_ID hardcoded | Medium | Blocks second-tenant onboarding; part of the broader de-hardcoding effort scoped to roadmap v6.0 (not just this one env var — discovery scanner defaults and category inference are HoT-specific too) |
-| No TCP health check type | Medium | Currently HTTP only |
-| No health check scheduler | Medium | Health is triggered on demand only, not on schedule |
-| No recovery score UI | Medium | Restore planner exists in backend; no frontend display |
-| No backup inventory UI | Medium | Backend model exists; no frontend display |
-| No action policy engine | Low | Actions exist (restart etc.) but no policy object model |
-| No discovery agents | Low | Roadmap v1.5 |
-| Frontend is partial | Medium | `PrivateNexusV1Mockup.jsx` indicates UI is in progress |
-| VERSION file is 1.9.0; compose comment says 1.10.0 | Low | Sync these |
+| ~~No TCP health check type~~ | ~~Medium~~ | **RESOLVED.** `healthProbe.js` has a full `tcp://host:port` probe branch alongside HTTP/HTTPS — verified in source and confirmed running in production. |
+| ~~No health check scheduler~~ | ~~Medium~~ | **RESOLVED.** `healthScheduler.js` runs a 2-minute background cycle (probe → prune → periodic intelligence scan) — verified live on pn-vps with real `health_events` data (765+ cycles per service, zero errors). |
+| ~~No recovery score UI~~ | ~~Medium~~ | **RESOLVED.** Service Detail view has a full "Recovery Score" panel (score/grade/reasons) wired to `computeRecoveryScore()` — verified in source, not scaffolding. |
+| ~~No backup inventory UI~~ | ~~Medium~~ | **RESOLVED.** Service Detail has a full "Backup Records" table with add/LKG/trust/delete actions, wired to `service_backups` CRUD — verified in source. |
+| ~~No action policy engine~~ | ~~Low~~ | **RESOLVED.** `action_policies` table has 7 real seeded rows (elevation, blast-radius check, cooldown, requires-approval per action type) and `/api/actions/run/v2` enforces all of it. It existed but was never called from the UI until the 2026-07-15 action-safety fix wired the Stacks board to it — see CLAUDE.md `pn-vps` section. |
+| ~~No discovery agents~~ | ~~Low~~ | **RESOLVED**, closed out 2026-07-15 — Docker/Proxmox/Caddy scanners, agent-push ingest with scoped DB tokens, approval workflow, and drift detection are all live. See CLAUDE.md `pn-vps` section. |
+| Frontend is partial | Medium | Narrower than it reads: `PrivateNexusV1Mockup.jsx` is dead code — not imported anywhere, confirmed via grep. The real frontend (`App.jsx`) is comprehensively built for every board audited this session (Discovery, Stacks, Recovery, Service Detail). FE-01/02/05/07/09/10/11 (dashboard summary, filtering, admin panel, badges, catalogue, files, logs) were not re-audited — this row stays until they are. |
+| VERSION file is 1.9.0; compose comment says 1.10.0 | Low | Not re-verified this session |
 
 ---
 
@@ -133,9 +138,9 @@ Requirements are tagged: **[BUILT]** = exists in v1.9, **[MISSING]** = not yet b
 | HLT-02 | Status states: healthy, warning, degraded, down, unknown | BUILT |
 | HLT-03 | Health results written to services table (status, updated_at) | BUILT |
 | HLT-04 | Health check runs concurrently across all services in one request | BUILT |
-| HLT-05 | TCP health check type | MISSING — roadmap v1.0 completion |
-| HLT-06 | Scheduled health checks (background worker, configurable interval) | MISSING — currently on-demand only |
-| HLT-07 | Health history stored per service (health_events table) | MISSING |
+| HLT-05 | TCP health check type | BUILT — corrected 2026-07-15, was already implemented (`healthProbe.js` `tcp://` branch) |
+| HLT-06 | Scheduled health checks (background worker, configurable interval) | BUILT — corrected 2026-07-15, `healthScheduler.js` runs a configurable-interval background cycle (`HEALTH_CHECK_INTERVAL_MS`), verified live |
+| HLT-07 | Health history stored per service (health_events table) | BUILT — corrected 2026-07-15, verified real data (765+ events/service on pn-vps) and rendered in Service Detail's "Health History" panel |
 | HLT-08 | Unknown status displayed distinctly — treated as config gap, not healthy | BUILT |
 | HLT-09 | Health probe timeout 5s; reports "down" on timeout | BUILT |
 
@@ -152,10 +157,10 @@ Requirements are tagged: **[BUILT]** = exists in v1.9, **[MISSING]** = not yet b
 | REC-07 | Restore modes: in_place and side_by_side | BUILT |
 | REC-08 | Restore log | BUILT |
 | REC-09 | Rollback advice after restore | BUILT |
-| REC-10 | Restore planner accessible from service detail view in UI | MISSING |
-| REC-11 | Recovery score displayed per service (backup age + trust + test) | MISSING |
-| REC-12 | Service-level backup records (not just file-level) | MISSING — current model is file-centric |
-| REC-13 | Backup inventory UI per service | MISSING |
+| REC-10 | Restore planner accessible from service detail view in UI | BUILT — corrected 2026-07-15. Service Detail has a "Config Files & Restore Planner" panel with a deep-link into the Files board (where the planner actually runs, since it's file-registry-scoped) and explanatory text. Not an inline embedded planner — a deliberate design choice, not a gap. |
+| REC-11 | Recovery score displayed per service (backup age + trust + test) | BUILT — corrected 2026-07-15, verified in source (`computeRecoveryScore()` + Service Detail "Recovery Score" panel) |
+| REC-12 | Service-level backup records (not just file-level) | BUILT — corrected 2026-07-15, `service_backups` table with full CRUD exists and is used, alongside (not instead of) the file-level model |
+| REC-13 | Backup inventory UI per service | BUILT — corrected 2026-07-15, Service Detail "Backup Records" table with add/LKG/trust/delete |
 
 ### 4.5 Safe Actions
 
@@ -164,9 +169,9 @@ Requirements are tagged: **[BUILT]** = exists in v1.9, **[MISSING]** = not yet b
 | ACT-01 | Restart approved service — operator minimum, audit-logged | BUILT (route exists) |
 | ACT-02 | Refresh health check — operator minimum, rate-limited | BUILT |
 | ACT-03 | Maintenance mode — operator/admin, duration required, audit-logged | PARTIAL |
-| ACT-04 | Action requires confirmation in UI before execution | MISSING — needs frontend confirmation modal |
-| ACT-05 | Action cooldown (60s per service) enforced server-side | MISSING — not confirmed in current routes |
-| ACT-06 | Action policy object model — declarative policy per action type | MISSING — roadmap v3.0 |
+| ACT-04 | Action requires confirmation in UI before execution | BUILT — corrected 2026-07-15. The Stacks board confirm modal existed already, but until this session called the v1 action endpoint, which has no policy/blast-radius/approval logic — see ACT-06 note. Now wired to v2 and the modal's copy honestly reflects whether blast-radius protection actually applies. |
+| ACT-05 | Action cooldown (60s per service) enforced server-side | BUILT — corrected 2026-07-15, `COOLDOWN_MS` + `actionCooldowns` map in `actions.js`, present in both `/run` and `/run/v2` |
+| ACT-06 | Action policy object model — declarative policy per action type | BUILT — corrected 2026-07-15. `action_policies` table (7 seeded rows: elevation/blast-radius/cooldown/requires-approval per action type) and `/api/actions/run/v2` fully implement this. It was built but completely unreachable from any UI — and had a live bug (`userRoleLevel()` read a session field that's never populated, so every elevation check 403'd) that had never been exercised until the frontend was wired to it this session. See CLAUDE.md `pn-vps` section for the full fix. |
 | ACT-07 | Viewer role cannot trigger any action — 403 from requireRole | BUILT |
 | ACT-08 | All action attempts (success and failure) written to audit log | BUILT |
 
@@ -188,10 +193,10 @@ Requirements are tagged: **[BUILT]** = exists in v1.9, **[MISSING]** = not yet b
 |---|---|---|
 | FE-01 | Dashboard: service health summary, workspace view | PARTIAL |
 | FE-02 | Service list with filter by workspace, category, status | PARTIAL |
-| FE-03 | Service detail: health history, backup summary, action buttons | MISSING |
-| FE-04 | Activity feed: real-time audit events, filterable | MISSING |
-| FE-05 | Admin panel: user list, role management | PARTIAL |
-| FE-06 | Confirmation modal for all privileged actions | MISSING |
+| FE-03 | Service detail: health history, backup summary, action buttons | BUILT — corrected 2026-07-15, all three verified present (Health History panel, Recovery Score + Backup Records panels, Deploy/Rollback + restart-eligible container actions) |
+| FE-04 | Activity feed: real-time audit events, filterable | Not re-audited this session — left as-is |
+| FE-05 | Admin panel: user list, role management | PARTIAL — not re-audited this session |
+| FE-06 | Confirmation modal for all privileged actions | BUILT — corrected 2026-07-15, see ACT-04 |
 | FE-07 | Access mode badges on service cards | PARTIAL |
 | FE-08 | Missing metadata flags (owner, backup_policy, health_endpoint) | MISSING |
 | FE-09 | Catalogue board | PARTIAL (route built, static `APPS` array — becoming a real local update repository, see roadmap v6.0) |
