@@ -647,6 +647,25 @@ confirmed PrivateNexus is stable enough to open to external users.
 - House of Trae migrated cleanly to tenant slug `house-of-trae`
 - Tenant isolation regression suite: every API endpoint verified to be tenant-scoped
 
+**De-hardcode HoT-specific assumptions (Catalogue is the deliberate exception)**
+- Audit goes beyond `HOT_TENANT_ID`: discovery scanner defaults are currently baked-in HoT
+  topology (`scanProxmox`'s `10.10.0.2:8006` default, `scanCaddy`'s `10.10.0.1:2019` default),
+  `inferCategory()`'s image-name list is tuned to HoT's actual stack (ERPNext/Keycloak/Forgejo/
+  etc.), and workspace lookups assume seeded slugs like `infrastructure` exist. These move to
+  per-tenant configuration (DB-backed settings, not env-var defaults) so a second tenant isn't
+  silently scanning House of Trae's infrastructure or matching HoT-specific categories.
+- Seed data (workspaces, categories, the House of Trae tenant itself) becomes install-time
+  configuration rather than assumed-present rows.
+- **Explicit exception: the Catalogue board is not genericized away — it's built out.** Today
+  `GET /api/catalogue` (`app/backend/src/routes/catalogue.js`) serves a static in-memory `APPS`
+  array with no update/version tracking and no way to point at a different source. Catalogue
+  becomes a real local repository: a versioned app/update source PrivateNexus can query for
+  available updates to itself and to any catalogue app a tenant has installed, with support for
+  pointing at a self-hosted repository (not just the bundled default list). This is the one place
+  HoT-shaped curation is a feature, not a hardcoding smell — it's the update-delivery mechanism
+  every install (including HoT's own) depends on. Closes PRD gap FE-09 (Catalogue board —
+  currently PARTIAL, route built but static).
+
 **Proven recovery score**
 - Automated sandbox restore runner using an isolated Docker network (no production contact)
 - Restore test scheduling — weekly default for critical services, configurable per service
@@ -719,6 +738,8 @@ Hard guardrails:
 - [ ] Second tenant created and isolated from House of Trae — data boundary verified by direct DB query
 - [ ] SuperAdmin console shows all tenants with health summary and last activity
 - [ ] `HOT_TENANT_ID` hardcode absent from all backend code (grep confirms)
+- [ ] Discovery scanner defaults (Proxmox/Caddy URLs, category inference) are per-tenant config, not hardcoded HoT topology
+- [ ] Catalogue serves from a real local repository (versioned, update-checkable) instead of the static `APPS` array, with at least one non-default repository source configurable
 - [ ] Sandbox restore test runs for ERPNext and PrivateNexus without any production contact
 - [ ] Restore test result visible in recovery score breakdown as a proven signal (not heuristic)
 - [ ] PrivateNexus registered as a managed service with health check, backup policy, and non-zero recovery score

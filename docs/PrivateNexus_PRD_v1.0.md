@@ -59,7 +59,7 @@ As of 22 June 2026, the following is deployed and running on pn-test.
 | Gap | Priority | Notes |
 |---|---|---|
 | No git repository on pn-test | High | `git init` needed; all changes are unversioned |
-| HOT_TENANT_ID hardcoded | Medium | Blocks second-tenant onboarding; roadmap v2.x |
+| HOT_TENANT_ID hardcoded | Medium | Blocks second-tenant onboarding; part of the broader de-hardcoding effort scoped to roadmap v6.0 (not just this one env var — discovery scanner defaults and category inference are HoT-specific too) |
 | No TCP health check type | Medium | Currently HTTP only |
 | No health check scheduler | Medium | Health is triggered on demand only, not on schedule |
 | No recovery score UI | Medium | Restore planner exists in backend; no frontend display |
@@ -194,7 +194,7 @@ Requirements are tagged: **[BUILT]** = exists in v1.9, **[MISSING]** = not yet b
 | FE-06 | Confirmation modal for all privileged actions | MISSING |
 | FE-07 | Access mode badges on service cards | PARTIAL |
 | FE-08 | Missing metadata flags (owner, backup_policy, health_endpoint) | MISSING |
-| FE-09 | Catalogue board | PARTIAL (route built) |
+| FE-09 | Catalogue board | PARTIAL (route built, static `APPS` array — becoming a real local update repository, see roadmap v6.0) |
 | FE-10 | Files board (file registry, backup/restore) | PARTIAL (route built) |
 | FE-11 | Logs board | PARTIAL (route built) |
 
