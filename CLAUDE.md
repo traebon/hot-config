@@ -97,6 +97,10 @@ Other WireGuard interfaces on the Gateway VPS (separate from the wg0 bare-metal 
           bare-metal outage. Gateway 10.10.1.1 / erp-temp 10.10.1.2, port 51822. See
           hostkey_server_replacement memory and /opt/hot-config/erp-temp/dickson/README.md — tear
           down once bare metal is restored and reverted.
+    wg3 — TEMPORARY tunnel to pn-vps (151.241.217.140) for the PrivateNexus stand-in during the
+          same bare-metal outage (pn-test/sn-personal both unreachable). Gateway 10.10.2.1 /
+          pn-vps 10.10.2.2, port 51823. See hostkey_server_replacement memory and the pn-vps
+          section below — tear down once bare metal is restored and reverted.
 
 **Key rule:** Production traffic never routes through Tailscale. Tailscale = admin SSH only.
 **Key rule:** Bare metal has zero public-facing ports. All public traffic enters via the Gateway VPS.
@@ -303,6 +307,41 @@ metal is restored** — see `/opt/hot-config/erp-temp/dickson/README.md` for the
 and what's genuinely different from the real sn-business stack (reconstructed Dockerfile,
 posawesome source, etc. — several one-time setup gotchas that were never captured in
 docker-compose.yml originally).
+
+---
+
+### pn-vps (ssh pn-vps — 151.241.217.140, Hostkey CH, public VPS, not a Proxmox VM) — TEMPORARY
+Stood up 2026-07-15 as a stand-in for PrivateNexus's dev (pn-test) and test (sn-personal) roles
+combined while bare metal is down (see [[hostkey_server_replacement]]). Ordered via the Hostkey
+`invapi.hostkey.com` billing API — see [[hostkey_invapi_notes]] for the auth/order quirks
+discovered along the way. `vm.v2-medium` preset — 8 vCPU / 16 GB RAM / 160 GB NVMe, Ubuntu 26.04
+LTS (upgraded from the 24.04 base image via a Hostkey panel reinstall — neither `do-release-upgrade`
+nor the invapi API could drive this server, a real gap: `eq/list`/`eq/show` never recognized this
+server's ID (4683) under this account's API key, even after payment and provisioning completed).
+Reached from the Gateway VPS over the dedicated `wg3` tunnel (10.10.2.1 ↔ 10.10.2.2) — see Network
+Topology. UFW locked down (deny-by-default; only SSH, the wg3 port, and 5173/tcp scoped to
+10.10.2.1 are open). Claude Code (native install) is also set up on this box for direct use there.
+
+| Service      | Path               | Notes                                                                 |
+|--------------|--------------------|-----------------------------------------------------------------------|
+| PrivateNexus | /opt/privatenexus/ | privatenexus.net (Caddy repointed here) — full stack built and deployed from the current `origin/main` source (rsynced from this Gateway's `/root/privatenexus` clone, confirmed clean at the time). Reuses the existing Keycloak `privatenexus` client secret unchanged (its redirect URIs already targeted `privatenexus.net`, not pn-test/sn-personal specifically, so no Keycloak change was needed). `PROXMOX_URL` points at sn-monitor/bare-metal and will not work until that's reachable again — expected, not a bug (nothing to substitute for the real hypervisor). `PDNS_API_KEY` and `PROXMOX_TOKEN` were deliberately set to placeholder values rather than the real credentials, since pn-vps sits outside the VLAN mesh and can't reach either endpoint anyway — no reason to expose the real PowerDNS key on an external box for a feature that can't function. |
+| Monitoring (temp) | /opt/stacks/monitoring-temp/ | **Added 2026-07-15.** `PROMETHEUS_URL`/`LOKI_URL` were repointed from sn-monitor to a local Prometheus + node-exporter + Loki + Promtail stand-in here (`.env` in the PrivateNexus compose dir) — PrivateNexus's own health-scheduler/dashboard needs somewhere reachable to query. All four containers sit on the existing `compose_pn-internal` network only — no host ports published, no public exposure. Monitors pn-vps itself (node-exporter + container logs via Promtail), not the wider HoT fleet. Loki's `/ready` endpoint returns a cosmetic 503 (`"waiting for 15s after being ready"`, a known single-node quirk) despite actually ingesting logs correctly — don't mistake that for a real problem. Revert `.env` back to `10.10.50.104` once bare metal is restored, then tear this stack down. |
+| Watchtower | /opt/stacks/watchtower/ | **Added 2026-07-15.** Pinned v1.5.3, monitor-only (emails on available updates, doesn't auto-apply), matching the Gateway's pattern — see `gateway/watchtower/`. PrivateNexus's three locally-built services (`privatenexus-backend`/`-frontend`/`-mcp`) carry the `com.centurylinklabs.watchtower.enable=false` label to avoid the same pointless-nightly-pull-failure noise already known from `caddy`/`tor` on the Gateway (locally-built images have no registry path to check). Uptime Kuma was deliberately skipped — PrivateNexus's own internal health-scheduler doesn't need it. |
+
+Caddy's `privatenexus.net` block is temporarily pointed at `10.10.2.2:5173` instead of
+`10.10.40.103:5173` — commented inline in the Caddyfile with the revert path. The frontend
+container's port publish was changed from `127.0.0.1:5173:80` (in the source repo, unreachable
+from another host) to `10.10.2.2:5173:80` (bound to the tunnel interface specifically) — binding
+to `0.0.0.0` was deliberately avoided since Docker's own iptables rules are known to bypass UFW's
+filtering for published ports; binding to the specific tunnel IP means Docker's NAT rule itself
+never matches traffic to the public IP, which is more robust than relying on UFW alone. **Revert
+Caddy and the port binding once bare metal is restored.**
+
+Root password and the wg3 keypair are saved in Vaultwarden under the **PrivateNexus** folder
+("pn-vps root password (Hostkey CH VPS)" and "pn-vps wg3 WireGuard tunnel keys"). A separate SSH
+keypair (`tristian-termius-pn-vps`) was also generated for Mr. Byrne's direct Termius access,
+scoped only to this VPS (not the shared fleet `claude_code_key`) — its private key is backed up
+in the same Vaultwarden folder ("pn-vps Termius SSH key (tristian)").
 
 ---
 
