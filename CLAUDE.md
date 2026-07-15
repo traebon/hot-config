@@ -350,6 +350,12 @@ Separately, the monitoring-temp + Watchtower containers deployed the same day ha
 
 Rebuilt and redeployed `privatenexus-backend`/`-frontend` on pn-vps; verified end-to-end (site 200, clean backend startup, services↔container join resolving all 11 containers correctly).
 
+**Dashboard workspace view + Inventory status filter added (2026-07-15):** a source audit of the PRD's remaining `PARTIAL`/`MISSING` frontend rows (FE-01 through FE-08) found six of eight already fully built and just mis-tagged in the PRD (health history, recovery score, backup inventory, activity feed, admin panel, access-mode badges, missing-metadata flags — all verified in source, several running live on pn-vps). Two were genuine gaps, fixed in `hot-privatenexus` commit `ff5b346`:
+- **FE-01** — the Home dashboard had an aggregate service-health summary but no breakdown by workspace (the "Workspaces" admin view is CRUD-only, not a dashboard panel). Added a "Workspaces" panel to Home showing healthy/total per workspace with click-through into Inventory grouped by workspace — no new fetch needed, `servicesData` already carried `workspace_name` from the existing backend join.
+- **FE-02** — `GET /api/services` supported `category`/`workspace_id`/`archived` filters but not `status`, on either side. Added `?status=` (validated against the existing `VALID_STATUSES` list) and a matching dropdown in the Inventory toolbar next to the category filter.
+
+Full corrected PRD status table: `/root/hot/docs/PrivateNexus_PRD_v1.0.md` §4.7 (commits `ebe488d`, `995810c`, and this one in `hot-config`).
+
 Caddy's `privatenexus.net` block is temporarily pointed at `10.10.2.2:5173` instead of
 `10.10.40.103:5173` — commented inline in the Caddyfile with the revert path. The frontend
 container's port publish was changed from `127.0.0.1:5173:80` (in the source repo, unreachable

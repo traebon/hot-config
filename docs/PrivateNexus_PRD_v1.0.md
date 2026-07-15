@@ -59,7 +59,7 @@ As of 22 June 2026, the following is deployed and running on pn-test.
 **Correction (2026-07-15):** this table had drifted badly out of date — a source-level audit this
 session found nearly every row below already resolved, several since well before 22 June. Rows are
 kept (struck through, not deleted) so the history of what was fixed and when isn't lost. See §4 for
-the corresponding per-requirement corrections (HLT-05/06/07, REC-10/11/12/13, ACT-04/05/06, FE-03/04/05/06).
+the corresponding per-requirement corrections (HLT-05/06/07, REC-10/11/12/13, ACT-04/05/06, FE-01 through FE-08 except FE-09). FE-01/FE-02 were genuine gaps and got real fixes on 2026-07-15 (`hot-privatenexus` commit `ff5b346`) rather than just a documentation correction — see those rows in §4.7.
 
 | Gap | Priority | Notes |
 |---|---|---|
@@ -191,14 +191,14 @@ Requirements are tagged: **[BUILT]** = exists in v1.9, **[MISSING]** = not yet b
 
 | Req | Description | Status |
 |---|---|---|
-| FE-01 | Dashboard: service health summary, workspace view | PARTIAL |
-| FE-02 | Service list with filter by workspace, category, status | PARTIAL |
+| FE-01 | Dashboard: service health summary, workspace view | BUILT — fixed 2026-07-15 (`hot-privatenexus` commit `ff5b346`). Health summary already existed; workspace view was a genuine gap (only existed as workspace CRUD tucked in Admin, not a dashboard view) — added a "Workspaces" panel to the Home board, health counts per workspace, click-through to Inventory grouped by workspace. No new fetch needed — `servicesData` already carried `workspace_name`. |
+| FE-02 | Service list with filter by workspace, category, status | BUILT — fixed 2026-07-15 (same commit). Category/archived filters already existed server- and client-side; workspace only existed as group-by, not a filter — left as-is (group-by already covers the practical need, see FE-01). Status filtering didn't exist at all, backend or frontend — added `GET /api/services?status=` (validated against the existing `VALID_STATUSES` list) and a matching Inventory toolbar dropdown. |
 | FE-03 | Service detail: health history, backup summary, action buttons | BUILT — corrected 2026-07-15, all three verified present (Health History panel, Recovery Score + Backup Records panels, Deploy/Rollback + restart-eligible container actions) |
 | FE-04 | Activity feed: real-time audit events, filterable | BUILT — corrected 2026-07-15. `routes/activity.js` is a mature, purpose-built endpoint (`since_id` cursor for live polling, filters on action_prefix/username/outcome/date-range, pagination). Frontend Activity board has two wired `useEffect`s — one for filtered page loads, one for cursor-based live polling — verified in source, not scaffolding. |
 | FE-05 | Admin panel: user list, role management | BUILT (as correctly scoped) — corrected 2026-07-15. User list is activity-derived (`admin/users-manage`, joins `audit_log` for role/last-seen/action-count) rather than a full Keycloak directory — reasonable, since a user who's never authenticated has nothing to manage yet. "Role management" is a deliberate deep-link out to Keycloak's admin console (general + per-user), not an in-app role editor — correct architecture, since PrivateNexus enforces roles but Keycloak owns them (see CLAUDE.md Keycloak SSO section). Confirmed via source: zero role-mutation endpoints exist in `admin.js`, and the UI explicitly labels Keycloak as the source of truth rather than implying it — not a broken feature, no fix needed. |
 | FE-06 | Confirmation modal for all privileged actions | BUILT — corrected 2026-07-15, see ACT-04 |
-| FE-07 | Access mode badges on service cards | PARTIAL |
-| FE-08 | Missing metadata flags (owner, backup_policy, health_endpoint) | MISSING |
+| FE-07 | Access mode badges on service cards | BUILT — corrected 2026-07-15, `ACCESS_MODE_STYLES[svc.access_mode]` badge verified present on every Inventory card, no fix needed |
+| FE-08 | Missing metadata flags (owner, backup_policy, health_endpoint) | BUILT — corrected 2026-07-15, `missingFields` computed per-card and rendered as a visible amber warning badge ("Missing: owner, backup policy, ...") — verified in source, no fix needed |
 | FE-09 | Catalogue board | PARTIAL (route built, static `APPS` array — becoming a real local update repository, see roadmap v6.0) |
 | FE-10 | Files board (file registry, backup/restore) | PARTIAL (route built) |
 | FE-11 | Logs board | PARTIAL (route built) |
