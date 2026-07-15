@@ -112,7 +112,7 @@ Requirements are tagged: **[BUILT]** = exists in v1.9, **[MISSING]** = not yet b
 | AUTH-02 | Session stored in Redis, 8-hour cookie, httpOnly + secure | BUILT |
 | AUTH-03 | Logout clears application session and triggers Keycloak end_session | BUILT |
 | AUTH-04 | Post-logout redirect URI must match Keycloak client config exactly | BUILT |
-| AUTH-05 | All login and logout events written to audit log | BUILT |
+| AUTH-05 | All login and logout events written to audit log | Fixed 2026-07-15 (`hot-privatenexus` `2894e76`) — successes were, failures weren't. `routes/auth.js`'s OIDC callback catch block only logged to console. Fixed. |
 | AUTH-06 | Roles extracted from Keycloak token `roles` claim | BUILT |
 | AUTH-07 | MFA required for admin, superadmin, breakglass (Keycloak config) | PARTIAL — requires Keycloak realm config |
 
@@ -181,7 +181,7 @@ Requirements are tagged: **[BUILT]** = exists in v1.9, **[MISSING]** = not yet b
 |---|---|---|
 | AUD-01 | Immutable audit log — no UPDATE or DELETE permitted | BUILT |
 | AUD-02 | Every write operation (create/update/archive) creates audit event | Fixed 2026-07-15 (`hot-privatenexus` `6f3ab9e`, `07ba00e`) — was not actually true: `governance.js`'s rule toggle + exception create/delete, `services.js`'s workspace create/update/delete, and `recovery.js`'s simulation/restore-test delete all had zero audit trail (imported `recordAudit`, never called it). All fixed; verified no other route file has the same gap. |
-| AUD-03 | Every auth event (login/logout/failed) creates audit event | BUILT |
+| AUD-03 | Every auth event (login/logout/failed) creates audit event | Fixed 2026-07-15 — same fix as AUTH-05, see that row. |
 | AUD-04 | Every action attempt creates audit event | Fixed 2026-07-15 — same fix as AUD-02, see that row. |
 | AUD-05 | Audit records carry: ts, tenant_id, user_sub, username, role, action, target, outcome, detail, ip | BUILT |
 | AUD-06 | Admin can query audit log, filtered by actor/action/date range | BUILT — corrected 2026-07-15, duplicate of FE-04's Activity board (`/api/activity`, has `from_ts`/`to_ts` date-range plus username/action/outcome). Note: an older, more limited `admin/audit` panel (`/api/admin/audit` — no date range) also still exists as a separate Admin menu tab — mild duplication, not a gap, worth consolidating eventually but not urgent. |
