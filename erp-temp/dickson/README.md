@@ -96,6 +96,24 @@ Caddy's `erp.dickson-supplies.com` block on the Gateway VPS was repointed from
 note. The Tor hidden service mirror needed no separate change since it routes through the same
 Caddy site block.
 
+## Custom branding placeholders (2026-07-15)
+
+`dickson-theme.css` and `inject_dickson_theme.js` (referenced by the login page via Website
+Settings' custom CSS/JS fields) were lost on 2026-07-09 when the historical data restore
+overwrote the `sites/assets` volume with the real backup's own (near-empty) assets content --
+neither file was ever captured in any backup or build process available here. Recreated as
+minimal placeholders (`docker/custom-assets/`), baked into the image so `regen_assets.py`
+restores them on every container start. Real branding, if recoverable at all, only exists on
+bare metal itself.
+
+Same investigation also found `dickson-backend` hadn't restarted since the 2026-07-09 restore,
+so `regen_assets.py` had never re-run against the swapped-in volume -- most core frappe/erpnext
+assets were 404ing (broken login page) independent of the branding-file issue. Fixed by rebuilding
+all four `dickson-*` images and restarting them, then flushing the `dickson-redis-cache` DB to
+clear stale cached asset-hash references from before the rebuild (a `bench build` re-run changes
+the content-hash suffix on bundle filenames; deleting the `assets_json` key alone wasn't enough --
+some other cached page/doctype content was still serving the old hashes).
+
 ## Revert plan (once bare metal is restored)
 
 1. Confirm sn-business (10.10.20.101) is reachable and ERPNext there is healthy
