@@ -124,8 +124,8 @@ Requirements are tagged: **[BUILT]** = exists in v1.9, **[MISSING]** = not yet b
 | SVC-02 | Service records carry: name, slug, description, category, access_url, access_mode, runtime_type, owner, backup_policy, health_endpoint | BUILT |
 | SVC-03 | Services are scoped to a tenant and optionally a workspace | BUILT |
 | SVC-04 | Services can be grouped and filtered by workspace and category | BUILT |
-| SVC-05 | Access mode badge visible on every service card (public/sso/vpn_only/internal/mtls) | PARTIAL — backend ready, frontend in progress |
-| SVC-06 | Services missing owner, backup_policy, or health_endpoint flagged visually | MISSING |
+| SVC-05 | Access mode badge visible on every service card (public/sso/vpn_only/internal/mtls) | BUILT — corrected 2026-07-15, duplicate of FE-07 (same underlying badge), already verified in source |
+| SVC-06 | Services missing owner, backup_policy, or health_endpoint flagged visually | BUILT — corrected 2026-07-15, duplicate of FE-08 (same `missingFields` warning), already verified in source |
 | SVC-07 | Archived services not shown by default; restorable by admin | BUILT |
 | SVC-08 | All service changes create audit events | BUILT |
 | SVC-09 | Workspaces can be created, renamed, and deleted by admin | BUILT |
@@ -184,7 +184,7 @@ Requirements are tagged: **[BUILT]** = exists in v1.9, **[MISSING]** = not yet b
 | AUD-03 | Every auth event (login/logout/failed) creates audit event | BUILT |
 | AUD-04 | Every action attempt creates audit event | BUILT |
 | AUD-05 | Audit records carry: ts, tenant_id, user_sub, username, role, action, target, outcome, detail, ip | BUILT |
-| AUD-06 | Admin can query audit log, filtered by actor/action/date range | PARTIAL — route exists, frontend incomplete |
+| AUD-06 | Admin can query audit log, filtered by actor/action/date range | BUILT — corrected 2026-07-15, duplicate of FE-04's Activity board (`/api/activity`, has `from_ts`/`to_ts` date-range plus username/action/outcome). Note: an older, more limited `admin/audit` panel (`/api/admin/audit` — no date range) also still exists as a separate Admin menu tab — mild duplication, not a gap, worth consolidating eventually but not urgent. |
 | AUD-07 | Audit log is tenant-scoped — admin cannot see other tenants' events | BUILT |
 
 ### 4.7 Frontend Requirements
