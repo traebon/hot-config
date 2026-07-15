@@ -127,7 +127,12 @@ www.privatenexus.net {
 privatenexus.net {
     import crowdsec
     import compress
-    reverse_proxy 10.10.40.103:5173
+    # TEMPORARY: bare metal (sn-personal, 10.10.40.103) down since 2026-07-02
+    # (Hostkey ticket CS-471548, full server replacement in progress). Backend
+    # stood up fresh on pn-vps (Hostkey CH, 151.241.217.140) over wg3 tunnel.
+    # Revert to 10.10.40.103:5173 once bare metal is restored -- see
+    # hostkey_server_replacement memory.
+    reverse_proxy 10.10.2.2:5173
     header Strict-Transport-Security "max-age=31536000; includeSubDomains"
 }
 tresemme.space {
@@ -181,8 +186,12 @@ wazuh.house-of-trae.com {
     }
 }
 # ERPNext Tor hidden service (onion-only block — auth enforced at Tor layer)
+# TEMPORARY: this is a SEPARATE Caddy block from erp.dickson-supplies.com below
+# and does NOT share its config -- missed during the erp-temp cutover on 2026-07-06,
+# stayed pointed at dead bare metal until fixed 2026-07-15. Revert both blocks
+# together once bare metal (10.10.20.101) is restored.
 http://qcrzygpg5qbzch4c2qlcgiktuvzf3xwqwtd7mkcn5r4g4mxebmpptkid.onion {
-    reverse_proxy 10.10.20.101:8000 {
+    reverse_proxy 10.10.1.2:8000 {
         header_up Host erp.dickson-supplies.com
     }
 }
