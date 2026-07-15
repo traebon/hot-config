@@ -59,7 +59,7 @@ As of 22 June 2026, the following is deployed and running on pn-test.
 **Correction (2026-07-15):** this table had drifted badly out of date — a source-level audit this
 session found nearly every row below already resolved, several since well before 22 June. Rows are
 kept (struck through, not deleted) so the history of what was fixed and when isn't lost. See §4 for
-the corresponding per-requirement corrections (HLT-05/06/07, REC-10/11/12/13, ACT-04/05/06, FE-03/06).
+the corresponding per-requirement corrections (HLT-05/06/07, REC-10/11/12/13, ACT-04/05/06, FE-03/04/05/06).
 
 | Gap | Priority | Notes |
 |---|---|---|
@@ -194,8 +194,8 @@ Requirements are tagged: **[BUILT]** = exists in v1.9, **[MISSING]** = not yet b
 | FE-01 | Dashboard: service health summary, workspace view | PARTIAL |
 | FE-02 | Service list with filter by workspace, category, status | PARTIAL |
 | FE-03 | Service detail: health history, backup summary, action buttons | BUILT — corrected 2026-07-15, all three verified present (Health History panel, Recovery Score + Backup Records panels, Deploy/Rollback + restart-eligible container actions) |
-| FE-04 | Activity feed: real-time audit events, filterable | Not re-audited this session — left as-is |
-| FE-05 | Admin panel: user list, role management | PARTIAL — not re-audited this session |
+| FE-04 | Activity feed: real-time audit events, filterable | BUILT — corrected 2026-07-15. `routes/activity.js` is a mature, purpose-built endpoint (`since_id` cursor for live polling, filters on action_prefix/username/outcome/date-range, pagination). Frontend Activity board has two wired `useEffect`s — one for filtered page loads, one for cursor-based live polling — verified in source, not scaffolding. |
+| FE-05 | Admin panel: user list, role management | BUILT (as correctly scoped) — corrected 2026-07-15. User list is activity-derived (`admin/users-manage`, joins `audit_log` for role/last-seen/action-count) rather than a full Keycloak directory — reasonable, since a user who's never authenticated has nothing to manage yet. "Role management" is a deliberate deep-link out to Keycloak's admin console (general + per-user), not an in-app role editor — correct architecture, since PrivateNexus enforces roles but Keycloak owns them (see CLAUDE.md Keycloak SSO section). Confirmed via source: zero role-mutation endpoints exist in `admin.js`, and the UI explicitly labels Keycloak as the source of truth rather than implying it — not a broken feature, no fix needed. |
 | FE-06 | Confirmation modal for all privileged actions | BUILT — corrected 2026-07-15, see ACT-04 |
 | FE-07 | Access mode badges on service cards | PARTIAL |
 | FE-08 | Missing metadata flags (owner, backup_policy, health_endpoint) | MISSING |
