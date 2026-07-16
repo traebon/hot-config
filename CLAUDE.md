@@ -441,6 +441,13 @@ tresemme.space records — all → 151.241.217.91:
   apex (placeholder), subdomains added as personal services deploy on pn-test
   Removed: nextcloud, vaultwarden, photos, notes, firefly, firefly-iii, actual, pn
 
+house-of-trae.com — `_tailscale-challenge` TXT record added 2026-07-16 (Tailscale domain
+verification, admin console "Add + verify domain" flow): `_tailscale-challenge.house-of-trae.com`
+TXT `"v2=XK2oDuhegVHtA3SRM7bFE9CcKHsNBZxyB8GMKKf6Nwk3"`, TTL 3600. Added via the PowerDNS API
+(PATCH .../zones/house-of-trae.com.), confirmed resolving publicly. Purely a proof-of-ownership
+record for Tailscale's background verification — no service routing implication; safe to remove
+once Tailscale confirms verification if it doesn't clean itself up.
+
 ---
 
 ## Email Infrastructure
