@@ -750,7 +750,7 @@ Auth files: `/opt/stacks/tor/data/erp/authorized_clients/` (chown 100:101, chmod
 | Hetzner Storage Box         | u622237@u622237.your-storagebox.de:23 (hetzner:vzdump)|
 | PrivateNexus dev VM         | pn-test — VLAN 60, 10.10.60.105                      |
 | This project directory      | /root/hot/                                           |
-| Full roadmap                | /root/hot/docs/HoT_Infrastructure_State_Roadmap_v*.docx — use highest version present (currently v3.3), docx2txt |
+| Full roadmap                | /root/hot/docs/HoT_Infrastructure_State_Roadmap_v*.docx — use highest version present (currently v3.5), docx2txt |
 | PN Phase 0 freeze           | /root/hot/docs/PrivateNexus_Phase0_Freeze.md         |
 
 ---
