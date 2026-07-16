@@ -461,6 +461,8 @@ Fixed all 5 with the file's own established try/catch pattern. Verified live, no
 
 Fixed the one genuine bug, then proved the *whole path*, not just the query: stopped `pn-node-exporter`, waited for Prometheus to actually detect the target down, confirmed `GET /api/alerts` returned a real `"Node down"` alert (not a synthetic test), restarted the container, confirmed the alert cleared once Prometheus saw it healthy again. Frontend needed no changes — it consumes `/api/alerts/stream` (SSE), which calls the same now-fixed `buildAlerts()`; the stream handler itself was already clean (proper `EventSource` cleanup on unmount, safe JSON parsing, graceful error handling).
 
+**Logs board audited, genuinely clean (2026-07-16):** all 3 routes are properly try/catch'd (no repeat of the discovery.js/services.js crash-risk class), LogQL injection guards hold up (search terms escaped via `JSON.stringify()`, `source` restricted to a safe hostname/container-name charset). The "legacy" `GET /:container` route looked like a candidate for the same dead-code pattern found on the Dependencies board, but confirmed it's still genuinely called by the Stacks board's log drawer, not orphaned. Verified live: `/sources`, `/query`, and the legacy route all returned real data — including log lines correctly showing today's actual `proxmox-bare-metal(down)` health-scheduler output, proving the whole Loki round-trip works, not just that the endpoints respond.
+
 Caddy's `privatenexus.net` block is temporarily pointed at `10.10.2.2:5173` instead of
 `10.10.40.103:5173` — commented inline in the Caddyfile with the revert path. The frontend
 container's port publish was changed from `127.0.0.1:5173:80` (in the source repo, unreachable
