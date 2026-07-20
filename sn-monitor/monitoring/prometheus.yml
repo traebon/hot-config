@@ -1,0 +1,114 @@
+# ============================================================
+# Prometheus Configuration
+# Location: /opt/monitoring/prometheus/config/prometheus.yml
+# ============================================================
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: 'house-of-trae'
+
+scrape_configs:
+
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Gateway VPS — node exporter
+  - job_name: 'gateway-node'
+    static_configs:
+      - targets: ['10.10.0.1:9100']
+        labels:
+          instance: 'gateway-vps'
+
+  # sn-infra (VM 100)
+  - job_name: 'sn-infra-node'
+    static_configs:
+      - targets: ['10.10.10.100:9100']
+        labels:
+          instance: 'sn-infra'
+
+  # sn-business (VM 101)
+  - job_name: 'sn-business-node'
+    static_configs:
+      - targets: ['10.10.20.101:9100']
+        labels:
+          instance: 'sn-business'
+
+  # sn-web (VM 102)
+  - job_name: 'sn-web-node'
+    static_configs:
+      - targets: ['10.10.30.102:9100']
+        labels:
+          instance: 'sn-web'
+
+  # sn-personal (VM 103)
+  - job_name: 'sn-personal-node'
+    static_configs:
+      - targets: ['10.10.40.103:9100']
+        labels:
+          instance: 'sn-personal'
+
+  # sn-monitor self (VM 104)
+  - job_name: 'sn-monitor-node'
+    scrape_interval: 30s
+    scrape_timeout: 25s
+    static_configs:
+      - targets: ['10.10.50.104:9100']
+        labels:
+          instance: 'sn-monitor'
+
+  # Proxmox host
+  - job_name: 'proxmox-node'
+    static_configs:
+      - targets: ['10.10.50.1:9100']
+        labels:
+          instance: 'proxmox-host'
+
+  # pn-test (VM 105)
+  - job_name: 'pn-test-node'
+    static_configs:
+      - targets: ['10.10.60.105:9100']
+        labels:
+          instance: 'pn-test'
+
+  # sn-security (VM 106)
+  - job_name: 'sn-security-node'
+    static_configs:
+      - targets: ['10.10.70.106:9100']
+        labels:
+          instance: 'sn-security'
+
+  # Blackbox Exporter — HTTPS/TLS probes for all public HoT endpoints
+  - job_name: 'blackbox-https'
+    metrics_path: /probe
+    params:
+      module: [https_2xx]
+    static_configs:
+      - targets:
+          - https://house-of-trae.com
+          - https://securenexus.net
+          - https://byrne-accounts.org
+          - https://stratus-digital.com
+          - https://discreet-elite.uk
+          - https://emerald-markets.net
+          - https://auth.house-of-trae.com
+          - https://grafana.house-of-trae.com
+          - https://status.house-of-trae.com
+          - https://webmail.house-of-trae.com
+          - https://git.securenexus.net
+          - https://dns-admin.house-of-trae.com
+          - https://namevault.co.uk
+          - https://nextcloud.tresemme.space
+          - https://vaultwarden.tresemme.space
+          - https://erp.dickson-supplies.com
+          - https://privatenexus.net
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox:9115

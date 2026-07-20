@@ -1,0 +1,123 @@
+# ============================================================
+# HouseOfTrae — Monitoring Stack
+# Location: /opt/stacks/monitoring/docker-compose.yml
+# VM: sn-monitor (10.10.50.104, VLAN 50)
+#
+# Services:
+#   Prometheus        — metrics collection (port 9090)
+#   Grafana           — dashboards (port 3000)
+#   Loki              — log aggregation (port 3100)
+#   Uptime Kuma       — status page (port 3001)
+#   Blackbox Exporter — HTTP/TLS probes (port 9115)
+# ============================================================
+
+services:
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    restart: unless-stopped
+    ports:
+      - "0.0.0.0:9090:9090"
+    volumes:
+      - /opt/monitoring/prometheus/config:/etc/prometheus
+      - /opt/monitoring/prometheus/data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.enable-lifecycle'
+    networks:
+      - monitoring
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+      - "0.0.0.0:3000:3000"
+    volumes:
+      - /opt/monitoring/grafana/data:/var/lib/grafana
+    environment:
+      GF_SERVER_ROOT_URL: "https://grafana.house-of-trae.com"
+      GF_SERVER_DOMAIN: "grafana.house-of-trae.com"
+      GF_AUTH_GENERIC_OAUTH_ENABLED: "true"
+      GF_AUTH_GENERIC_OAUTH_NAME: "Keycloak"
+      GF_AUTH_GENERIC_OAUTH_CLIENT_ID: "grafana"
+      GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET__FILE: "/run/secrets/oauth_client_secret"
+      GF_AUTH_GENERIC_OAUTH_SCOPES: "openid profile email"
+      GF_AUTH_GENERIC_OAUTH_AUTH_URL: "https://auth.house-of-trae.com/realms/securenexus/protocol/openid-connect/auth"
+      GF_AUTH_GENERIC_OAUTH_TOKEN_URL: "https://auth.house-of-trae.com/realms/securenexus/protocol/openid-connect/token"
+      GF_AUTH_GENERIC_OAUTH_API_URL: "https://auth.house-of-trae.com/realms/securenexus/protocol/openid-connect/userinfo"
+      GF_AUTH_GENERIC_OAUTH_ROLE_ATTRIBUTE_PATH: "contains(roles[*], 'admin') && 'Admin' || contains(roles[*], 'editor') && 'Editor' || 'Viewer'"
+      GF_AUTH_GENERIC_OAUTH_AUTO_LOGIN: "true"
+      GF_AUTH_DISABLE_LOGIN_FORM: "false"
+      GF_AUTH_SIGNOUT_REDIRECT_URL: "https://auth.house-of-trae.com/realms/securenexus/protocol/openid-connect/logout"
+      GF_SECURITY_ADMIN_USER: "admin"
+      GF_SECURITY_ADMIN_PASSWORD__FILE: "/run/secrets/admin_password"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_LOG_LEVEL: "warn"
+      GF_SMTP_ENABLED: "true"
+      GF_SMTP_HOST: "mail.house-of-trae.com:587"
+      GF_SMTP_USER: "notifications@house-of-trae.com"
+      GF_SMTP_PASSWORD__FILE: "/run/secrets/smtp_password"
+      GF_SMTP_FROM_ADDRESS: "notifications@house-of-trae.com"
+      GF_SMTP_FROM_NAME: "Grafana — HoT Monitoring"
+      GF_SMTP_STARTTLS_POLICY: "MandatoryStartTLS"
+    secrets:
+      - admin_password
+      - smtp_password
+      - oauth_client_secret
+    depends_on:
+      - prometheus
+    networks:
+      - monitoring
+
+  loki:
+    image: grafana/loki:latest
+    container_name: loki
+    restart: unless-stopped
+    ports:
+      - "0.0.0.0:3100:3100"
+    volumes:
+      - /opt/monitoring/loki/config:/etc/loki
+      - /opt/monitoring/loki/data:/loki
+    command: -config.file=/etc/loki/loki.yml
+    networks:
+      - monitoring
+
+  uptime-kuma:
+    image: louislam/uptime-kuma:latest
+    container_name: uptime-kuma
+    restart: unless-stopped
+    ports:
+      - "0.0.0.0:3001:3001"
+    volumes:
+      - /opt/monitoring/uptime-kuma:/app/data
+    networks:
+      - monitoring
+
+  blackbox:
+    image: prom/blackbox-exporter:latest
+    container_name: blackbox
+    restart: unless-stopped
+    ports:
+      - "0.0.0.0:9115:9115"
+    volumes:
+      - /opt/monitoring/blackbox:/config
+    command:
+      - --config.file=/config/blackbox.yml
+    networks:
+      - monitoring
+
+networks:
+  monitoring:
+    driver: bridge
+
+secrets:
+  admin_password:
+    file: /opt/stacks/monitoring/secrets/admin_password
+  smtp_password:
+    file: /opt/stacks/monitoring/secrets/smtp_password
+  oauth_client_secret:
+    file: /opt/stacks/monitoring/secrets/oauth_client_secret
