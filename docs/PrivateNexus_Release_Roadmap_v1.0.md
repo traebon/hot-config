@@ -1,9 +1,26 @@
 # PrivateNexus — Detailed Release Roadmap
-**Version: 1.3**
-**Date: 30 June 2026**
+**Version: 1.6**
+**Date: 30 June 2026 (corrected/updated 21 July 2026 — see notes below)**
 **Owner: House of Trae / PrivateNexus Programme**
 **Classification: Internal — Strategic Planning**
 **Covers: v0.8 → v6.0**
+
+**21 July 2026 corrections:**
+1. Sprint 1 and the Dependencies/Risks table still described the backend as Go, predating the
+   22 June 2026 Phase 0 freeze that locked it to Node.js (Express v4, ESM). Both references
+   updated to match `PrivateNexus_Phase0_Freeze.md`, the authoritative source for this decision.
+2. v5.0's acceptance gate item 4 ("autonomous execution runs without errors for 30 consecutive
+   days") was marked done on a claim that live data didn't support — see the gate itself for
+   detail. Reopened, clock genuinely restarted 2026-07-21, gate close date moved to 2026-08-20.
+
+No feature scope changed by either correction — both are accuracy fixes to what was recorded as
+already true.
+
+**21 July 2026 addition (v1.6):** ran a market scan of comparable self-hosted ops/dashboard and
+DR tools against current roadmap scope — see "Market Positioning Check" under "What Happens
+After v6.0". Added one new v7.0 candidate (in-product notifications); everything else found was
+already covered by existing scope or deliberately out of scope, and is recorded as such rather
+than silently dropped.
 
 ---
 
@@ -79,8 +96,8 @@ it here means v1.0 inherits proven recovery intelligence rather than bolting it 
 
 **Sprint 1 — Foundation**
 - Repository structure per Build Guide §4 layout
-- Docker Compose baseline: Go API, React frontend, PostgreSQL 16, Redis 7
-- Database migration runner (golang-migrate)
+- Docker Compose baseline: Node.js (Express v4, ESM) API, React frontend, PostgreSQL 16, Redis 7
+- Database schema migrations (SQL-based)
 - `GET /health` returning `{ ok: true, version: "0.8.0" }`
 - All core containers healthy in `docker compose ps`
 - Postgres not bound to 0.0.0.0
@@ -559,8 +576,14 @@ pre-approved, low-risk action classes.
 ### Deliverables
 
 - Predictive health degradation: trend analysis on health events to surface services
-  likely to degrade before they fail
+  likely to degrade before they fail — shipped 2026-07-21 as the `latency_trending`
+  signal (`hot-privatenexus` commit `c3e0265`)
 - Anomaly detection: flag unusual patterns in health, resource usage, or audit activity
+  — shipped 2026-07-21, both legs: `auth_failure_burst` (login-attempt bursts by IP,
+  commit `1f7131c`) and `resource_trending` (sustained CPU/RAM/disk climbs per VM via
+  Prometheus, commit `07fd939`). Resource leg currently only covers pn-vps — same
+  known limitation as the Ops board's Fleet section, resolves once bare metal is
+  restored and `PROMETHEUS_URL` reverts to sn-monitor.
 - Assisted remediation: for a detected problem, PrivateNexus proposes a specific
   action (restart service, rotate credential, scale resource) with full policy
   evaluation and a one-click approve path
@@ -581,14 +604,36 @@ pre-approved, low-risk action classes.
 
 ### Acceptance Gate
 
-**Gate closes: 2026-07-30**
+**Gate closes: 2026-08-20** (revised — see 2026-07-21 correction below)
 
 - [ ] Predictive degradation alert fires before at least one real service failure
   (validated retrospectively against incident history) — pending, closes organically
-  during 30-day run; signals fired Jun 29 during NIC incident but not before onset
-- [x] Autonomous execution of approved low-risk actions runs without errors for
-  30 consecutive days — clock started 2026-06-30 17:31 UTC; health.refresh policies
-  enabled for all four signal types (down_spike, degrading, latency_spike, intermittent)
+  during 30-day run; signals fired Jun 29 during NIC incident but not before onset.
+  Re-checked 2026-07-21 against live data: the only degradation-class signal in the
+  entire window since 2026-06-30 was a single Keycloak `latency_spike` (2026-07-16)
+  that self-resolved with no follow-on failure — still genuinely unmet, not close.
+  **Detection strengthened 2026-07-21** (`hot-privatenexus` commit `c3e0265`): the four
+  existing signal types (down_spike, degrading, latency_spike, intermittent) all require
+  at least one already-observed non-healthy or already-slow event, so none of them could
+  ever satisfy this gate item by design — they're reactive, not predictive. Added a fifth
+  signal, `latency_trending`, that fires only while a service is still passing every
+  recent check but its latency shows a genuine sustained climb (linear regression slope +
+  an oldest-third-vs-newest-third ratio check to reject noise/outliers) — the first
+  detector actually capable of firing before a real failure. Validated against synthetic
+  cases and a clean live scan (zero false positives) before deploying. This doesn't close
+  the gate item — it still needs a real predicted-then-confirmed failure pair — but it's
+  no longer structurally impossible for it to close organically.
+- [ ] **Reopened 2026-07-21.** Autonomous execution of approved low-risk actions runs
+  without errors for 30 consecutive days. Previously marked done (clock started
+  2026-06-30 17:31 UTC), but a live audit found the claim unsubstantiated: zero
+  autonomous-executed remediation proposals existed anywhere in that 30-day window,
+  all five autonomous policies were already disabled, and no audit trail explained
+  when or why — consistent with the 2026-07-16 container.restart toggle test being
+  switched off and cleaned up afterward, not a sustained run. Corrected rather than
+  left as a false positive. The four `health.refresh` policies (down_spike, degrading,
+  latency_spike, intermittent) were re-enabled 2026-07-21 to start a real clock;
+  `down_spike:container.restart` deliberately left disabled — that one is a separate,
+  higher-consequence decision, not part of this gate item. New target: 2026-08-20.
 - [x] MCP v2 write actions are constrained to operator-class policy and fully audit-logged
   — confirmed 2026-06-30: intelligence.service.probe via mcp-server token appears in
   audit_log with role=operator, outcome=success
@@ -606,8 +651,8 @@ This is the version that justifies an Enterprise tier and MSP partnerships.
 
 | Risk | Impact | Mitigation |
 |---|---|---|
-| Backend Go velocity slower than NestJS in early sprints | v0.8/v0.9 delivery slips | Scaffold API surface from Build Guide Appendix B before Sprint 1. Use sqlc + pgx rather than raw SQL. |
-| pn-test VM resource pressure (8 GB shared) | Stack instability during development | Monitor actual RSS. Go API should idle < 50 MB. Sandbox restore testing (v2.0) needs its own isolated environment — plan that resource now. |
+| Backend framework decision (Go vs NestJS) reopened mid-build | Wasted sprints on speculative migration | Resolved 2026-06-22 (Phase 0 freeze): existing Node.js Express v4 (ESM) codebase, already at v1.9.0 with substantial working functionality, kept as-is rather than migrated. See `PrivateNexus_Phase0_Freeze.md`. Not re-litigated. |
+| pn-test VM resource pressure (8 GB shared) | Stack instability during development | Monitor actual RSS. Express backend idles ~55 MB in production (pn-vps, confirmed live) — the memory-pressure concern that motivated evaluating Go never materialized in practice. Sandbox restore testing (v2.0) needs its own isolated environment — plan that resource now. |
 | Keycloak `privatenexus` realm not yet created | v0.9 blocked | Create realm and client before Sprint 3 begins. Reference CLAUDE.md Keycloak OIDC gotchas. |
 | Sandbox restore testing requires isolated environment | v2.0 delivery risk | Size the isolated restore environment in v1.5 planning. Can be a Proxmox snapshot-based approach. |
 | Discovery agents need Docker socket access | Security risk if mishandled | Agent reads labels only — no write, no exec, no container lifecycle. Socket access is read-only and scoped to the agent binary. |
@@ -781,10 +826,37 @@ themes from those first external users.
 
 Candidates for v7.0 scope (not committed):
 - HoT Command mobile app (Flutter or React Native PWA)
+- **In-product notifications** — PrivateNexus itself currently has no notification path to a
+  logged-in operator; every alert (SMTP/Ntfy/SMS) is fired by the wider HoT stack, outside the
+  app, to HoT-wide channels. Added 2026-07-21 after a market scan of comparable self-hosted
+  ops/dashboard tools turned up push/mobile notification support as a recurring, concrete ask
+  (see Market Positioning Check below). Scope: browser push or PWA notification for
+  critical/high signals while the dashboard is open, plus per-user alert-channel preference
+  (own Ntfy topic or webhook) rather than only the shared hot-critical/-high/-warning/-info
+  topics. Not full mobile push — that stays HoT Command's job.
 - Managed Edition pilot (hosted PrivateNexus for SecureNexus clients)
 - Billing and licence key self-service portal
 - Multi-site federation (multiple Proxmox clusters under one PN instance)
 - Formal compliance modules (ISO 27001 evidence collection, CIS benchmark checks)
+
+### Market Positioning Check (2026-07-21)
+
+Scanned comparable self-hosted/homelab ops tools (Coolify, Komodo, Portainer, Dashy/Homarr,
+Pulse) and DR-dashboard peers (Veeam Recovery Orchestrator and alternatives) for recurring
+feature-request themes, to sanity-check v6.0/v7.0 scope against what the market actually asks
+for rather than assuming. Findings and how each maps onto this roadmap:
+
+| Theme found | Source pattern | Disposition |
+|---|---|---|
+| Unified cross-environment dashboard | Veeam DR peers | Already the product (Home/Ops/Fleet boards). "Cross-environment" reading maps to the existing Multi-site federation v7.0 candidate above — no new item needed. |
+| Automated, provable restore testing | Veeam DR peers | Already the flagship differentiator (v2.0 sandbox restore, v4.0 recovery readiness report) — validates the positioning, not a gap. |
+| Push/mobile notifications | Homelab dashboards generally | Genuine gap — added as the In-product notifications v7.0 candidate above. |
+| No artificial usage caps on the free/self-hosted tier | Pulse (open device-limit complaint) | Checked against `PrivateNexus_Commercial_Packaging_Licensing.md` §7.3 — already explicit policy ("do not add artificial user-count limits to Community"). No change needed; confirmed, not assumed. |
+| Git-push PaaS-style deploy automation | Coolify | **Deliberately rejected.** Coolify's whole product is deployment; PrivateNexus's is recovery. Chasing this dilutes the wedge described in Packaging §2. Not added to any version. |
+| Docker Swarm / multi-server orchestration breadth | Komodo | **Deliberately rejected** as a general orchestration surface — PrivateNexus wraps *approved* actions under policy (Packaging §8 competitive table), it does not aim to be a general multi-server control plane. The one legitimate slice of this (multiple independent estates under one pane of glass) is already the Multi-site federation v7.0 candidate; no broader scope added. |
+
+No version's committed scope changed as a result of this check — one net-new v7.0 candidate
+added, everything else either already covered or explicitly out of scope for the stated reason.
 
 ---
 

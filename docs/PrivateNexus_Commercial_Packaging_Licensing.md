@@ -284,7 +284,7 @@ infrastructure investment (sandbox restore environments):
 | Portainer | Container management, huge community | PN wraps approved actions in policy; does not expose raw container power |
 | Komodo | Multi-server, config-as-code, good automation | PN adds recovery intelligence and governance; Komodo is deployment-centric |
 | NetBox Labs | Infrastructure intelligence, enterprise-grade | Enterprise-priced, network/DCIM-centric. PN targets service-level recovery at SMB price |
-| Coolify | PaaS deployment, MCP server, great DX | Deployment-centric, not recovery-centric. PN plans to add MCP read-only in v2.x |
+| Coolify | PaaS deployment, MCP server, great DX | Deployment-centric, not recovery-centric. PN's own MCP server shipped read-only in v2.0 and read-write (operator-scoped) in v5.0 — parity here already, differentiation is recovery intelligence, not deploy automation |
 | Glance / Homepage | Minimal, fast, no database | The "good enough" threat for casual users. PN must justify its depth with recovery + governance |
 
 **The segment PN owns:** Self-hosted infrastructure with recovery confidence requirements,
