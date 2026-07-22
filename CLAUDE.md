@@ -101,6 +101,13 @@ Other WireGuard interfaces on the Gateway VPS (separate from the wg0 bare-metal 
           same bare-metal outage (pn-test/sn-personal both unreachable). Gateway 10.10.2.1 /
           pn-vps 10.10.2.2, port 51823. See hostkey_server_replacement memory and the pn-vps
           section below — tear down once bare metal is restored and reverted.
+    wg4 — tunnel to hot-bm-nl (server 22272, Hostkey NL, 31.207.47.146) — the bare-metal
+          *replacement* candidate itself (server 145990 was decommissioned; NL not CH, see
+          hostkey_server_replacement memory), NOT a temporary stand-in like wg2/wg3. Gateway
+          10.10.3.1 / hot-bm-nl 10.10.3.2 (interface name wg0 on that host), port 51824. Enabled
+          via systemd on both ends. No services live behind it yet — fleet migration architecture
+          (Proxmox install? VLAN routing rebuild?) not yet decided, see
+          HoT_Bare_Metal_Migration_Checklist.md when that work starts.
 
 **Key rule:** Production traffic never routes through Tailscale. Tailscale = admin SSH only.
 **Key rule:** Bare metal has zero public-facing ports. All public traffic enters via the Gateway VPS.

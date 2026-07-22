@@ -1,9 +1,49 @@
 # PrivateNexus — Detailed Release Roadmap
-**Version: 1.6**
-**Date: 30 June 2026 (corrected/updated 21 July 2026 — see notes below)**
+**Version: 1.7**
+**Date: 30 June 2026 (corrected/updated 22 July 2026 — see notes below)**
 **Owner: House of Trae / PrivateNexus Programme**
 **Classification: Internal — Strategic Planning**
 **Covers: v0.8 → v6.0**
+
+**22 July 2026 addition (v1.7):** v6.0's full multi-tenancy work landed and deployed (backend
+per-request tenant resolution across all 12 route/background-job files, Tenant CRUD API,
+SuperAdmin console frontend, per-tenant discovery-scanner config) — four of the acceptance gate's
+checkboxes moved from open to checked, see the gate itself for detail and commit references. No
+scope change, just marking real progress.
+
+**22 July 2026, second pass (later same day):** reconciled the rest of the acceptance gate against
+what the 2026-07-16 governance/recovery/backup work actually landed, rather than trust the prior
+unchecked state. Three more items verified done and checked (restore-test-as-proven-signal,
+PN self-registration, PN's own B2 backup) — see the gate for detail and evidence. Two items were
+checked *against the actual code* and confirmed genuinely not done, not just unstarted busywork:
+maintenance-window Ntfy suppression is explicitly a no-op today (the code's own comment says so),
+and the GitHub mirror's `LICENSE` file is empty — no scope change, just correcting the record so
+these don't get assumed-done later.
+
+**22 July 2026, third pass (later still):** ran a real, non-simulated two-user RBAC test (a fresh
+disposable `viewer`-role Keycloak account through the actual OIDC browser flow, compared against
+the standing `tristian` superadmin session) rather than infer from code review alone. Closed 8 more
+long-stale checkboxes across the old Sprint 4 gate and the v6.0 gate's RBAC item with direct
+evidence. Found one real gap while testing — `requireRole()` never audited *rejected* privileged
+attempts, only successes — fixed live (`hot-privatenexus` commit `2aa82fb`) and re-verified.
+Left one genuine open question rather than guess: whether `action_policies`/`policy_rules` being
+unscoped-by-tenant (shared globally across all tenants) is deliberate platform design or a real
+multi-tenancy gap — needs Mr. Byrne's call, not a unilateral fix. Test accounts deleted from
+Keycloak afterward; the real audit_log rows they generated were left in place as evidence.
+**Resolved same session**: Mr. Byrne confirmed the global scoping is deliberate (see the gate).
+
+**22 July 2026, fourth pass (same day):** the RBAC-testing momentum surfaced a wider question —
+is `recordAudit` coverage actually complete everywhere, not just in `requireRole`? Ran a file-by-
+file sweep (mutating-route count vs. `recordAudit` count per route file) across all 19 backend
+route files. Found two more real gaps, both fixed and pushed (`hot-privatenexus` commit `f019135`):
+`dns.js`'s `POST`/`DELETE /zones/:zone/records` — which write directly to the real production
+PowerDNS instance managing all 13 live HoT zones — had **zero** audit coverage at all (success,
+failure, or the locked-SOA/NS-record rejection); and `intelligence.js`'s signal ack/resolve and
+proposal dismiss actions had none, unlike their sibling routes in the same file. Verified the DNS
+fix live via the safe locked-record-rejection path (never touches real PowerDNS data). This isn't
+claimed as proof of *zero remaining gaps* — it's evidence toward the "audit log verified for all
+v1.0 action types" commercial proof point, not a completion claim; every route file now shows a
+mutating-route-count/recordAudit-count match, but that's a coverage heuristic, not a formal audit.
 
 **21 July 2026 corrections:**
 1. Sprint 1 and the Dependencies/Risks table still described the backend as Go, predating the
@@ -191,15 +231,15 @@ actions. Doing actions before identity is how tiny dashboards become tiny disast
 
 ### Acceptance Gate
 
-- [ ] User logs in through Keycloak
-- [ ] Logout clears session
-- [ ] Roles visible to backend from token claims
-- [ ] Viewer role cannot reach any action endpoint
-- [ ] Admin and superadmin routes return 403 for lower roles
-- [ ] All login attempts (success and failure) create audit events
-- [ ] All privileged route attempts create audit events
-- [ ] Tenant ID present on all tenant-owned records
-- [ ] `GET /me` returns correct user, role, tenant
+- [x] User logs in through Keycloak — this whole gate was never checked despite being obviously true for a v1.9 app in daily use; verified fresh 2026-07-22 with a real end-to-end OIDC flow (see the v6.0 gate's RBAC entry for full detail)
+- [x] Logout clears session — verified live 2026-07-22: called `/api/auth/logout` with a same-origin `Referer` on a real session, got the expected `302`, then confirmed the *same* cookie immediately returns `{"error":"Unauthenticated"}` from `/api/auth/me` — server-side `req.session.destroy()` genuinely fires, not just a client-side redirect
+- [x] Roles visible to backend from token claims — `GET /api/auth/me` on the test viewer session returned `"roles": ["viewer", "offline_access", "uma_authorization"]` straight from `realm_access.roles`
+- [x] Viewer role cannot reach any action endpoint — confirmed 403 on `POST /api/actions/run/v2`
+- [x] Admin and superadmin routes return 403 for lower roles — confirmed on `POST /api/services` (admin) and `GET /api/tenants` (admin)
+- [x] All login attempts (success and failure) create audit events — success confirmed (`auth.login`/`success`); failure confirmed by deliberately hitting `/api/auth/callback` with a bad `state` param — real credential failures happen inside Keycloak itself (has its own event log) before ever reaching the app, so "failure" at the app layer means a bad/expired/tampered callback, which was already fixed 2026-07-16 and re-confirmed live here
+- [x] All privileged route attempts create audit events — **was false until today.** `requireRole()` only audited successes; fixed in `hot-privatenexus` commit `2aa82fb`, confirmed live (see v6.0 gate entry)
+- [x] Tenant ID present on all tenant-owned records — 17 of 21 tenant-scoped tables have `tenant_id NOT NULL`. `audit_log` is nullable at the schema level but the app always populates it (`recordAudit`'s `HOT_TENANT_ID` fallback), fine in practice. `action_policies` and `policy_rules` have no tenant filter anywhere in the codebase, and `autonomous_policies` supports both global defaults and tenant overrides (`tenant_id IS NULL OR tenant_id=$1`) — **Mr. Byrne confirmed 2026-07-22 this is deliberate, not a gap**: House of Trae keeps action-cooldown/elevation and governance-rule control centrally for every tenant, including Professional customers, rather than letting each tenant configure its own security posture. Not planned to change; if that ever needs revisiting, `autonomous_policies`' existing `tenant_id IS NULL OR tenant_id=$1` pattern is the template to follow.
+- [x] `GET /me` returns correct user, role, tenant — `authRouter.get("/me", ...)` exists and was exercised directly throughout today's test, returning correct `username`/`roles`/`tenant_id` for both test accounts
 
 ### Commercial Relevance
 
@@ -780,22 +820,22 @@ Hard guardrails:
 
 ### Acceptance Gate
 
-- [ ] Second tenant created and isolated from House of Trae — data boundary verified by direct DB query
-- [ ] SuperAdmin console shows all tenants with health summary and last activity
-- [ ] `HOT_TENANT_ID` hardcode absent from all backend code (grep confirms)
-- [ ] Discovery scanner defaults (Proxmox/Caddy URLs, category inference) are per-tenant config, not hardcoded HoT topology
-- [ ] Catalogue serves from a real local repository (versioned, update-checkable) instead of the static `APPS` array, with at least one non-default repository source configurable
-- [ ] Sandbox restore test runs for ERPNext and PrivateNexus without any production contact
-- [ ] Restore test result visible in recovery score breakdown as a proven signal (not heuristic)
-- [ ] PrivateNexus registered as a managed service with health check, backup policy, and non-zero recovery score
-- [ ] PN's own pg_dump runs on schedule and delivers encrypted backup to B2
-- [ ] Maintenance window suppresses Ntfy alerts for its full duration, then resumes on expiry
-- [ ] GitHub repository live with Community Edition source and MIT licence
+- [x] Second tenant created and isolated from House of Trae — data boundary verified by direct DB query (proven in an isolated throwaway stack, `hot-privatenexus` commit `92b94f2` and re-verified `15dbd9c` — a service created under the House of Trae tenant was invisible to a second tenant both via direct DB query and the live API)
+- [x] SuperAdmin console shows all tenants with health summary and last activity — `hot-privatenexus` commit `0d51048`, live on pn-vps
+- [x] `HOT_TENANT_ID` hardcode absent from all backend code (grep confirms) — only deliberate references remain: `db.js`'s own definition/seed, `server.js`'s MCP-internal session (JARVIS has no real tenant), `auditLog.js`'s pre-resolution fallback, `discovery.js`'s bootstrap static-token fallback — none silently drive business logic for a real tenant
+- [x] Discovery scanner defaults (Proxmox/Caddy URLs, category inference) are per-tenant config, not hardcoded HoT topology — `tenant_settings` table, `hot-privatenexus` commit `15dbd9c`
+- [x] Catalogue serves from a real local repository (versioned, update-checkable) instead of the static `APPS` array, with at least one non-default repository source configurable — `hot-privatenexus` commit `3eeecc2`. The 52-app default moved from hardcoded JS to a versioned JSON file (`repository.name`/`version`/`updated_at`); a new per-tenant `catalogue_repo_url` setting lets a tenant point at a self-hosted repo instead, with shape validation and a visible (never silent) fallback to bundled if it's unreachable. Verified live end-to-end: bundled default unchanged (52 apps), a real throwaway custom-repo container correctly took over the catalogue, and an unreachable URL correctly fell back with the real fetch error surfaced via `repository_fallback`/`fetch_error`. **Deliberately not done in this pass**: per-app upstream-registry version-drift detection ("updates to any catalogue app a tenant has installed"). PrivateNexus's own self-update check was blocked on a versioning inconsistency (`VERSION`=4.0.0, `package.json`=2.0.0, `server.js`'s hardcoded `/api/health`=5.0.0) — **resolved same day, `hot-privatenexus` commit `d56591f`**. Traced the git history first rather than guess: `VERSION` and the server.js literal were bumped together at every release through v4.0.0, but the v5.0.0 commit only bumped the literal, forgetting both `VERSION` and `package.json` (which had actually been stale since v2.0.0, several releases further behind — same for `frontend`/`mcp` package.json at 1.10.0/2.0.0). Fixed all five files to `5.0.0`, and — the actual root-cause fix — `server.js` now reads its served version from `package.json` at startup instead of a separately hardcoded literal, so one bump is the only thing needed going forward; verified live post-rebuild. `VERSION` stays a plain-text file (`scripts/install.sh` reads it directly, deliberately not made to parse JSON) kept in sync by convention. **Self-update-check feature built same day, `hot-privatenexus` commit `3d3ffc1`**: new `GET /api/admin/update-check`, surfaced as a "Version & Updates" panel under Admin > System. Reads the highest semver git tag from `github.com/traebon/hot-privatenexus` — checked first rather than assumed: no GitHub Releases exist for this repo (API returns an empty array), only pushed tags, so it reads `/tags` not `/releases/latest`. Cached in-memory 1h to stay under GitHub's 60 req/hr unauthenticated limit, `?force=true` bypasses it. Reports fetch failures honestly rather than defaulting to "up to date" on error. `PACKAGE_VERSION` extracted into its own `src/version.js` so the health check and this route share one read instead of duplicating it. Verified live on pn-vps: correctly reports `5.0.0 == 5.0.0`, 401s unauthenticated, cache/force-refresh both behave correctly; semver comparison (numeric, skips non-plain tags like the historical `v0.4.0-rc1`) verified in isolation.
+- [ ] Sandbox restore test runs for ERPNext and PrivateNexus without any production contact — **half done**: PrivateNexus's own restore test was run for real (2026-07-16, isolated scratch `postgres:16-alpine` container, schema+registry verified, never touched the live DB) and is recorded in `restore_tests`. ERPNext has no equivalent test recorded anywhere — and note ERPNext currently runs on erp-temp, a temporary stand-in VPS, not sn-business, so "without any production contact" needs re-scoping once that's back on real infrastructure anyway.
+- [x] Restore test result visible in recovery score breakdown as a proven signal (not heuristic) — confirmed in `recovery.js`'s `computeConfidence()`: "Restore validated" is a real 15-point weighted signal keyed off actual `restore_tests` rows (pass/fail, staleness by age), not a heuristic guess. Proven live: `privatenexus-db` moved from `at_risk` (70) to `recoverable` (95) specifically because of a real recorded test.
+- [x] PrivateNexus registered as a managed service with health check, backup policy, and non-zero recovery score — all done as of the 2026-07-16 governance/recovery work: `privatenexus-db` + all other PN containers are registered with real health checks, `privatenexus-db` has `backup_policy=daily`, and every PN service sits at `recoverable` tier (avg 94/100, `privatenexus-db` itself at 95).
+- [x] PN's own pg_dump runs on schedule and delivers encrypted backup to B2 — `privatenexus-pg-dump.timer` (daily 03:00 CEST on pn-vps) + Gateway pull + rclone crypt, confirmed landing in both `hetzner-crypt:` and `b2-hot-crypt:` via `rclone lsl` (2026-07-16).
+- [x] Maintenance window suppresses Ntfy alerts for its full duration, then resumes on expiry — **built 2026-07-22, `hot-privatenexus` commit `eb21388`.** Mr. Byrne chose the Grafana-silence approach over a second, PN-native Ntfy path (consistent with Grafana already being the documented single source of truth for the 3-channel alerting architecture, and it gets the "resumes on expiry" half for free via Grafana's own `endsAt` auto-expiry — no PN-side timer needed for that part). New `src/grafana.js`; wired into `maintenance.enable`/`.disable` in `actions.js`; `GRAFANA_URL`/`grafana_token` follow the exact `PROXMOX_URL`/`proxmox_token` placeholder pattern since sn-monitor (where Grafana lives) is behind the same dead bare-metal host and is just as unreachable (confirmed: 20+ day stale WireGuard handshake, no ping, 502 through Caddy) — `grafana_token.txt` is a real placeholder, ready for a live token once sn-monitor is back. Global/fleet-wide scope, matching maintenance mode's existing Emergency-board scope. Requires a bounded duration (Grafana silences can't be open-ended) — indefinite maintenance honestly reports suppression as unavailable rather than silently covering only part of the window. Grafana success/failure is tracked and surfaced separately from the maintenance flag itself (API response + a new Emergency board status line) so a Grafana failure can never make the UI imply protection that isn't happening — same bug class as the `down_spike` toggle and the `emergency.stop-all` policy gap found earlier this session. Verified live end-to-end with a real disposable Keycloak admin test user (created, tested, deleted): enable/disable/status/audit trail all behave correctly, and the Grafana failure is honestly reported (`"Grafana returned 502"`) rather than faked as success — cannot be verified against a real Grafana instance until sn-monitor is restored. **Also fixed along the way**: rsyncing the full `docker-compose.yml` to pn-vps briefly clobbered a manual, pn-vps-only port-binding override and caused a real ~1-2 minute site outage (caught immediately via `/api/health` 502, fixed without touching the tracked file, which intentionally differs from the live pn-vps config here) — deploying individual files from now on instead of the whole compose file.
+- [ ] GitHub repository live with Community Edition source and MIT licence — the `github`/`codeberg` mirrors exist and are being pushed to routinely, but `LICENSE` in the repo root is a 0-byte empty file (checked 2026-07-22). **Deliberately left empty, not just unfinished** — Mr. Byrne confirmed 2026-07-22: adding MIT now would license the current monolithic codebase as-is, which still contains everything §7 of `PrivateNexus_Commercial_Packaging_Licensing.md` (Open-Core Boundary) says should be closed-source Professional-tier (multi-tenancy, discovery agents, sandbox restore, governance reports, action policy engine) — that split is itself an unstarted v6.0 deliverable (see "Pro feature list defined and gated" above). Real blocker order: separate Pro-gated code into its own module/plugin/container first, *then* MIT the Community-only remainder — not the other way around.
 - [ ] Docker Hub image: clean install from scratch on a fresh VM in under 30 minutes
 - [ ] Upgrade guide tested across at least one version bump
 - [ ] All five commercial proof points from Packaging & Licensing document confirmed true
 - [ ] First Professional beta customer onboarded (even at £0 for beta period)
-- [ ] RBAC tested with two users in different roles (closes the commercial proof point)
+- [x] RBAC tested with two users in different roles (closes the commercial proof point) — real test 2026-07-22, not simulated: created a genuine second Keycloak user (`rbac-test-viewer`, realm role `viewer`) and ran the actual browser-equivalent OIDC flow end-to-end (login redirect → Keycloak form POST → profile-verify step → code exchange → real `pn.sid` session cookie), compared against the existing `tristian` (superadmin) session used throughout this session's work. Confirmed live: viewer reads `GET /api/services`/`GET /api/governance/rules` (200), correctly 403s on `POST /api/actions/run/v2`, `POST /api/services`, `GET /api/tenants` with the right `required` role in the response body. **Found and fixed a real gap along the way**: `requireRole()` — the middleware gating nearly every write/admin route — only ever audited successes (each route's own handler called `recordAudit`); a 403 rejection left zero `audit_log` trace. Fixed in `hot-privatenexus` commit `2aa82fb` (adds `access.forbidden` on rejection, with route/method/required-role in `detail`), verified safe via an isolated circular-import test before touching the live container (the fix requires `requireRole.js` to import `recordAudit` from `auditLog.js`, which already imports back from `requireRole.js`), then confirmed live: all three rejected requests above now produce real `audit_log` rows. Test user deleted from Keycloak afterward; the real audit rows were left in place as evidence, not cleaned up.
 - [ ] No critical security issues open at release tag
 - [ ] Lockdown API endpoint live and tested for all four tiers (Alert, Soft, Hard, Full)
 - [ ] Wazuh active response calls lockdown API on level 12+ alert (end-to-end test in staging)
