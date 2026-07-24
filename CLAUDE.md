@@ -527,10 +527,46 @@ Docker's NAT rule itself never matches traffic to the public IP, which is more r
 on UFW alone.
 
 Root password and the wg3 keypair are saved in Vaultwarden under the **PrivateNexus** folder
-("pn-vps root password (Hostkey CH VPS)" and "pn-vps wg3 WireGuard tunnel keys"). A separate SSH
-keypair (`tristian-termius-pn-vps`) was also generated for Mr. Byrne's direct Termius access,
-scoped only to this VPS (not the shared fleet `claude_code_key`) — its private key is backed up
-in the same Vaultwarden folder ("pn-vps Termius SSH key (tristian)").
+("hot-pn root password (Hostkey CH VPS)" and "hot-pn wg3 WireGuard tunnel keys" — renamed from the
+`pn-vps` prefix 2026-07-24). A separate SSH keypair (`tristian-termius-pn-vps`, alias not renamed)
+was also generated for Mr. Byrne's direct Termius access, scoped only to this VPS (not the shared
+fleet `claude_code_key`) — its private key is backed up in the same Vaultwarden folder ("hot-pn
+Termius SSH key (tristian)").
+
+**⚠ Real production regression caused and fixed same-session, 2026-07-24: PowerDNS API went
+unreachable from the whole VLAN mesh after `wg0` (the old, permanently-dead bare-metal tunnel) was
+torn down during the hot-bm-nl vmbr0 build (see hostkey_server_replacement memory).** PowerDNS's
+docker-compose port binding is a specific-IP bind, `10.10.0.1:8081` (not `0.0.0.0`) — and
+`10.10.0.1` was literally the Gateway's own address *on the wg0 interface itself*. Deleting wg0
+deleted that address from existence; `docker-proxy` kept reporting itself as `LISTEN` on it
+(phantom bind — process alive, but nothing could route to an address that no longer exists on any
+interface). Caught only because Mr. Byrne was doing real hands-on UI testing and saw PowerDNS API
+show as down on the Dashboard. Fixed non-destructively: added `10.10.0.1/32` to `lo` (loopback) via
+a new systemd oneshot unit (`/etc/systemd/system/powerdns-loopback-ip.service`, `Before=docker.service`,
+enabled) rather than reviving wg0 or changing PowerDNS's bind config — preserves every existing
+consumer's config unchanged (Caddy's ACME DNS plugin was never affected, it uses the internal
+Docker service name `powerdns:8081`, not this address — only external WireGuard-mesh consumers
+like hot-pn were hit). Verified end-to-end (Gateway-local curl, then from hot-pn over wg3) and via
+a real `POST /api/intelligence/service/:id/probe` re-probe, confirmed live in the DB (`status` flipped
+`down` → `healthy`). **If `10.10.0.1` ever needs to move again, it's now a plain loopback alias,
+not tied to any WireGuard interface's lifecycle — check `ip addr show dev lo` before assuming it's
+gone.**
+
+**⚠ Real bug found via hands-on UI testing (the kind no source-read or curl check ever catches),
+fixed 2026-07-24, `hot-privatenexus` commit `c8115d7`:** while checking the above PowerDNS issue in
+the live UI, Mr. Byrne hit a "Something went wrong" ErrorBoundary screen clicking "View" on a
+service. Root cause had nothing to do with PowerDNS/Proxmox's data — the Service Detail view's
+Backup Records section referenced a bare `userRole` variable that was never defined anywhere in
+the file (leftover from before the `can(minRole)` helper existed elsewhere in the app), throwing an
+uncaught `ReferenceError` on **every single service detail open, for every service, 100% of the
+time** — not an edge case tied to these two services' unusual field values, which is what extensive
+static analysis of the data initially assumed before the real browser console error was checked.
+Fixed by replacing all 5 `userRole >= 1`/`userRole >= 2` occurrences with the equivalent
+`can("operator")`/`can("admin")` calls. Also hardened the adjacent `access_mode.replace()` call
+with a null fallback, matching every other field in that same metadata grid. **This is exactly the
+gap FE-03's 2026-07-15 "verified present" claim missed — see the corrected PRD entry — and a strong
+argument for periodically actually clicking through this app in a real browser, not just auditing
+its source.**
 
 ---
 
