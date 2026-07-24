@@ -22,7 +22,7 @@ sync_remote() {
   local tmp
   tmp=$(mktemp)
   mkdir -p "$(dirname "$dst")"
-  if ssh "$vm" "cat $src" > "$tmp" 2>/dev/null && [ -s "$tmp" ]; then
+  if ssh -o ConnectTimeout=10 -o BatchMode=yes "$vm" "cat $src" > "$tmp" 2>/dev/null && [ -s "$tmp" ]; then
     mv "$tmp" "$dst"
   else
     log "WARN: could not sync $vm:$src — leaving $dst untouched"

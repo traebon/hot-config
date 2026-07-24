@@ -62,17 +62,26 @@ Internet
     │
     ▼
 Gateway VPS — 151.241.217.91 (Hostkey B.V., Zürich)
-    │  WireGuard tunnel (ChaCha20-Poly1305)  10.10.0.1 → 10.10.0.2
+    │  wg4 (ChaCha20-Poly1305)  10.10.3.1 → 10.10.3.2
     ▼
-Proxmox Host — AMD EPYC 3151 (Switzerland DC)
-    │  VLAN routing via vmbr0
-    ├── VLAN 10 → sn-infra    (10.10.10.100)
-    ├── VLAN 20 → sn-business (10.10.20.101)
-    ├── VLAN 30 → sn-web      (10.10.30.102)
-    ├── VLAN 40 → sn-personal (10.10.40.103)
-    ├── VLAN 50 → sn-monitor  (10.10.50.104)
-    ├── VLAN 60 → pn-test     (10.10.60.105)
-    └── VLAN 70 → sn-security (10.10.70.106)
+hot-bm-nl (Hostkey NL, server 22272, oVirt VPS — bare-metal replacement) — PVE 9.2.5
+    │  VLAN routing via vmbr0 (VLAN-aware Linux bridge, no physical port — purely
+    │  internal, matches the original architecture since these VLANs never touch
+    │  the WAN; wg4 carries all Gateway↔VLAN traffic instead of a switch trunk)
+    ├── VLAN 10 → sn-infra    (10.10.10.100) — not yet rebuilt, gateway 10.10.10.1 live
+    ├── VLAN 30 → sn-web      (10.10.30.102) — not yet rebuilt, gateway 10.10.30.1 live
+    ├── VLAN 50 → sn-monitor  (10.10.50.104) — not yet rebuilt, gateway 10.10.50.1 live
+    └── VLAN 70 → sn-security (10.10.70.106) — not yet rebuilt, gateway 10.10.70.1 live
+
+    VLAN 20 (sn-business) and VLAN 40 (sn-personal) are NOT being rebuilt here — those
+    roles permanently moved to hot-erp/hot-pn (see PERMANENT decision, 2026-07-24).
+    VLAN 60 (pn-test)'s fate is undecided — see hostkey_server_replacement memory.
+
+    ⚠ The ORIGINAL bare-metal host (AMD EPYC 3151, Switzerland DC, server 145990) is
+    PERMANENTLY DECOMMISSIONED — unfixable NIC fault, refunded, replaced by hot-bm-nl.
+    Its wg0 tunnel (10.10.0.1 → 10.10.0.2) was disabled 2026-07-24 (`wg-quick down` +
+    `systemctl disable wg-quick@wg0`) after its stale routes for the VLAN subnets above
+    blocked wg4 from claiming them — don't re-enable it, that server no longer exists.
 
 Tailscale overlay (admin access ONLY — never production traffic):
     Gateway VPS:         100.106.41.10
@@ -142,7 +151,16 @@ SSH config: /root/.ssh/config
 
 ---
 
-## Hardware — Bare Metal (AMD EPYC 3151)
+## Hardware — Bare Metal (AMD EPYC 3151) — ⚠️ DECOMMISSIONED, table kept for historical reference
+
+**This physical host is permanently gone** (unfixable NIC fault, refunded — see
+hostkey_server_replacement memory) and has been replaced by **hot-bm-nl**, a Hostkey NL
+oVirt VPS with real specs of **4 vCore / 32 GB RAM / 2×4 TB HDD** (one disk as ext4/LVM
+root, the other as a standalone `local-zfs` pool — see the VLAN topology note above for
+why it's a VPS, not colocated hardware). Do not size new workloads against the table
+below — it describes hardware that no longer exists. The Zen 1/AVX-512 warning below is
+also now moot on the replacement (hot-bm-nl's CPU is a generic virtualized Intel core,
+not Zen 1) but may still matter if HoT ever colocates real hardware again.
 
 | Parameter       | Value                                        |
 |-----------------|----------------------------------------------|
