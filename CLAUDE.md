@@ -568,6 +568,24 @@ gap FE-03's 2026-07-15 "verified present" claim missed — see the corrected PRD
 argument for periodically actually clicking through this app in a real browser, not just auditing
 its source.**
 
+**Third real bug from the same testing session, same root cause pattern: backup-policy checks were
+Governance-only, not applied consistently across the UI (2026-07-24, `hot-privatenexus` commit
+`4088bae`).** Mr. Byrne kept seeing "Missing: backup policy" amber warnings and "no backup" pills on
+the Inventory board for Keycloak/PowerDNS API/Caddy Admin API/Proxmox — the same 4 external
+dependencies that were deliberately given `policy_exceptions` rows back on 2026-07-16 (real reason
+each time: PrivateNexus doesn't run or back these up itself, see their recovery runbooks) and which
+the Governance board correctly reports as 0 violations for. Root cause: `evaluateViolations()` in
+`governance.js` was the *only* place in the whole app that actually queried `policy_exceptions` —
+the Inventory card badges, the "no backup" meta pill, and the Service Detail policy line all used a
+bare `svc.backup_policy === "none"` check with zero awareness that an exception could exist, so the
+same underlying fact was silently treated as "fine" in one board and "flag it" in every other. Fixed
+by adding `backup_policy_exempt` (an `EXISTS` check against `policy_exceptions`) to `GET
+/api/services`'s query, and updating all three frontend spots to check it — exempted services now
+show "backup: exempt" / "none (exempt)" in neutral styling instead of amber/rose warning colors.
+**Pattern worth remembering for future audits of this app: whenever a rule has an exception
+mechanism, check that literally every UI surface displaying that rule's data actually consults the
+exception table, not just the one board whose whole purpose is evaluating rules.**
+
 ---
 
 ## Keycloak SSO
