@@ -586,6 +586,23 @@ show "backup: exempt" / "none (exempt)" in neutral styling instead of amber/rose
 mechanism, check that literally every UI surface displaying that rule's data actually consults the
 exception table, not just the one board whose whole purpose is evaluating rules.**
 
+**That pattern immediately recurred, same session, for `health_check_required` (2026-07-24,
+`hot-privatenexus` commit `84d4215`) — and turned up a third instance, inside the Governance board
+itself.** Mr. Byrne next spotted "Caddy Admin API missing a health check" — again a real, documented
+exception (its admin API is deliberately disabled in the Caddyfile, not an outage), again invisible
+outside the violations evaluator. Same fix shape: added `health_check_exempt` to `GET
+/api/services`, wired the Inventory badge and the Service Detail Health History panel to respect
+it. But this time the third occurrence was inside Governance's own "Restore Readiness per Service"
+table — its ✓/✗ columns were built from raw `!!s.health_endpoint`/`s.backup_policy` booleans,
+completely bypassing the same `evaluateViolations()` logic the rest of that same board correctly
+uses. Fixed by deriving `health_endpoint_exempt`/`backup_policy_exempt` per service from the
+violations list already computed earlier in that same request handler (a service that fails the raw
+check but has no matching violation must be exempted) rather than re-querying `policy_exceptions`
+again. **Updated lesson: this exception-blindness bug wasn't confined to boards outside Governance —
+even a secondary table on the Governance board itself had it. Any place displaying rule-relevant
+service data needs its own explicit check, full stop, no matter how close it sits to the "real"
+evaluator.**
+
 ---
 
 ## Keycloak SSO
