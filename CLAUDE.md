@@ -93,14 +93,22 @@ Other WireGuard interfaces on the Gateway VPS (separate from the wg0 bare-metal 
           Client configs: phone/windows/laptop.conf in /root/hot/wireguard-clients/. Predates this
           doc; discovered 2026-07-06 when a new tunnel was almost given the same interface name —
           check `wg show` before reusing wg<N>/ports on this box.
-    wg2 — TEMPORARY tunnel to erp-temp VPS (46.202.129.86) for the ERPNext stand-in during the
-          bare-metal outage. Gateway 10.10.1.1 / erp-temp 10.10.1.2, port 51822. See
-          hostkey_server_replacement memory and /opt/hot-config/erp-temp/dickson/README.md — tear
-          down once bare metal is restored and reverted.
-    wg3 — TEMPORARY tunnel to pn-vps (151.241.217.140) for the PrivateNexus stand-in during the
-          same bare-metal outage (pn-test/sn-personal both unreachable). Gateway 10.10.2.1 /
-          pn-vps 10.10.2.2, port 51823. See hostkey_server_replacement memory and the pn-vps
-          section below — tear down once bare metal is restored and reverted.
+    wg2 — tunnel to hot-erp (46.202.129.86, formerly named erp-temp — renamed 2026-07-24, ssh
+          alias `erp-temp` still works as a transitional alias), ERPNext's permanent home. Originally stood up as
+          a bare-metal-outage stand-in; **made permanent 2026-07-24** (Mr. Byrne decision — see
+          hostkey_server_replacement memory) rather than migrated back once hot-bm-nl is ready,
+          precisely so a future bare-metal/Proxmox outage doesn't take ERPNext down with it, same
+          reasoning as the Vaultwarden Gateway placement. Gateway 10.10.1.1 / erp-temp 10.10.1.2,
+          port 51822. See hostkey_server_replacement memory and
+          /opt/hot-config/erp-temp/dickson/README.md. Mr. Byrne may move this specific workload to
+          a proper Hostkey server at some point — not decided/scheduled yet.
+    wg3 — tunnel to hot-pn (151.241.217.140, formerly named pn-vps — renamed 2026-07-24, ssh alias
+          `pn-vps` still works as a transitional alias), PrivateNexus's permanent home (Mr. Byrne's personal
+          use + PrivateNexus product development; ERPNext/erp-temp is earmarked for hosting client
+          companies' backend software later — not started, no timeline). Originally stood up as a
+          bare-metal-outage stand-in for pn-test/sn-personal; **made permanent 2026-07-24** for the
+          same reason as wg2 above. Gateway 10.10.2.1 / pn-vps 10.10.2.2, port 51823. See
+          hostkey_server_replacement memory and the pn-vps section below.
     wg4 — tunnel to hot-bm-nl (server 22272, Hostkey NL, 31.207.47.146) — the bare-metal
           *replacement* candidate itself (server 145990 was decommissioned; NL not CH, see
           hostkey_server_replacement memory), NOT a temporary stand-in like wg2/wg3. Gateway
@@ -298,28 +306,40 @@ Wazuh creds (saved in Vaultwarden, "House of Trae — Gateway VPS" folder):
 
 ---
 
-### erp-temp (ssh erp-temp — 46.202.129.86, public VPS, not a Proxmox VM) — TEMPORARY
-Stood up 2026-07-06 as a stand-in for sn-business's ERPNext while bare metal is down (see
-Hostkey Server Replacement in memory). 2 vCPU / 7.7 GB RAM / 96 GB disk, AMD EPYC 9354P (Zen 4,
-full AVX-512 — no cpuv1 concerns here, unlike the bare-metal EPYC 3151). Reached from the
-Gateway VPS over the dedicated `wg2` tunnel (10.10.1.1 ↔ 10.10.1.2) — see Network Topology.
+### hot-erp (ssh hot-erp — 46.202.129.86, public VPS, not a Proxmox VM) — PERMANENT
+**Renamed from erp-temp 2026-07-24** (the `erp-temp` ssh alias still works, kept as a transitional
+alias — see hostkey_server_replacement memory). Stood up 2026-07-06 as a stand-in for sn-business's ERPNext while bare metal is down (see
+Hostkey Server Replacement in memory). **Made ERPNext's permanent home 2026-07-24** (Mr. Byrne
+decision) rather than migrated back to the bare-metal replacement once hot-bm-nl is ready — deliberately
+kept off bare metal so a future Proxmox/bare-metal outage doesn't take ERPNext down with it, same
+reasoning as the Vaultwarden Gateway placement. Earmarked later (no timeline) to also host client
+companies' backend software Mr. Byrne is asked to run for them — not started. Mr. Byrne may move
+this specific workload to a proper Hostkey server at some point instead of this spare VPS — not
+decided/scheduled. 2 vCPU / 7.7 GB RAM / 96 GB disk, AMD EPYC 9354P (Zen 4, full AVX-512 — no
+cpuv1 concerns here, unlike the bare-metal EPYC 3151). Reached from the Gateway VPS over the
+dedicated `wg2` tunnel (10.10.1.1 ↔ 10.10.1.2) — see Network Topology.
 
 | Service     | Path                | Notes                                                          |
 |-------------|---------------------|------------------------------------------------------------------|
 | ERPNext v16 | /opt/stacks/dickson/ | erp.dickson-supplies.com (Caddy repointed here) — **historical data restored 2026-07-09** from the 2026-06-29 Hetzner vzdump backup (the rclone crypt password was recovered — see [[rclone_crypt_password_vaultwarden]] — so the earlier "fresh site" decision was superseded). Live data now current as of the outage start (2026-07-02); anything entered into erp-temp between 2026-07-06 and 2026-07-09 was on the old fresh site and is in `.fresh-backup` volume copies on erp-temp, not merged in — needs Mr. Byrne's input if that window's data matters. Config synced to /opt/hot-config/erp-temp/dickson/ (README there has full rebuild notes/gotchas + the restore procedure). |
 
-Caddy's `erp.dickson-supplies.com` block is temporarily pointed at `10.10.1.2:8000` instead of
-`10.10.20.101:8000` — commented inline in the Caddyfile with the revert path. **Revert once bare
-metal is restored** — see `/opt/hot-config/erp-temp/dickson/README.md` for the full revert plan
-and what's genuinely different from the real sn-business stack (reconstructed Dockerfile,
-posawesome source, etc. — several one-time setup gotchas that were never captured in
-docker-compose.yml originally).
+Caddy's `erp.dickson-supplies.com` block points at `10.10.1.2:8000` — this is now the permanent
+target, not `10.10.20.101:8000` (see the erp-temp PERMANENT decision above, 2026-07-24); the
+inline Caddyfile comment referencing a revert path is stale and should be dropped/updated next
+time that block is touched. See `/opt/hot-config/erp-temp/dickson/README.md` for what's genuinely
+different from the real sn-business stack (reconstructed Dockerfile, posawesome source, etc. —
+several one-time setup gotchas that were never captured in docker-compose.yml originally).
 
 ---
 
-### pn-vps (ssh pn-vps — 151.241.217.140, Hostkey CH, public VPS, not a Proxmox VM) — TEMPORARY
-Stood up 2026-07-15 as a stand-in for PrivateNexus's dev (pn-test) and test (sn-personal) roles
-combined while bare metal is down (see [[hostkey_server_replacement]]). Ordered via the Hostkey
+### hot-pn (ssh hot-pn — 151.241.217.140, Hostkey CH, public VPS, not a Proxmox VM) — PERMANENT
+**Renamed from pn-vps 2026-07-24** (the `pn-vps` ssh alias still works, kept as a transitional
+alias — see hostkey_server_replacement memory). Stood up 2026-07-15 as a stand-in for PrivateNexus's dev (pn-test) and test (sn-personal) roles
+combined while bare metal is down (see [[hostkey_server_replacement]]). **Made PrivateNexus's
+permanent home 2026-07-24** (Mr. Byrne decision) rather than migrated back once hot-bm-nl is
+ready — deliberately kept off bare metal so a future Proxmox/bare-metal outage doesn't take
+PrivateNexus down with it, same reasoning as the Vaultwarden Gateway placement. PrivateNexus here
+serves both Mr. Byrne's personal use and ongoing PrivateNexus product development. Ordered via the Hostkey
 `invapi.hostkey.com` billing API — see [[hostkey_invapi_notes]] for the auth/order quirks
 discovered along the way. `vm.v2-medium` preset — 8 vCPU / 16 GB RAM / 160 GB NVMe, Ubuntu 26.04
 LTS (upgraded from the 24.04 base image via a Hostkey panel reinstall — neither `do-release-upgrade`
@@ -341,7 +361,7 @@ Topology. UFW locked down (deny-by-default; only SSH, the wg3 port, and 5173/tcp
 Also found `wg-quick@wg0` was never `systemctl enable`d on pn-vps — a reboot would have dropped the tunnel permanently until manually restarted. Enabled it.
 
 `/opt/privatenexus/secrets/pdns_api_key.txt` was also `chmod 600` (root-only) instead of `644` — same class of bug as the documented ERPNext secrets gotcha (container runs as non-root `user: "1000"`, couldn't read a root-only file). Backend crash-looped with `PDNS_API_KEY secret not configured` until fixed to `644` to match every other secret in that directory.
-| Monitoring (temp) | /opt/stacks/monitoring-temp/ | **Added 2026-07-15.** `PROMETHEUS_URL`/`LOKI_URL` were repointed from sn-monitor to a local Prometheus + node-exporter + Loki + Promtail stand-in here (`.env` in the PrivateNexus compose dir) — PrivateNexus's own health-scheduler/dashboard needs somewhere reachable to query. All four containers sit on the existing `compose_pn-internal` network only — no host ports published, no public exposure. Monitors pn-vps itself (node-exporter + container logs via Promtail), not the wider HoT fleet. Loki's `/ready` endpoint returns a cosmetic 503 (`"waiting for 15s after being ready"`, a known single-node quirk) despite actually ingesting logs correctly — don't mistake that for a real problem. Promtail's `container` label relabel rule originally stripped the leading slash from `__meta_docker_container_name`, unlike the Gateway's real Promtail config — silently broke every Logs board query on pn-vps until fixed 2026-07-15 (`hot-config` commit `f80c6b1`) to match Docker's raw `/name` convention. Revert `.env` back to `10.10.50.104` once bare metal is restored, then tear this stack down. |
+| Monitoring (temp) | /opt/stacks/monitoring-temp/ | **Added 2026-07-15.** `PROMETHEUS_URL`/`LOKI_URL` were repointed from sn-monitor to a local Prometheus + node-exporter + Loki + Promtail stand-in here (`.env` in the PrivateNexus compose dir) — PrivateNexus's own health-scheduler/dashboard needs somewhere reachable to query. All four containers sit on the existing `compose_pn-internal` network only — no host ports published, no public exposure. Monitors pn-vps itself (node-exporter + container logs via Promtail), not the wider HoT fleet. Loki's `/ready` endpoint returns a cosmetic 503 (`"waiting for 15s after being ready"`, a known single-node quirk) despite actually ingesting logs correctly — don't mistake that for a real problem. Promtail's `container` label relabel rule originally stripped the leading slash from `__meta_docker_container_name`, unlike the Gateway's real Promtail config — silently broke every Logs board query on pn-vps until fixed 2026-07-15 (`hot-config` commit `f80c6b1`) to match Docker's raw `/name` convention. Since pn-vps is now PrivateNexus's permanent home (2026-07-24 decision), this stack is permanent too — no revert/teardown planned. |
 | Watchtower | /opt/stacks/watchtower/ | **Added 2026-07-15.** Pinned v1.5.3, monitor-only (emails on available updates, doesn't auto-apply), matching the Gateway's pattern — see `gateway/watchtower/`. PrivateNexus's three locally-built services (`privatenexus-backend`/`-frontend`/`-mcp`) carry the `com.centurylinklabs.watchtower.enable=false` label to avoid the same pointless-nightly-pull-failure noise already known from `caddy`/`tor` on the Gateway (locally-built images have no registry path to check). Uptime Kuma was deliberately skipped — PrivateNexus's own internal health-scheduler doesn't need it. |
 | Discovery agent | /opt/privatenexus/scripts/discovery-agent.sh | `privatenexus-discovery-agent.timer` (systemd, boot + hourly) pushes host + container facts to PrivateNexus's own `POST /api/discovery/ingest`. Units captured at `pn-vps/discovery-agent/` in this repo. See discovery-agent hardening note below. |
 
@@ -478,14 +498,15 @@ Checked `ops.js` (the real Fleet source) while in the area: its `VM_NAMES` map i
 
 **Admin board audited, found fabricated data presented as real infrastructure fact (2026-07-16, `hot-privatenexus` commit `e93d88b`):** `GET /api/admin/backup` — the last board in the full route-file sweep started with the Files board incident — was returning entirely fictional data, not degraded/placeholder data of the kind seen elsewhere today: wrong tool ("Proxmox Backup Server" instead of the real `vzdump`), a "QNAP NAS (Tailscale)" destination that has never existed anywhere in this infrastructure, a fabricated "Wasabi EU-Central-1" cloud tier (HoT has only ever used Hetzner Storage Box + Backblaze B2), wrong schedule times, and no tier at all for the real pn-vps PrivateNexus DB backup chain set up earlier this session. Every other route in the file (`network`, `certs`, `disk`, `users`, `audit`, `users-manage`) checked out clean — all genuinely live data, including `certs` correctly and honestly returning an empty result given no Blackbox exporter exists on pn-vps, the same honest-gap pattern as the Alerts board rather than fabrication. Replaced the fabricated response with the real, documented architecture straight from this file's own "Backup Architecture" table (vzdump/git+cron/rclone crypt to Hetzner+B2/pg_dump chain, correct schedule), with an inline comment noting it's static reference info since this box has no way to query the Gateway/Proxmox host that actually runs these jobs. Verified live via curl against the deployed container — response now matches the documented schedule, destinations, and all 5 tiers exactly. This closes the full board-by-board audit of PrivateNexus's route surface begun after the Files board incident.
 
-Caddy's `privatenexus.net` block is temporarily pointed at `10.10.2.2:5173` instead of
-`10.10.40.103:5173` — commented inline in the Caddyfile with the revert path. The frontend
-container's port publish was changed from `127.0.0.1:5173:80` (in the source repo, unreachable
-from another host) to `10.10.2.2:5173:80` (bound to the tunnel interface specifically) — binding
-to `0.0.0.0` was deliberately avoided since Docker's own iptables rules are known to bypass UFW's
-filtering for published ports; binding to the specific tunnel IP means Docker's NAT rule itself
-never matches traffic to the public IP, which is more robust than relying on UFW alone. **Revert
-Caddy and the port binding once bare metal is restored.**
+Caddy's `privatenexus.net` block points at `10.10.2.2:5173` — this is now the permanent target,
+not `10.10.40.103:5173` (see the pn-vps PERMANENT decision above, 2026-07-24); the inline Caddyfile
+comment referencing a revert path is stale and should be dropped/updated next time that block is
+touched. The frontend container's port publish was changed from `127.0.0.1:5173:80` (in the source
+repo, unreachable from another host) to `10.10.2.2:5173:80` (bound to the tunnel interface
+specifically) — binding to `0.0.0.0` was deliberately avoided since Docker's own iptables rules are
+known to bypass UFW's filtering for published ports; binding to the specific tunnel IP means
+Docker's NAT rule itself never matches traffic to the public IP, which is more robust than relying
+on UFW alone.
 
 Root password and the wg3 keypair are saved in Vaultwarden under the **PrivateNexus** folder
 ("pn-vps root password (Hostkey CH VPS)" and "pn-vps wg3 WireGuard tunnel keys"). A separate SSH
@@ -589,7 +610,7 @@ SMS relay: Node.js sms-relay on sn-infra (Ntfy webhook → Twilio API).
 | Config sync    | git + cron            | 01:00 daily | Forgejo → Codeberg + GH | Forgejo auth                       |
 | Cloud (Hetzner)| rclone crypt          | 06:00 daily | Hetzner Storage Box     | rclone crypt (hetzner-crypt remote)|
 | Cloud (B2)     | rclone crypt + B2     | 07:30 daily | Backblaze B2            | rclone crypt — hard_delete=true    |
-| pn-vps PrivateNexus DB | pg_dump (pn-vps) + Gateway pull + rclone crypt | 03:00 pn-vps dump → 03:30 Gateway pull/push | Local (pn-vps, 14d) → Gateway (30d) → Hetzner + B2 | rclone crypt (same hetzner-crypt/b2-hot-crypt remotes) |
+| hot-pn PrivateNexus DB (formerly pn-vps) | pg_dump (hot-pn) + Gateway pull + rclone crypt | 03:00 hot-pn dump → 03:30 Gateway pull/push | Local (hot-pn, 14d) → Gateway (30d) → Hetzner + B2 | rclone crypt (same hetzner-crypt/b2-hot-crypt remotes) |
 
 Cron: 01:00 config sync → 02:00 vzdump (~3h, done ~05:00) → 03:00 pn-vps DB dump → 03:30 Gateway pulls it → 06:00 Hetzner → 07:30 B2
 ⚠️ vzdump runs 3h on 7 VMs. Cloud uploads must NOT start before 06:00 — concurrent HDD I/O caused nightly crashes (Jun 26–28).

@@ -1,19 +1,20 @@
 #!/bin/bash
-# Pulls PrivateNexus's nightly pg_dump off pn-vps (a temporary external VPS)
-# onto the Gateway VPS, then pushes it into the same rclone-crypt cloud
-# pipeline everything else on the Gateway already uses.
+# Pulls PrivateNexus's nightly pg_dump off hot-pn (PrivateNexus's permanent home,
+# formerly a temporary stand-in named pn-vps -- made permanent 2026-07-24, see
+# hostkey_server_replacement memory) onto the Gateway VPS, then pushes it into the
+# same rclone-crypt cloud pipeline everything else on the Gateway already uses.
 #
-# Deliberately pull-from-Gateway rather than push-from-pn-vps: pn-vps is a
-# less-trusted, external, temporary box (see CLAUDE.md's pn-vps section) and
-# already has its own dedicated pg_dump.sh + local retention + service_backups
-# registration (runs ~03:00 CEST via privatenexus-pg-dump.timer). Keeping the
-# Hetzner/B2 rclone-crypt credentials off pn-vps entirely, and only pulling
-# via the Gateway's existing SSH trust to pn-vps, keeps that box's blast
-# radius minimal — consistent with the wg3/UFW scoping already done for it.
+# Deliberately pull-from-Gateway rather than push-from-hot-pn: hot-pn is a
+# less-trusted, external box (see CLAUDE.md's hot-pn section) and already has its
+# own dedicated pg_dump.sh + local retention + service_backups registration (runs
+# ~03:00 CEST via privatenexus-pg-dump.timer). Keeping the Hetzner/B2 rclone-crypt
+# credentials off hot-pn entirely, and only pulling via the Gateway's existing SSH
+# trust to hot-pn, keeps that box's blast radius minimal -- consistent with the
+# wg3/UFW scoping already done for it.
 set -euo pipefail
 
-BACKUP_DIR="/var/backups/pn-vps-privatenexus-db"
-REMOTE_HOST="pn-vps"
+BACKUP_DIR="/var/backups/hot-pn-privatenexus-db"
+REMOTE_HOST="hot-pn"
 REMOTE_PATH="/opt/privatenexus/backups"
 RETENTION_DAYS=30
 SMTP_PASS=$(grep -m1 WATCHTOWER_SMTP_PASSWORD /opt/stacks/watchtower/.env | cut -d= -f2)
@@ -42,14 +43,14 @@ MAIL
         -d "${body}" "$NTFY_URL" || true
 }
 
-log "=== pn-vps PrivateNexus DB backup pull START ==="
+log "=== hot-pn PrivateNexus DB backup pull START ==="
 mkdir -p "$BACKUP_DIR"
 
 if ! ssh -o ConnectTimeout=10 -o BatchMode=yes "$REMOTE_HOST" "test -d $REMOTE_PATH" 2>/dev/null; then
-    log "  ERROR: pn-vps unreachable — skipping this run."
+    log "  ERROR: hot-pn unreachable — skipping this run."
     send_alert \
-        "pn-vps PrivateNexus DB Backup — Pull Failed" \
-        "pn-vps was unreachable when the Gateway tried to pull the latest privatenexus-db pg_dump ($(date '+%Y-%m-%d %H:%M')). Local dump + service_backups registration on pn-vps itself is unaffected — this only skips the off-host copy for this run." \
+        "hot-pn PrivateNexus DB Backup — Pull Failed" \
+        "hot-pn was unreachable when the Gateway tried to pull the latest privatenexus-db pg_dump ($(date '+%Y-%m-%d %H:%M')). Local dump + service_backups registration on hot-pn itself is unaffected — this only skips the off-host copy for this run." \
         "high" "warning,floppy_disk"
     exit 1
 fi
@@ -58,16 +59,20 @@ rsync -az "${REMOTE_HOST}:${REMOTE_PATH}/" "$BACKUP_DIR/"
 log "  Pulled. Local copy: $(du -sh "$BACKUP_DIR" | cut -f1) across $(ls "$BACKUP_DIR"/*.sql.gz 2>/dev/null | wc -l) file(s)."
 
 # Push into the same cloud pipeline the rest of the Gateway's backups use.
+# NOTE: the rclone destination folder name changed from "pn-vps-privatenexus-db/"
+# to "hot-pn-privatenexus-db/" on 2026-07-24 (the rename). Historical backups
+# pushed before that date remain under the old folder name on Hetzner/B2 --
+# they were not moved, just left as history. Nothing new writes there anymore.
 if command -v rclone &>/dev/null; then
     REMOTES=$(rclone listremotes 2>/dev/null)
     for REMOTE in hetzner-crypt b2-hot-crypt; do
         echo "$REMOTES" | grep -q "^${REMOTE}:" || continue
         log "  Pushing to ${REMOTE}..."
-        rclone copy "$BACKUP_DIR" "${REMOTE}:pn-vps-privatenexus-db/" \
+        rclone copy "$BACKUP_DIR" "${REMOTE}:hot-pn-privatenexus-db/" \
             --no-traverse 2>&1 | while IFS= read -r l; do log "    rclone: $l"; done
     done
 fi
 
 find "$BACKUP_DIR" -name '*.sql.gz' -mtime +${RETENTION_DAYS} -delete
 
-log "=== pn-vps PrivateNexus DB backup pull DONE ==="
+log "=== hot-pn PrivateNexus DB backup pull DONE ==="
