@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Namevault — Admin</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: system-ui, sans-serif; max-width: 60rem; margin: 2rem auto; padding: 0 1.5rem; }
+  h1 { font-size: 1.4rem; }
+  table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+  th, td { text-align: left; padding: 0.4rem 0.6rem; border-bottom: 1px solid #8884; }
+  button { cursor: pointer; padding: 0.3rem 0.6rem; }
+  .top { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
+</style>
+</head>
+<body>
+  <div class="top">
+    <h1>Namevault — Mappings</h1>
+    <a href="/api/admin/export">Export CSV</a>
+  </div>
+  <table>
+    <thead><tr><th>Real</th><th>Pseudonym</th><th>Added by</th><th>Date</th><th></th></tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+
+<script>
+async function load() {
+  const r = await fetch('/api/admin/mappings');
+  if (r.status === 403) { document.body.innerHTML = '<p>Forbidden.</p>'; return; }
+  const rows = await r.json();
+  const tbody = document.getElementById('rows');
+  tbody.innerHTML = rows.map(row => `
+    <tr>
+      <td>${row.real}</td>
+      <td>${row.pseudo}</td>
+      <td>${row.created_by || ''}</td>
+      <td>${String(row.created_at).split('T')[0]}</td>
+      <td><button data-id="${row.id}">Delete</button></td>
+    </tr>
+  `).join('');
+  tbody.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      await fetch(`/api/admin/mappings/${btn.dataset.id}`, { method: 'DELETE' });
+      load();
+    });
+  });
+}
+load();
+</script>
+</body>
+</html>
