@@ -6,4 +6,4 @@ services:
     volumes:
       - ./html:/usr/share/nginx/html:ro
     ports:
-      - "8001:80"
+      - "10.10.30.102:8001:80"
