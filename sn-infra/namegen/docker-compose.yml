@@ -3,6 +3,8 @@ services:
     build: ./app
     container_name: namegen-app
     restart: unless-stopped
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"
     environment:
       PORT: 8010
       DB_HOST: db
