@@ -295,7 +295,7 @@ ntfy.house-of-trae.com {
     import crowdsec
     import compress
     import secure_headers
-    reverse_proxy ntfy:80
+    reverse_proxy 10.10.10.100:8080
 }
 ds.house-of-trae.com {
     import crowdsec

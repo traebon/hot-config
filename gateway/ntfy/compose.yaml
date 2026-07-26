@@ -7,6 +7,8 @@ services:
     command: serve
     environment:
       - TZ=Europe/London
+    ports:
+      - "10.10.10.100:8080:80"
     volumes:
       - ./server.yml:/etc/ntfy/server.yml:ro
       - ntfy_data:/var/lib/ntfy
