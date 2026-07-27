@@ -53,6 +53,13 @@ scrape_configs:
         labels:
           instance: 'proxmox-host'
 
+  # sn-security (VM 106)
+  - job_name: 'sn-security-node'
+    static_configs:
+      - targets: ['10.10.70.106:9100']
+        labels:
+          instance: 'sn-security'
+
   # sn-business (VM 101), sn-personal (VM 103), pn-test (VM 105) are permanently retired —
   # those roles moved to hot-erp/hot-pn (2026-07-24 decision), VLANs 20/40/60 are not part of
   # the hot-bm-nl rebuild. sn-security (VM 106) not yet built — add its job back once it exists,
@@ -84,6 +91,7 @@ scrape_configs:
           - https://dickson-supplies.com
           - https://ntfy.house-of-trae.com
           - https://vault.house-of-trae.com
+          - https://wazuh.house-of-trae.com
           - https://erp.dickson-supplies.com
           - https://privatenexus.net
     relabel_configs:

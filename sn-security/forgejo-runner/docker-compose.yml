@@ -1,9 +1,9 @@
 services:
   runner:
-    image: hot-forgejo-runner:latest
+    image: code.forgejo.org/forgejo/runner:6
     container_name: forgejo-runner
     group_add:
-      - "988"
+      - "994"
     restart: unless-stopped
     entrypoint: ["/bin/sh", "/entrypoint.sh"]
     environment:
