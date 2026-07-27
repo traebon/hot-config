@@ -68,10 +68,10 @@ hot-bm-nl (Hostkey NL, server 22272, oVirt VPS — bare-metal replacement) — P
     │  VLAN routing via vmbr0 (VLAN-aware Linux bridge, no physical port — purely
     │  internal, matches the original architecture since these VLANs never touch
     │  the WAN; wg4 carries all Gateway↔VLAN traffic instead of a switch trunk)
-    ├── VLAN 10 → sn-infra    (10.10.10.100) — not yet rebuilt, gateway 10.10.10.1 live
-    ├── VLAN 30 → sn-web      (10.10.30.102) — not yet rebuilt, gateway 10.10.30.1 live
-    ├── VLAN 50 → sn-monitor  (10.10.50.104) — not yet rebuilt, gateway 10.10.50.1 live
-    └── VLAN 70 → sn-security (10.10.70.106) — not yet rebuilt, gateway 10.10.70.1 live
+    ├── VLAN 10 → sn-infra    (10.10.10.100) — rebuilt 2026-07-27 as VM 100 (unencrypted cloud-init; LUKS2+Tang retrofit pending)
+    ├── VLAN 30 → sn-web      (10.10.30.102) — rebuilt 2026-07-27 as VM 102 (unencrypted cloud-init; LUKS2+Tang retrofit pending)
+    ├── VLAN 50 → sn-monitor  (10.10.50.104) — rebuilt 2026-07-27 as VM 104 (unencrypted cloud-init; LUKS2+Tang retrofit pending)
+    └── VLAN 70 → sn-security (10.10.70.106) — rebuilt 2026-07-27 as VM 106 (unencrypted cloud-init; LUKS2+Tang retrofit pending)
 
     VLAN 20 (sn-business) and VLAN 40 (sn-personal) are NOT being rebuilt here — those
     roles permanently moved to hot-erp/hot-pn (see PERMANENT decision, 2026-07-24).
@@ -85,6 +85,7 @@ hot-bm-nl (Hostkey NL, server 22272, oVirt VPS — bare-metal replacement) — P
 
 Tailscale overlay (admin access ONLY — never production traffic):
     Gateway VPS:         100.106.41.10
+    hot-bm-nl:           100.90.156.88 (added 2026-07-27 — Proxmox web UI access, port 8006 only, UFW-scoped to the tailscale0 interface)
     sn-infra:            100.99.183.4
     sn-business:         100.83.114.127
     sn-web:              100.77.95.127
@@ -850,6 +851,7 @@ Auth files: `/opt/stacks/tor/data/erp/authorized_clients/` (chown 100:101, chmod
 | WireGuard VPS               | 10.10.0.1                                            |
 | WireGuard bare metal        | 10.10.0.2                                            |
 | Tailscale Gateway VPS       | 100.106.41.10                                        |
+| Tailscale hot-bm-nl         | 100.90.156.88 (Proxmox UI, port 8006 only)           |
 | Tailscale sn-infra          | 100.99.183.4                                         |
 | Tailscale sn-business       | 100.83.114.127                                       |
 | Tailscale sn-web            | 100.77.95.127                                        |
