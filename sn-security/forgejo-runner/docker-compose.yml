@@ -3,7 +3,7 @@ services:
     image: code.forgejo.org/forgejo/runner:6
     container_name: forgejo-runner
     group_add:
-      - "994"
+      - "996"
     restart: unless-stopped
     entrypoint: ["/bin/sh", "/entrypoint.sh"]
     environment:

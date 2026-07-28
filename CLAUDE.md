@@ -156,7 +156,9 @@ SSH config: /root/.ssh/config
 
 **This physical host is permanently gone** (unfixable NIC fault, refunded — see
 hostkey_server_replacement memory) and has been replaced by **hot-bm-nl**, a Hostkey NL
-oVirt VPS with real specs of **4 vCore / 32 GB RAM / 2×4 TB HDD** (one disk as ext4/LVM
+oVirt VPS with real specs of **8 vCore (Intel Xeon E5-2680 v2, 1 socket × 8 cores × 1
+thread, confirmed via `lscpu`/`nproc` on the host — corrected 2026-07-28, previously
+misdocumented here as 4 vCore) / 32 GB RAM / 2×4 TB HDD** (one disk as ext4/LVM
 root, the other as a standalone `local-zfs` pool — see the VLAN topology note above for
 why it's a VPS, not colocated hardware). Do not size new workloads against the table
 below — it describes hardware that no longer exists. The Zen 1/AVX-512 warning below is
@@ -190,12 +192,12 @@ not Zen 1) but may still matter if HoT ever colocates real hardware again.
 | 103 | sn-personal | 2     | 8 GB | 250 GB | VLAN 40 / 10.10.40.103 | PrivateNexus staging (registry images)    |
 | 104 | sn-monitor  | 1     | 4 GB | 250 GB | VLAN 50 / 10.10.50.104 | Prometheus, Grafana, Loki, Uptime Kuma    |
 | 105 | pn-test     | 1     | 4 GB | 250 GB | VLAN 60 / 10.10.60.105 | PrivateNexus dev/test                     |
-| 106 | sn-security | 4     | 8 GB | 250 GB | VLAN 70 / 10.10.70.106 | Wazuh SIEM 4.14.5 (single-node)          |
-|     | **TOTAL**   | **13**|**40 GB**|**1.75 TB**|                   | Over-provisioned — actual RSS ~7 GB across all VMs |
+| 106 | sn-security | 2     | 8 GB | 250 GB | VLAN 70 / 10.10.70.106 | Wazuh SIEM 4.14.5 (single-node)          |
+|     | **TOTAL**   | **11**|**40 GB**|**1.75 TB**|                   | Over-provisioned — actual RSS ~7 GB across all VMs |
 
 ### ⚠️ Hard Limits — Do Not Exceed Without Approval
 - **RAM:** 40 GB allocated vs 32 GB physical — KVM balloon keeps actual usage low. Do not add RAM-heavy VMs without checking pressure.
-- **vCPU:** 13 vCPUs across 8 physical threads — flag further additions
+- **vCPU:** 11 vCPUs across 8 physical threads — flag further additions
 - **Disk:** ~6.05 TB free on ZFS (1.09 TB used) — snapshots + backups consume this too
 - **sn-personal disk:** 250 GB total. Root LV is 100 GB (98 GB filesystem) of a ~248 GB LVM VG — ~148 GB free in the VG, extend the LV with `lvextend` + `resize2fs` as needed before growing the Proxmox disk
 - **sn-personal (250 GB)** and **sn-business (300 GB)** are the largest VMs and the only ones suitable for disk-heavy services
@@ -311,7 +313,9 @@ Note: privatenexus.net routes to sn-personal (the primary PN test environment, r
 **Phase 0 freeze (locked 22 June 2026):** Backend = Node.js Express v4 (ESM). Frontend = React. DB = PostgreSQL 16. Cache/queue = Redis. Identity = Keycloak (privatenexus realm). Gateway = Caddy. Do not suggest Go or NestJS as a rewrite — the codebase is at v1.9 and this decision is closed. See `/root/hot/docs/PrivateNexus_Phase0_Freeze.md` for full rationale and checklist.
 
 ### sn-security (ssh sn-security — 10.10.70.106)
-VM: 4 vCPU / 8 GB RAM / 250 GB / VLAN 70. LUKS2 encrypted root (Clevis Tang → Gateway VPS preferred, sn-infra fallback). Dashboard: wazuh.house-of-trae.com
+VM: **2 vCPU** (permanently capped below the originally-planned 4 — see note below) / 8 GB RAM / 250 GB / VLAN 70. LUKS2 encrypted root (Clevis Tang → Gateway VPS preferred, sn-infra fallback). Dashboard: wazuh.house-of-trae.com
+
+**⚠ Pinned at `cores=2`, not 4 — permanent, by Mr. Byrne's decision (2026-07-28), not a temporary workaround.** hot-bm-nl hangs at guest SMP bring-up whenever a VM is configured with more than 2 vCPUs — confirmed via a disposable test VM to be independent of CPU model (`host`/`kvm64`), core/socket topology, x2apic, HPET, and ACPI settings, and independent of whether the guest kernel actually starts the extra CPUs (`maxcpus=` doesn't help) — it fires purely from QEMU/ACPI declaring >2 CPUs exist. Most likely a real limitation of hot-bm-nl's double-nested virtualization depth (Hostkey's own hypervisor → hot-bm-nl as their VM → Proxmox/KVM inside that → this VM), not something fixable via Proxmox config or kernel boot parameters. Real-world impact checked and found negligible at current load: sn-security idles at 0.06–0.21 load average on its 2 cores even with the full Wazuh stack running. Full investigation, every ruled-out variable, and the diagnostic method: `sn_web_luks_pilot_fix.md` in memory. Don't re-investigate from scratch if this resurfaces on a future VM.
 
 | Service        | Path                        | Notes                                                     |
 |----------------|-----------------------------|------------------------------------------------------------|
