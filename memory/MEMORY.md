@@ -1,0 +1,24 @@
+# Memory Index
+
+- [Keycloak Admin](keycloak_admin.md) — master realm admin is `tristian`, secret at `/opt/stacks/keycloak/secrets/admin_password`, active compose is `compose.yaml`
+- [Keycloak Federated Identity](keycloak_federated_identity.md) — manual IDP link: userId must be from the realm the IDP points to (not master); also fix accessCodeLifespan to 300s
+- [Proxmox Bare Metal Fixes](proxmox_bare_metal_fixes.md) — pcie_aspm=off (kernel cmdline not grub), backup window collision fix, balloon targets for all VMs, pve-ha-lrm gotcha
+- [User Contact](user_contact.md) — Mr. Byrne's Twilio/SMS number (redacted here, see local memory copy)
+- [Stalwart Hold](stalwart_hold.md) — Stalwart on hold; keep Docker Mailserver + Roundcube until Stalwart has a web client
+- [Hostkey Server Replacement](hostkey_server_replacement.md) — hot-bm-nl (22272) is live, nested virt working, all 4 VMs (sn-infra/sn-web/sn-monitor/sn-security) rebuilt + LUKS2 retrofit complete; Tailscale admin access + real HTTPS cert added for Proxmox UI; real spec is 8 vCore not 4 (corrected 2026-07-28)
+- [Console Paste Corruption](console_paste_corruption.md) — Hostkey KVM console mangles pasted text; typed text is clean — don't mistake it for compromise
+- [Vaultwarden Gateway Placement](vaultwarden_gateway_placement.md) — Vaultwarden intentionally on Gateway VPS (not a VM) so creds survive bare-metal outages
+- [ClamAV Stale Signatures](clamav_stale_signatures.md) — Mailserver's ClamAV stuck on Aug 2025 defs, upstream hasn't released since; stayed on stable tag, don't suggest `:edge`
+- [Unbound Autotrust Permission Crash](unbound_autotrust_permission_crash.md) — fixed 2026-07-06 crash loop: auto-trust-anchor-file must point to writable `var/root.key`, not chroot root
+- [wg1 Personal VPN Discovery](wg1_personal_vpn_discovery.md) — Gateway already runs wg1 (10.10.90.0/24, Mr. Byrne's personal VPN), undocumented until 2026-07-06; check `wg show` before reusing interface names
+- [rclone Crypt Password Location](rclone_crypt_password_vaultwarden.md) — Hetzner/B2 backup crypt password lives in Vaultwarden (relabeled 2026-07-09), not Proxmox-only as previously assumed
+- [Hostkey invapi API Notes](hostkey_invapi_notes.md) — auth format, order_instance param quirks (preset/traffic_plan/os_id), $0 balance + PayPal = unpaid invoice not auto-charge
+- [Tailscale API Key](tailscale_api_key.md) — live key at /opt/stacks/tailscale-api/secrets/, doesn't expose OIDC/SSO config (console-only)
+- [sn-infra Rebuild](sn_infra_rebuild.md) — VM 100 live on hot-bm-nl; 3 host-level network bugs fixed (VLAN forward, NAT egress, wg0 loopback route); Ntfy+PowerDNS-Admin deployed fresh, old data unrecoverable
+- [DNSSEC namevault.co.uk Fix](dnssec_namevault_fix.md) — DS algorithm mismatch (14 vs real 13) fixed 2026-07-27; all other 11 zones checked clean, use `dig @8.8.8.8` SERVFAIL as the triage signal
+- [sn-web Rebuild](sn_web_rebuild.md) — VM 102 live on hot-bm-nl, 6 client sites redeployed fresh (never committed to hot-config in the first place), all clean, no open items
+- [sn-monitor Rebuild](sn_monitor_rebuild.md) — VM 104 live; full stack + LUKS2+Tang retrofit (2026-07-28) verified unattended; Uptime Kuma confirmed never set up (not a restore bug)
+- [sn-security Rebuild](sn_security_rebuild.md) — VM 106 live (Wazuh SIEM + Forgejo runner); LUKS2+Tang retrofit completed 2026-07-28 on 2nd attempt (1st failed at GRUB); cores=2 permanent by Mr. Byrne's decision, CLAUDE.md updated to match
+- [Open Items Sweep 2026-07-27](open_items_2026_07_27.md) — re-swept 2026-07-30: LUKS2 retrofit, SMP hang, sn-infra loose ends all now resolved; CS-506940 still stalled; items 6-27 + roadmaps unchanged, re-sweep again periodically
+- [sn-web LUKS Pilot Fix](sn_web_luks_pilot_fix.md) — 8 real bugs across the whole 4-VM LUKS2+Tang retrofit; retrofit complete for all 4 VMs; hot-bm-nl SMP hang above cores=2 deep-dived and root-caused (nested-virt ACPI/CPU-topology bug, not fixable from guest/Proxmox side) — sn-security stays at cores=2 permanently
+- [Fleet Health Check 2026-07-30](fleet_health_check_2026_07_30.md) — full 11-host sweep: proxmox/sn-business/sn-personal/pn-test aliases confirmed stale (dead bare-metal host); hot-bm-nl 25/31GB mem explained (normal KVM RSS); logrotate cloud-init/cloud-init-base duplicate-conffile bug found+fixed on Gateway+hot-erp, check other hosts if their cloud-init package ever updates
