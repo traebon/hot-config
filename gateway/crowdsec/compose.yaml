@@ -17,6 +17,13 @@ services:
     ports:
       - "100.106.41.10:8082:8080"
       - "10.10.0.1:6060:6060"
+      # LAPI on the WireGuard mesh, distinct port from the Tailscale-bound one
+      # above -- for PrivateNexus's Security Lockdown Mode (hot-pn calling in
+      # to add CrowdSec bans, real production automation traffic, not admin
+      # traffic, so it belongs on the mesh not Tailscale). UFW scopes this to
+      # hot-pn's tunnel IP only (10.10.2.2/32), not the whole 10.10.0.0/16 --
+      # see PrivateNexus_Security_Lockdown_Mode_Design.md.
+      - "10.10.0.1:8083:8080"
     networks:
       - hotinfra_edge
 

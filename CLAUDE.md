@@ -34,6 +34,7 @@ All reference documents are in /root/hot/docs/. Use docx2txt or pdftotext (both 
 | PrivateNexus_Release_Roadmap_v1.0.md                    | MD    | Detailed release roadmap v0.8 → v5.0 with sprints, acceptance gates, risks     |
 | PrivateNexus_PRD_v1.0.md                                | MD    | Product Requirements Document — current build state, all functional reqs, gaps |
 | PrivateNexus_Multitenancy_RBAC_Design.md                | MD    | Multi-tenancy and RBAC design — schema, isolation rules, migration path         |
+| PrivateNexus_Security_Lockdown_Mode_Design.md            | MD    | Security lockdown mode design (v6.0 gate item) — tier model, Wazuh/CrowdSec integration, scoped+locked 2026-07-30, not yet built |
 | PrivateNexus_Commercial_Packaging_Licensing.md          | MD    | Commercial packaging — edition model, pricing logic, open-core boundary, GTM   |
 | dnssec-ds-records.md                                    | MD    | DNSSEC DS record reference for managed zones                                    |
 | HoT_Bare_Metal_Migration_Checklist.md                   | MD    | Hostkey bare-metal server replacement — phased migration/rebuild checklist      |
