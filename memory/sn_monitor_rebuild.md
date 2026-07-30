@@ -5,7 +5,7 @@ metadata:
   node_type: memory
   type: project
   originSessionId: f361f2af-99b4-4220-ba53-a42472c872f0
-  modified: 2026-07-30T09:49:33.223Z
+  modified: 2026-07-30T13:35:02.156Z
 ---
 
 **2026-07-27 — sn-monitor rebuilt as VM 104 on hot-bm-nl.** Same VM-creation recipe as sn-web (see
@@ -170,3 +170,14 @@ intact, all 4 external URLs (`grafana.house-of-trae.com`, `status.house-of-trae.
 shows every fleet node-exporter (gateway-vps, proxmox-host, sn-infra, sn-web, sn-monitor,
 sn-security) plus all 21 Blackbox HTTPS probes reporting `up` — confirms the whole monitoring
 pipeline survived the encryption retrofit end-to-end, not just that containers are running.
+
+---
+
+**Update 2026-07-30 — Uptime Kuma gap finally closed.** The "flagged for Mr. Byrne to complete"
+note above was still true as of today's fleet-wide monitoring audit — zero users, zero monitors,
+`status.house-of-trae.com` 302ing to an unconfigured `/dashboard`. Fully set up this session; full
+detail in [[uptime_kuma_setup_2026_07_30]]. Short version: 26 monitors added (6 public group-entity
+sites on the `hot-status` public status page, 14 internal services, 6 fleet node-exporter TCP
+checks), admin account created, `entryPage` setting wired so the root domain serves the status page
+directly. All 26 confirmed healthy after fixing one real bug (Grafana/Webmail's SSO redirect chains
+were being followed all the way into a cookie-less 400, not stopped at the app's own healthy 302).
