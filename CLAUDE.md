@@ -68,10 +68,10 @@ hot-bm-nl (Hostkey NL, server 22272, oVirt VPS — bare-metal replacement) — P
     │  VLAN routing via vmbr0 (VLAN-aware Linux bridge, no physical port — purely
     │  internal, matches the original architecture since these VLANs never touch
     │  the WAN; wg4 carries all Gateway↔VLAN traffic instead of a switch trunk)
-    ├── VLAN 10 → sn-infra    (10.10.10.100) — rebuilt 2026-07-27 as VM 100 (unencrypted cloud-init; LUKS2+Tang retrofit pending)
-    ├── VLAN 30 → sn-web      (10.10.30.102) — rebuilt 2026-07-27 as VM 102 (unencrypted cloud-init; LUKS2+Tang retrofit pending)
-    ├── VLAN 50 → sn-monitor  (10.10.50.104) — rebuilt 2026-07-27 as VM 104 (unencrypted cloud-init; LUKS2+Tang retrofit pending)
-    └── VLAN 70 → sn-security (10.10.70.106) — rebuilt 2026-07-27 as VM 106 (unencrypted cloud-init; LUKS2+Tang retrofit pending)
+    ├── VLAN 10 → sn-infra    (10.10.10.100) — rebuilt 2026-07-27 as VM 100 — LUKS2+Tang retrofit complete 2026-07-28
+    ├── VLAN 30 → sn-web      (10.10.30.102) — rebuilt 2026-07-27 as VM 102 — LUKS2+Tang retrofit complete 2026-07-27 (pilot)
+    ├── VLAN 50 → sn-monitor  (10.10.50.104) — rebuilt 2026-07-27 as VM 104 — LUKS2+Tang retrofit complete 2026-07-28
+    └── VLAN 70 → sn-security (10.10.70.106) — rebuilt 2026-07-27 as VM 106 — LUKS2+Tang retrofit complete 2026-07-28 (cores=2 permanent, see sn-security section below)
 
     VLAN 20 (sn-business) and VLAN 40 (sn-personal) are NOT being rebuilt here — those
     roles permanently moved to hot-erp/hot-pn (see PERMANENT decision, 2026-07-24).
@@ -141,14 +141,12 @@ SSH config: /root/.ssh/config
 
 | Alias       | IP             | VLAN |
 |-------------|----------------|------|
-| proxmox     | 10.10.0.2      | —    |
 | sn-infra    | 10.10.10.100   | 10   |
-| sn-business | 10.10.20.101   | 20   |
 | sn-web      | 10.10.30.102   | 30   |
-| sn-personal | 10.10.40.103   | 40   |
 | sn-monitor  | 10.10.50.104   | 50   |
-| pn-test     | 10.10.60.105   | 60   |
 | sn-security | 10.10.70.106   | 70   |
+
+**Removed 2026-07-30** (confirmed dead-end via full fleet health check, see fleet_health_check_2026_07_30 memory): `proxmox` (10.10.0.2), `sn-business` (10.10.20.101), `sn-personal` (10.10.40.103), `pn-test` (10.10.60.105) — all routed to VLANs/hosts that only existed behind the old wg0 tunnel to the permanently decommissioned original bare-metal host (EPYC 3151, server 145990). sn-business/sn-personal's roles moved permanently to hot-erp/hot-pn; pn-test's fate is still undecided (see Network Topology above and hostkey_server_replacement memory) — if it's ever revived, it will need a new alias pointing at wherever it actually ends up.
 
 ---
 
@@ -184,23 +182,26 @@ not Zen 1) but may still matter if HoT ever colocates real hardware again.
 
 ## Hardware — VM Allocation (COMMITTED RESOURCES)
 
+Only 4 of the original 7 VM roles were ever rebuilt on hot-bm-nl (see Network Topology above) —
+**101/sn-business, 103/sn-personal, and 105/pn-test do not exist on this host.** sn-business and
+sn-personal's roles moved permanently to hot-erp/hot-pn; pn-test's fate is still undecided. Their
+SSH aliases were removed 2026-07-30 (see SSH Access table above) after a fleet health check
+confirmed they were dead ends. Do not plan capacity against the old 7-VM/11-vCPU/40GB figures below —
+they're historical.
+
 | VM  | Name        | vCPUs | RAM  | Disk   | VLAN / IP              | Primary Services                          |
 |-----|-------------|-------|------|--------|------------------------|-------------------------------------------|
 | 100 | sn-infra    | 1     | 4 GB | 250 GB | VLAN 10 / 10.10.10.100 | Forgejo, PowerDNS-Admin, Namevault, Ntfy  |
-| 101 | sn-business | 2     | 8 GB | 300 GB | VLAN 20 / 10.10.20.101 | ERPNext v16, Dickson Supplies POS         |
 | 102 | sn-web      | 2     | 4 GB | 250 GB | VLAN 30 / 10.10.30.102 | Client sites (6 sites)                    |
-| 103 | sn-personal | 2     | 8 GB | 250 GB | VLAN 40 / 10.10.40.103 | PrivateNexus staging (registry images)    |
 | 104 | sn-monitor  | 1     | 4 GB | 250 GB | VLAN 50 / 10.10.50.104 | Prometheus, Grafana, Loki, Uptime Kuma    |
-| 105 | pn-test     | 1     | 4 GB | 250 GB | VLAN 60 / 10.10.60.105 | PrivateNexus dev/test                     |
 | 106 | sn-security | 2     | 8 GB | 250 GB | VLAN 70 / 10.10.70.106 | Wazuh SIEM 4.14.5 (single-node)          |
-|     | **TOTAL**   | **11**|**40 GB**|**1.75 TB**|                   | Over-provisioned — actual RSS ~7 GB across all VMs |
+|     | **TOTAL**   | **6** |**20 GB**|**1 TB nominal (thin-provisioned)**| | Confirmed live 2026-07-30 (`zpool list`/`zfs list` on hot-bm-nl): `local-zfs` pool 3.58 TB, only 393 GB actually allocated, 3.19 TB free. Combined guest RSS ~15.4 GB (sn-security 7.7GB, sn-monitor 3.5GB, sn-infra 2.1GB, sn-web 2.1GB) — host sits at 25/31 GB used, normal for KVM (guest RAM shows as host process RSS), not a leak. |
 
 ### ⚠️ Hard Limits — Do Not Exceed Without Approval
-- **RAM:** 40 GB allocated vs 32 GB physical — KVM balloon keeps actual usage low. Do not add RAM-heavy VMs without checking pressure.
-- **vCPU:** 11 vCPUs across 8 physical threads — flag further additions
-- **Disk:** ~6.05 TB free on ZFS (1.09 TB used) — snapshots + backups consume this too
-- **sn-personal disk:** 250 GB total. Root LV is 100 GB (98 GB filesystem) of a ~248 GB LVM VG — ~148 GB free in the VG, extend the LV with `lvextend` + `resize2fs` as needed before growing the Proxmox disk
-- **sn-personal (250 GB)** and **sn-business (300 GB)** are the largest VMs and the only ones suitable for disk-heavy services
+- **RAM:** 20 GB allocated vs 32 GB physical. Host observed at 25/31 GB used (guest RSS + overhead) with 6.3 GB available and only 1.1 GB swap in use as of 2026-07-30 — comfortable but check headroom before adding another RAM-heavy VM.
+- **vCPU:** 6 vCPUs across 8 physical threads (sn-security pinned at cores=2 permanently — see sn-security section below) — 2 threads of headroom, flag further additions.
+- **Disk:** `local-zfs` ZFS pool — 3.58 TB total, 393 GB actually allocated (thin-provisioned; each VM's 250 GB disk is a nominal size cap, not pre-reserved space), 3.19 TB free as of 2026-07-30 — snapshots + backups consume this too.
+- With only 4 VMs now on hot-bm-nl (vs. the original 7-VM plan), there's substantially more RAM/vCPU/disk headroom than the historical figures above imply — worth factoring in before assuming a new workload needs to go elsewhere.
 
 ---
 
