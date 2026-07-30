@@ -5,7 +5,7 @@ metadata:
   node_type: memory
   type: project
   originSessionId: f361f2af-99b4-4220-ba53-a42472c872f0
-  modified: 2026-07-30T00:12:59.204Z
+  modified: 2026-07-30T11:01:59.480Z
 ---
 
 Compiled 2026-07-27 at Mr. Byrne's request, by grepping every memory file + CLAUDE.md for
@@ -40,10 +40,54 @@ CLAUDE.md and cross-checked every hit against live state again. Resolved since t
 
 **Still open, unchanged from 07-27, not re-verified live this pass** (items 6-27 below, the Phase 4
 roadmap, and the PN roadmap gate items) — these all still require Mr. Byrne's direction/input
-rather than live verification, so there's nothing to re-check without him. One addition: Forgejo's
-`tristian` admin password (sn-infra) and Grafana's admin password (sn-monitor) both still need a
-Vaultwarden write via Mr. Byrne's `bw unlock` — same standing pattern as every other pending vault
-write, not new.
+rather than live verification, so there's nothing to re-check without him.
+
+**Resolved 2026-07-30 — the "Forgejo/Grafana passwords need a Vaultwarden write" note was stale,
+not a real gap.** Mr. Byrne provided a `bw unlock` session token to close this out; both items
+("sn-infra — Forgejo admin (tristian)", "sn-monitor — Grafana admin") turned out to already exist
+in Vaultwarden, saved back on 2026-07-26/27 respectively — the memory notes claiming they were
+still pending were themselves wrong/outdated, not the underlying state. Verified live (not just
+that the vault items exist): pulled both passwords and successfully authenticated against Forgejo's
+API (`GET /api/v1/user` → 200) and Grafana's API (`GET /api/user` → 200) with them. Vault locked
+immediately after. See [[sn_infra_rebuild]] and [[sn_monitor_rebuild]] for the corrected notes.
+No Vaultwarden writes are pending anywhere right now.
+
+**Re-swept again 2026-07-30 (later the same day), at Mr. Byrne's request.** Re-grepped memory +
+CLAUDE.md for the same indicator phrases and cross-checked live. Since the pass above:
+- **CS-506940** re-checked live via `rtm.php`/`whmcs.php` — same 5 comments, same balance ($112.94,
+  unchanged), no movement since the last check. Still open, still just "we'll inform you once it's
+  done." Mr. Byrne's instruction stands: let it ride, don't chase.
+- **CS-506937, CS-503992, CS-471548** — all checked fresh for the first time this sweep (previously
+  only CS-506940 had been tracked as "the" open Hostkey ticket). All three are dead/closed with no
+  new movement: CS-506937 closed 2026-07-27 (nested-virt fix confirmed working independently);
+  CS-503992 closed 2026-07-27, superseded by CS-506940; CS-471548 closed 2026-07-20, its last
+  comment is literally the origin of the whole CS-503992/CS-506940 refund thread. See
+  [[hostkey_server_replacement]] for the full per-ticket writeups.
+- **Item 26 (hot-erp → Hostkey CH migration): fully scoped, not started.** See
+  [[hot_erp_hostkey_ch_migration_scope]] — preset recommendation (`vm.v2-nano`), the CH-locations
+  catalog gotcha, OS choice, `wg5` tunnel plan, fresh-install-plus-mariadb-restore recommendation,
+  cutover sequence. Mr. Byrne said hold here for now — scoping only, no server ordered.
+- **Item 17 (client site designs) — investigated, no prior design recoverable anywhere, confirmed
+  thoroughly.** Checked hot-config, Forgejo (only one repo exists on the whole instance), the
+  Hetzner/B2 vzdump chain (already known gone), and — new this pass — the public Wayback Machine
+  archive independent of any HoT record: zero real snapshots for 5 of 6 domains, one dead `403`
+  snapshot for the 6th. The Ubuntu workstation was the one place left unchecked (unreachable,
+  likely powered off) — still worth checking if it ever comes online. Mr. Byrne's decision: proceed
+  as if starting fresh, don't keep hunting. Full detail in item 17 above.
+- **Stale SSH aliases and Tailscale entries for the dead VLANs — found and cleaned up, not
+  previously tracked as an open item at all.** `proxmox`/`sn-business`/`sn-personal`/`pn-test` SSH
+  aliases removed from `/root/.ssh/config` (all pointed at the permanently decommissioned original
+  bare-metal host). Separately, a real and previously-unknown gap: **Tailscale had never been
+  installed on any of the 4 hot-bm-nl rebuilt VMs at all** — the "offline" entries everyone assumed
+  were a connectivity blip were actually stale registrations from the dead original VMs (confirmed
+  via `lastSeen` timestamps matching the 2026-07-01 outage). Installed + joined all 4 fresh, cleaned
+  up the stale entries (including sn-business/sn-personal/pn-test's), updated CLAUDE.md with the new
+  IPs, and added Tailscale as item 11 in the New VM Clone Checklist so this doesn't recur on a future
+  rebuild. Full detail: [[tailscale_fleet_gap_fixed_2026_07_30]] and [[fleet_health_check_2026_07_30]].
+
+**Still open, unchanged** — items 6-16 and 18-27 below, the Phase 4 roadmap, and the PN roadmap gate
+items all still require Mr. Byrne's direction/input rather than live verification; nothing new to
+re-check without him this pass.
 
 ## Actionable now / soon
 1. **LUKS2 + Tang retrofit** for sn-infra/sn-web/sn-monitor/sn-security — scoped 2026-07-27, see
@@ -127,6 +171,31 @@ write, not new.
     emerald-markets.net, rubyosiris.com, evilrabbitart.com, dickson-supplies.com) currently only
     have the minimal placeholder "Coming Soon" pages written during the sn-web rebuild — see
     [[sn_web_rebuild]]. Real site content/design for each still needs to be built.
+
+    **Investigated 2026-07-30 — no prior design is recoverable from anywhere, confirmed thoroughly,
+    not just assumed.** Mr. Byrne said the sites previously had real designs (contradicting
+    [[sn_web_rebuild]]'s original "apparently" placeholder-matches-placeholder guess), so checked
+    every plausible source rather than take the first "nothing found" at face value:
+    - `/opt/hot-config` (git): only ever held `docker-compose.yml` + the placeholder `html/`, no
+      earlier version.
+    - Forgejo (`git.securenexus.net`): only one repo exists on the whole instance (`hot-config`) —
+      no dedicated site repos ever existed there.
+    - Hetzner/B2 vzdump cloud backups: already ruled out during the sn-infra rebuild investigation
+      (2026-07-27) — no VM-level backup survives for any original bare-metal VM, that window closed
+      before anyone checked.
+    - Wayback Machine (archive.org) CDX API, checked independently of any HoT record: **zero
+      archived snapshots** for 5 of the 6 domains; the 6th (emerald-markets.net) has exactly one
+      dead snapshot (Jan 2025, a `403` error page, not real content).
+    - Ubuntu workstation (100.116.130.37, Tailscale) — Mr. Byrne's own machine, where design files
+      might plausibly live outside any HoT-side system — was unreachable when checked (ping/SSH both
+      timed out, likely powered off). **Not yet actually checked, just currently inaccessible** —
+      if it comes online, that's still the one unchecked place a local design file/mockup/export
+      could realistically be sitting.
+    **Mr. Byrne's decision 2026-07-30: proceed as if starting fresh** — don't keep hunting for a
+    lost design, treat this as net-new design work for all 6 sites (real content/branding/design
+    direction still needed from him per-site before building anything).
+    **How to apply:** if this resurfaces, don't re-run the same searches — the answer is settled
+    unless the Ubuntu workstation specifically turns up something once it's reachable.
 18. **Email client OAuth (IMAP/SMTP) not built** — investigated 2026-07-27, resolved as "not a
     bug." Mr. Byrne clarified this meant SSO/OAuth login *inside an email client* (Outlook/
     Thunderbird), not the webmail pre-auth wall. Confirmed this was never built — same documented

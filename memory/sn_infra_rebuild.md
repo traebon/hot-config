@@ -5,7 +5,7 @@ metadata:
   node_type: memory
   type: project
   originSessionId: f361f2af-99b4-4220-ba53-a42472c872f0
-  modified: 2026-07-30T00:12:22.265Z
+  modified: 2026-07-30T09:49:46.739Z
 ---
 
 **2026-07-26 — sn-infra rebuilt as VM 100 on hot-bm-nl, once nested virt was confirmed working
@@ -149,8 +149,11 @@ correct DS chain at the `.uk`/`co.uk` level.
 
 **All 4 sn-infra services are now live: Ntfy, PowerDNS-Admin, Forgejo, Namevault — no loose ends
 remain as of the 2026-07-30 sweep** (PowerDNS-Admin promotion, Namevault's Anthropic key, and public
-DNS resolution are all confirmed resolved above). Only remaining item: Forgejo's `tristian` admin
-password still isn't saved to Vaultwarden (see below) — needs Mr. Byrne's `bw unlock`.
+DNS resolution are all confirmed resolved above). ~~Only remaining item: Forgejo's `tristian` admin
+password still isn't saved to Vaultwarden~~ — **this note was wrong/stale.** Re-verified 2026-07-30:
+the item was in fact already saved 2026-07-26 (see the very next section below) — confirmed live by
+pulling the stored password from Vaultwarden and successfully authenticating against Forgejo's API
+with it (`GET /api/v1/user` → 200). No open item here at all.
 
 **Secrets saved to Vaultwarden 2026-07-26**, "House of Trae — Gateway VPS" folder (matching where
 hot-bm-nl's own root password lives — these are general infra creds, not PrivateNexus-specific):

@@ -5,7 +5,7 @@ metadata:
   node_type: memory
   type: project
   originSessionId: 662a2e2b-edf7-4613-857f-27ff2bf97ace
-  modified: 2026-07-28T12:13:03.601Z
+  modified: 2026-07-30T09:22:19.133Z
 ---
 
 Hostkey support (Maxim Ryazantsev) confirmed 2026-07-02 19:44 that the recurring Intel I350 NIC PCIe link-loss fault on the bare-metal Proxmox host (AMD EPYC 3151, documented in CLAUDE.md under "Proxmox NIC PCIe link loss") cannot be fixed with a simple NIC swap — they have no matching replacement server config in current inventory. The ticket has been escalated internally to the team that handles full server replacement. No timeline given yet ("shortly" to coordinate solutions/timeline/replacement procedure).
@@ -961,6 +961,28 @@ outage itself may double as the power cycle Hostkey asked for — check `/proc/c
 cycle is still needed. If flags are present, try `qm start 100` (VM 100/sn-infra, already defined,
 currently stopped) as the real end-to-end test. CS-506940 (refund) just got the standard
 "forwarded to Sales & Billing" auto-ack, no real movement yet.
+
+---
+
+**Update 2026-07-30 — CS-506940 refund destination corrected: Stripe, not PayPal. Still not
+processed, waiting per Mr. Byrne's instruction.** Checked the ticket via `rtm.php?action=get_ticket_by_id`
+(numeric `ticket_id=1168696`, not the `CS-506940` key — same gotcha as always) and found a real reply
+thread, not just the auto-ack: Veronica Gracheva confirmed 2026-07-27 the refund would go "through
+the same gateway used for the initial transaction," then immediately corrected herself in the very
+next comment — **"only Stripe was used in your payments... refunds can be processed only through the
+initial gateway we will use this system."** So despite Mr. Byrne's stated PayPal preference (see the
+2026-07-26 entry above), Hostkey's own records show Stripe as the actual original payment method, and
+the refund will land there instead. Sent a follow-up via email (threads into the ticket automatically
+as an "author":"You" comment — Hostkey's Jira has email-in integration, confirmed working) asking for
+a status update; Andrey Vasiliev replied 4 minutes later (2026-07-30 00:51 UTC) reiterating the same
+"within 10 business days, we'll inform you once it's done" — no new information, no completion
+confirmation. Checked the live account balance directly (`whmcs.php?action=get_client`) rather than
+trust the ticket text alone: still **$112.94**, unchanged — the refund has not actually processed yet.
+**Mr. Byrne's decision: let it ride, don't push back on the Stripe-vs-PayPal point, just wait.**
+**How to apply:** don't re-raise the PayPal question — Mr. Byrne has accepted Stripe as the refund
+destination. Check the live `credit` balance (not just ticket status) to know when it's actually
+processed — expect it to drop from $112.94 once the refund lands, and cross-check against a Stripe
+account/statement if he ever asks for proof rather than trusting the ticket thread alone.
 
 ---
 

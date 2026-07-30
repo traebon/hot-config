@@ -5,7 +5,7 @@ metadata:
   node_type: memory
   type: project
   originSessionId: f361f2af-99b4-4220-ba53-a42472c872f0
-  modified: 2026-07-28T07:18:35.584Z
+  modified: 2026-07-30T09:49:33.223Z
 ---
 
 **2026-07-27 — sn-monitor rebuilt as VM 104 on hot-bm-nl.** Same VM-creation recipe as sn-web (see
@@ -69,7 +69,8 @@ memory is now stale/resolved**, Grafana's SMTP config on this fresh instance has
 password baked in from the start, nothing to migrate).
 
 **Not yet saved to Vaultwarden** — Grafana admin password sitting in this session's scratchpad,
-needs Mr. Byrne's `bw unlock` session token, same standing pattern.
+needs Mr. Byrne's `bw unlock` session token, same standing pattern. **Superseded — see the
+2026-07-27 update below, this was in fact saved that same day.**
 
 **Known gap, not addressed this session:** CLAUDE.md documents real Grafana alert rules (Node
 Down, Disk >85%/>95%, Memory >90%, TLS cert <14d/<7d) and a notification policy — none of that

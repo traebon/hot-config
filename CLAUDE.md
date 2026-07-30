@@ -86,17 +86,23 @@ hot-bm-nl (Hostkey NL, server 22272, oVirt VPS — bare-metal replacement) — P
 Tailscale overlay (admin access ONLY — never production traffic):
     Gateway VPS:         100.106.41.10
     hot-bm-nl:           100.90.156.88 (added 2026-07-27 — Proxmox web UI access, port 8006 only, UFW-scoped to the tailscale0 interface)
-    sn-infra:            100.99.183.4
-    sn-business:         100.83.114.127
-    sn-web:              100.77.95.127
-    sn-personal:         100.118.105.9
-    sn-monitor:          100.122.98.79
-    pn-test:             100.64.178.97
-    sn-security:         100.112.71.39
+    sn-infra:            100.99.52.12 (re-registered 2026-07-30 — Tailscale was never installed on the
+                         hot-bm-nl rebuild of this VM at all; the VM Clone Checklist never included a
+                         Tailscale step. New IP, replacing the stale/dead entry left over from the
+                         original decommissioned bare-metal VM.)
+    sn-web:              100.91.130.53 (re-registered 2026-07-30, same gap/fix as sn-infra above)
+    sn-monitor:          100.109.177.48 (re-registered 2026-07-30, same gap/fix as sn-infra above)
+    sn-security:         100.118.146.83 (re-registered 2026-07-30, same gap/fix as sn-infra above)
     Ubuntu workstation:  100.116.130.37
     Windows (latitude):  100.106.225.126
     Windows (traebake):  100.127.229.35
     Tailscale suffix:    spangled-atlas.ts.net
+
+**Removed 2026-07-30**: `sn-business` (100.83.114.127), `sn-personal` (100.118.105.9), `pn-test`
+(100.64.178.97) — same class of stale dead entry as the sn-infra/sn-web/sn-monitor/sn-security ones
+above (all last seen 2026-07-01, the original decommissioned bare-metal VMs), removed via the
+Tailscale API once Mr. Byrne confirmed. Matches the SSH alias cleanup done the same day — see
+Network Topology above and the SSH Access table for why these VLANs aren't coming back as-is.
 
 Other WireGuard interfaces on the Gateway VPS (separate from the wg0 bare-metal tunnel above):
     wg1 — Mr. Byrne's personal road-warrior VPN. 10.10.90.0/24 (Gateway 10.10.90.1), port 51821.
@@ -782,6 +788,7 @@ Notification policy: group by severity/alertname/instance — group_wait 30s, re
 8. Add to Prometheus scrape targets on sn-monitor
 9. Add to Uptime Kuma monitors
 10. Add Watchtower v1.5.3 on the new VM
+11. Install Tailscale for admin-access redundancy (`curl -fsSL https://tailscale.com/install.sh | sh`, then `tailscale up --hostname=<vm-name>`) — **missed entirely during the 2026-07-27 hot-bm-nl 4-VM rebuild** (sn-infra/sn-web/sn-monitor/sn-security all went 3 days with no Tailscale at all, fixed 2026-07-30, see fleet_health_check/tailscale memory). If the same hostname was previously registered by a now-dead VM, delete the stale device first (`api.tailscale.com/api/v2/device/<id>`, DELETE) to avoid a `-1` suffix on the new registration.
 
 ---
 
@@ -857,13 +864,10 @@ Auth files: `/opt/stacks/tor/data/erp/authorized_clients/` (chown 100:101, chmod
 | WireGuard bare metal        | 10.10.0.2                                            |
 | Tailscale Gateway VPS       | 100.106.41.10                                        |
 | Tailscale hot-bm-nl         | 100.90.156.88 (Proxmox UI, port 8006 only)           |
-| Tailscale sn-infra          | 100.99.183.4                                         |
-| Tailscale sn-business       | 100.83.114.127                                       |
-| Tailscale sn-web            | 100.77.95.127                                        |
-| Tailscale sn-personal       | 100.118.105.9                                        |
-| Tailscale sn-monitor        | 100.122.98.79                                        |
-| Tailscale pn-test           | 100.64.178.97                                        |
-| Tailscale sn-security       | 100.112.71.39                                        |
+| Tailscale sn-infra          | 100.99.52.12                                         |
+| Tailscale sn-web            | 100.91.130.53                                        |
+| Tailscale sn-monitor        | 100.109.177.48                                        |
+| Tailscale sn-security       | 100.118.146.83                                        |
 | Tailscale Ubuntu WS         | 100.116.130.37                                       |
 | Tailscale Windows (latitude)| 100.106.225.126                                      |
 | Tailscale Windows (traebake)| 100.127.229.35                                       |
