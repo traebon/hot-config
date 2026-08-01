@@ -1,6 +1,17 @@
-# erp-temp — Temporary ERPNext stand-in
+# hot-erp — ERPNext
 
-Status: **temporary, deployed 2026-07-06**. Bare metal (sn-business, 10.10.20.101) has been
+**Migrated 2026-08-01 to hot-erp-nl (Hostkey NL, server 41614, wg5 tunnel)** — see
+`hot_erp_hostkey_ch_migration_scope` memory and CLAUDE.md's hot-erp section for the full story
+(CH was blocked for new orders at migration time, landed in NL instead). Everything below this
+line describes the *original* Hostinger deployment (2026-07-06/07-09) — still accurate for how
+this stack is built and what's non-standard about it (reconstructed Dockerfile, posawesome
+source, etc.), since the migration moved the existing volumes/DB as-is rather than rebuilding.
+The Hostinger box itself is retained idle, no longer serving traffic, pending Mr. Byrne's
+go-ahead to cancel the account.
+
+---
+
+Status: **superseded, originally deployed 2026-07-06**. Bare metal (sn-business, 10.10.20.101) has been
 unreachable since 2026-07-02 (Hostkey ticket CS-471548 — recurring NIC/PCIe fault, full server
 replacement in progress, see `hostkey_server_replacement` memory). This is a fresh ERPNext v16 +
 posawesome deployment on a separate VPS (46.202.129.86), standing in for the real sn-business
