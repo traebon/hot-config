@@ -267,6 +267,29 @@ pattern from getting worse on new schema going forward.
    escalation logic → CrowdSec ban applied — the same "verify live, not just code
    review" standard used throughout this session's PN audit work.
 
+   **Done 2026-08-01.** Real target ended up being the Gateway VPS, not
+   sn-security — sn-security's manager doesn't monitor its own auth log at
+   all (checked its `ossec.conf`, no sshd `<localfile>`), and the Gateway
+   runs Wazuh's other real agent (`001`, native, not Docker). A genuine
+   9-attempt SSH brute-force from another host in the fleet against the
+   Gateway produced a real rule 5712 (level 10, brute-force correlation)
+   alert, which drove the full real chain (rule → active-response dispatch
+   → script → webhook → Alert-tier auto-escalation) end-to-end with no
+   simulated input anywhere in the path. This also caught a real deployment
+   gap (the AR script/token were only ever on the manager, not the
+   agent that actually needed them — see [[pn_lockdown_mode_scope_2026_07_30]]
+   for the fix). Soft/Hard tier's action logic (cooldown multiplier,
+   maintenance window, CrowdSec ban) was **not** re-driven by a genuinely
+   real level-12+/15+ Wazuh alert here — deliberately kept the live SSH test
+   at the safe Alert-tier threshold rather than manufacture a real
+   brute-force-to-successful-login pattern against production infrastructure
+   just to reach Hard tier. Soft/Hard's own logic was already verified in
+   step 4 through the real script and real webhook, using a realistic
+   simulated alert payload piped into the actual deployed script — the only
+   thing step 7 adds on top is proof that Wazuh's real detection layer
+   itself (decoder → rule → active-response dispatch) genuinely fires and
+   reaches that script, which nothing before step 7 had confirmed.
+
 ---
 
 ## Open Items Deferred to Build Time (not blocking scope sign-off)

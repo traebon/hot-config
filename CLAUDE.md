@@ -110,15 +110,13 @@ Other WireGuard interfaces on the Gateway VPS (separate from the wg0 bare-metal 
           Client configs: phone/windows/laptop.conf in /root/hot/wireguard-clients/. Predates this
           doc; discovered 2026-07-06 when a new tunnel was almost given the same interface name —
           check `wg show` before reusing wg<N>/ports on this box.
-    wg2 — tunnel to hot-erp (46.202.129.86, formerly named erp-temp — renamed 2026-07-24, ssh
-          alias `erp-temp` still works as a transitional alias), ERPNext's permanent home. Originally stood up as
-          a bare-metal-outage stand-in; **made permanent 2026-07-24** (Mr. Byrne decision — see
-          hostkey_server_replacement memory) rather than migrated back once hot-bm-nl is ready,
-          precisely so a future bare-metal/Proxmox outage doesn't take ERPNext down with it, same
-          reasoning as the Vaultwarden Gateway placement. Gateway 10.10.1.1 / erp-temp 10.10.1.2,
-          port 51822. See hostkey_server_replacement memory and
-          /opt/hot-config/erp-temp/dickson/README.md. Mr. Byrne may move this specific workload to
-          a proper Hostkey server at some point — not decided/scheduled yet.
+    wg2 — tunnel to the OLD hot-erp box (Hostinger, 46.202.129.86, formerly named erp-temp).
+          **Superseded 2026-08-01** — ERPNext's real permanent home is now hot-erp-nl over `wg5`
+          (see below); this Hostinger box is retained running-but-idle as a safety net until Mr.
+          Byrne confirms the account can be cancelled, at which point this tunnel should come
+          down too. Gateway 10.10.1.1 / old hot-erp 10.10.1.2, port 51822. See
+          hot_erp_hostkey_ch_migration_scope memory for the migration and the hot-erp section
+          below — don't route new work through this tunnel.
     wg3 — tunnel to hot-pn (151.241.217.140, formerly named pn-vps — renamed 2026-07-24, ssh alias
           `pn-vps` still works as a transitional alias), PrivateNexus's permanent home (Mr. Byrne's personal
           use + PrivateNexus product development; ERPNext/erp-temp is earmarked for hosting client
@@ -133,6 +131,11 @@ Other WireGuard interfaces on the Gateway VPS (separate from the wg0 bare-metal 
           via systemd on both ends. No services live behind it yet — fleet migration architecture
           (Proxmox install? VLAN routing rebuild?) not yet decided, see
           HoT_Bare_Metal_Migration_Checklist.md when that work starts.
+    wg5 — tunnel to hot-erp-nl (server 41614, Hostkey NL, 151.243.173.46) — ERPNext's new
+          permanent home as of the 2026-08-01 migration off Hostinger, see the hot-erp section
+          below and hot_erp_hostkey_ch_migration_scope memory. Gateway 10.10.4.1 / hot-erp-nl
+          10.10.4.2 (interface name wg0 on that host), port 51825. Enabled via systemd on both
+          ends.
 
 **Key rule:** Production traffic never routes through Tailscale. Tailscale = admin SSH only.
 **Key rule:** Bare metal has zero public-facing ports. All public traffic enters via the Gateway VPS.
@@ -337,29 +340,47 @@ Wazuh creds (saved in Vaultwarden, "House of Trae — Gateway VPS" folder):
 
 ---
 
-### hot-erp (ssh hot-erp — 46.202.129.86, public VPS, not a Proxmox VM) — PERMANENT
-**Renamed from erp-temp 2026-07-24** (the `erp-temp` ssh alias still works, kept as a transitional
-alias — see hostkey_server_replacement memory). Stood up 2026-07-06 as a stand-in for sn-business's ERPNext while bare metal is down (see
-Hostkey Server Replacement in memory). **Made ERPNext's permanent home 2026-07-24** (Mr. Byrne
-decision) rather than migrated back to the bare-metal replacement once hot-bm-nl is ready — deliberately
-kept off bare metal so a future Proxmox/bare-metal outage doesn't take ERPNext down with it, same
-reasoning as the Vaultwarden Gateway placement. Earmarked later (no timeline) to also host client
-companies' backend software Mr. Byrne is asked to run for them — not started. Mr. Byrne may move
-this specific workload to a proper Hostkey server at some point instead of this spare VPS — not
-decided/scheduled. 2 vCPU / 7.7 GB RAM / 96 GB disk, AMD EPYC 9354P (Zen 4, full AVX-512 — no
-cpuv1 concerns here, unlike the bare-metal EPYC 3151). Reached from the Gateway VPS over the
-dedicated `wg2` tunnel (10.10.1.1 ↔ 10.10.1.2) — see Network Topology.
+### hot-erp (ssh hot-erp-nl — Hostkey NL, server 41614, public VPS, not a Proxmox VM) — PERMANENT
+**Migrated 2026-08-01 from Hostinger (46.202.129.86, the original `hot-erp`/`erp-temp` box, item 26
+in [[open_items_2026_07_27]]) to a fresh Hostkey NL `vm.v2-nano` (2 vCPU / 4 GB RAM / 60 GB NVMe,
+$7.74/mo).** CH was found to be blocked for new `vm.v2-*` orders at migration time (confirmed live
+against the invapi — `vm.v2-nano`/`-mini`/`-medium` all rejected for CH even though hot-pn's
+existing `vm.v2-medium` CH rental keeps renewing fine), so this landed in NL instead, same region
+as hot-bm-nl — see [[hot_erp_hostkey_ch_migration_scope]] for the full ordering investigation.
+Reached from the Gateway VPS over the dedicated `wg5` tunnel (10.10.4.1 ↔ 10.10.4.2, port 51825).
+Public SSH closed (UFW deny-by-default, matching the hot-pn pattern) — admin access is tunnel-only.
+The old Hostinger box (`hot-erp`/`erp-temp` SSH aliases) is still running as a safety net, no
+longer receiving traffic, retained until Mr. Byrne confirms the Hostinger account can be cancelled.
+
+Data migration: real DB (`mysqldump` of the site's own DB user, not a full-instance dump — the
+MariaDB root password on the old box had drifted from what's in its own secrets file, a real,
+still-unresolved discrepancy worth investigating separately) + `sites-data`/`assets-data` volume
+rsync while the old box stayed live, re-synced immediately before cutover to minimize staleness.
+Verified via matching table/row counts (747 tables, 35 Items, 6 Users, identical on both boxes) and
+a real `frappe.db.count` query post-migration, not just a file-copy assumption.
+
+**Original 2026-07-06/07-09 history (Hostinger box, now superseded but kept for context):** stood
+up as a stand-in for sn-business's ERPNext while the original bare-metal host was down (see
+[[hostkey_server_replacement]]); historical data restored 2026-07-09 from the 2026-06-29 Hetzner
+vzdump backup (see [[rclone_crypt_password_vaultwarden]]); made ERPNext's permanent home (off bare
+metal entirely, deliberately, same reasoning as the Vaultwarden Gateway placement) 2026-07-24.
+Earmarked later (no timeline) to also host client companies' backend software — not started.
 
 | Service     | Path                | Notes                                                          |
 |-------------|---------------------|------------------------------------------------------------------|
-| ERPNext v16 | /opt/stacks/dickson/ | erp.dickson-supplies.com (Caddy repointed here) — **historical data restored 2026-07-09** from the 2026-06-29 Hetzner vzdump backup (the rclone crypt password was recovered — see [[rclone_crypt_password_vaultwarden]] — so the earlier "fresh site" decision was superseded). Live data now current as of the outage start (2026-07-02); anything entered into erp-temp between 2026-07-06 and 2026-07-09 was on the old fresh site and is in `.fresh-backup` volume copies on erp-temp, not merged in — needs Mr. Byrne's input if that window's data matters. Config synced to /opt/hot-config/erp-temp/dickson/ (README there has full rebuild notes/gotchas + the restore procedure). |
+| ERPNext v16 | /opt/stacks/dickson/ | erp.dickson-supplies.com (Caddy repointed to `10.10.4.2:8000` 2026-08-01). Config synced to `/opt/hot-config/hot-erp/dickson/` (README there has full rebuild notes/gotchas — reconstructed Dockerfile, posawesome source, several one-time setup steps never captured in docker-compose.yml originally; still accurate post-migration since the volume/DB content was migrated as-is, not rebuilt from scratch). |
 
-Caddy's `erp.dickson-supplies.com` block points at `10.10.1.2:8000` — this is now the permanent
-target, not `10.10.20.101:8000` (see the erp-temp PERMANENT decision above, 2026-07-24); the
-inline Caddyfile comment referencing a revert path is stale and should be dropped/updated next
-time that block is touched. See `/opt/hot-config/erp-temp/dickson/README.md` for what's genuinely
-different from the real sn-business stack (reconstructed Dockerfile, posawesome source, etc. —
-several one-time setup gotchas that were never captured in docker-compose.yml originally).
+Caddy's `erp.dickson-supplies.com` block (and the Tor onion mirror block) both point at
+`10.10.4.2:8000` as of the 2026-08-01 cutover — verified live via a real public HTTPS request
+(`frappe.ping` → `pong`) and a local Host-header test against the onion block's target (a real
+Tor-circuit test wasn't completable from this session's sandbox — egress-restricted, not a config
+problem, confirmed by the local test succeeding against the identical Caddy vhost).
+
+**Not yet done, follow-up needed:** save the new box's root password + wg5 keys to Vaultwarden
+(needs Mr. Byrne's `bw unlock` session, same one-off pattern used elsewhere); confirm with Mr.
+Byrne when to cancel the Hostinger account; investigate why the old box's MariaDB root password no
+longer matched its own secrets file (worked around via the site's own DB user, not blocking, but
+worth understanding).
 
 ---
 

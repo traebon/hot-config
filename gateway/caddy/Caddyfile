@@ -186,12 +186,10 @@ wazuh.house-of-trae.com {
     }
 }
 # ERPNext Tor hidden service (onion-only block — auth enforced at Tor layer)
-# TEMPORARY: this is a SEPARATE Caddy block from erp.dickson-supplies.com below
-# and does NOT share its config -- missed during the erp-temp cutover on 2026-07-06,
-# stayed pointed at dead bare metal until fixed 2026-07-15. Revert both blocks
-# together once bare metal (10.10.20.101) is restored.
+# Points at hot-erp-nl (Hostkey NL, server 41614) over the wg5 tunnel — migrated
+# 2026-08-01 from hot-erp (Hostinger, wg2) per item 26 in open_items_2026_07_27.
 http://qcrzygpg5qbzch4c2qlcgiktuvzf3xwqwtd7mkcn5r4g4mxebmpptkid.onion {
-    reverse_proxy 10.10.1.2:8000 {
+    reverse_proxy 10.10.4.2:8000 {
         header_up Host erp.dickson-supplies.com
     }
 }
@@ -199,12 +197,12 @@ http://qcrzygpg5qbzch4c2qlcgiktuvzf3xwqwtd7mkcn5r4g4mxebmpptkid.onion {
 erp.dickson-supplies.com {
     import crowdsec
     import compress
-    # TEMPORARY: bare metal (sn-business, 10.10.20.101) down since 2026-07-02
-    # (Hostkey ticket CS-471548, full server replacement in progress). Backend
-    # stood up fresh (no historical data) on erp-temp over wg2 tunnel.
-    # Revert to 10.10.20.101:8000 once bare metal is restored and real data
-    # is migrated back -- see hostkey_server_replacement memory.
-    reverse_proxy 10.10.1.2:8000 {
+    # Migrated 2026-08-01 from hot-erp (Hostinger, wg2/10.10.1.2) to hot-erp-nl
+    # (Hostkey NL, server 41614, wg5/10.10.4.2) -- item 26 in open_items_2026_07_27.
+    # CH was blocked for new vm.v2-* orders at migration time, so this landed in
+    # NL instead -- see hot_erp_hostkey_ch_migration_scope memory. Hostinger
+    # account retained until Mr. Byrne confirms cancellation.
+    reverse_proxy 10.10.4.2:8000 {
         header_up Host {host}
     }
     header {
