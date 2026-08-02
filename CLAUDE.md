@@ -552,8 +552,8 @@ Checked `ops.js` (the real Fleet source) while in the area: its `VM_NAMES` map i
 
 Caddy's `privatenexus.net` block points at `10.10.2.2:5173` — this is now the permanent target,
 not `10.10.40.103:5173` (see the pn-vps PERMANENT decision above, 2026-07-24); the inline Caddyfile
-comment referencing a revert path is stale and should be dropped/updated next time that block is
-touched. The frontend container's port publish was changed from `127.0.0.1:5173:80` (in the source
+comment was updated 2026-08-02 to say so directly (was previously stale "TEMPORARY... revert"
+language left over from the original bare-metal-outage stand-in). The frontend container's port publish was changed from `127.0.0.1:5173:80` (in the source
 repo, unreachable from another host) to `10.10.2.2:5173:80` (bound to the tunnel interface
 specifically) — binding to `0.0.0.0` was deliberately avoided since Docker's own iptables rules are
 known to bypass UFW's filtering for published ports; binding to the specific tunnel IP means
@@ -856,8 +856,10 @@ Stack: `/opt/stacks/tor/` on Gateway VPS. `network_mode: host` — `HiddenServic
 | ERPNext (mirror) | qcrzygpg5qbzch4c2qlcgiktuvzf3xwqwtd7mkcn5r4g4mxebmpptkid.onion | x25519 v3 | Mirror of erp.dickson-supplies.com |
 
 Caddy block uses `http://` prefix + `header_up Host erp.dickson-supplies.com`.
-Client private key for tristian: Vaultwarden — "ERPNext Onion Client Auth Key (tristian)".
+Client private key for tristian: Vaultwarden — "ERPNext Onion Client Auth Key (tristian)" (regenerated 2026-08-02, see note below).
 Auth files: `/opt/stacks/tor/data/erp/authorized_clients/` (chown 100:101, chmod 600). Reload: `docker compose restart tor`.
+
+⚠️ **`authorized_clients/*.auth` on disk is the server-side PUBLIC key only** (`descriptor:x25519:<pubkey>`) — Tor's standard v3 client-auth layout. It is NOT what Tor Browser's client-auth popup asks for. The matching PRIVATE key (the bare base32 string Tor Browser wants) only ever exists client-side and is never stored in this directory — it must be captured at keypair-generation time and saved separately (Vaultwarden), or it's permanently unrecoverable (X25519 — private can't be derived from public). **2026-08-02 incident:** the Vaultwarden entry had been holding the public key mislabeled as private the whole time; the real original private key was never saved anywhere and was lost. Fixed by generating a fresh keypair, installing the new public half here, restarting Tor, and saving the real private key to Vaultwarden. If this ever needs regenerating again: generate an X25519 keypair, base32-encode (RFC4648, no padding) both halves, write `descriptor:x25519:<pubkey_b32>` to this directory (chown 100:101, chmod 600), restart the tor container, and give the client the bare `<privkey_b32>` string — never store the private half server-side.
 
 ⚠️ Backup: Gateway VPS is NOT a Proxmox VM. Losing `hs_ed25519_secret_key` means the onion address is permanently lost. Include `/opt/stacks/tor/data/erp/` in any VPS backup.
 `data/` is never committed to git (only docker-compose.yml, Dockerfile, torrc are synced).
