@@ -1,0 +1,8 @@
+[Unit]
+Description=Check whether sn-infra has recovered from the 2026-08-03 outage, email once if so
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/sn-infra-recovery-check.sh
