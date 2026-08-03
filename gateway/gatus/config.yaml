@@ -146,10 +146,14 @@ endpoints:
 
   - name: Grafana
     group: Services
-    url: "https://grafana.house-of-trae.com"
+    # Root path redirects (302) to login, not 200 - found 2026-08-03 when this alerted
+    # spuriously as "down" right after the real hot-bm-nl outage recovered. Use the real
+    # health endpoint instead.
+    url: "https://grafana.house-of-trae.com/api/health"
     interval: 5m
     conditions:
       - "[STATUS] == 200"
+      - "[BODY].database == \"ok\""
     alerts:
       - type: email
         failure-threshold: 2
