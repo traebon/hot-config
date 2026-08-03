@@ -52,7 +52,7 @@ All reference documents are in /root/hot/docs/. Use docx2txt or pdftotext (both 
 | Stratus Digital     | stratus-digital.com      | Web design & dev (formerly Cloud Architects)      |
 | Discreet Elite      | discreet-elite.uk        | Private console application                       |
 | Emerald Markets     | emerald-markets.net      | Second-hand ecommerce & in-person POS             |
-| PrivateNexus        | privatenexus.net         | PrivateNexus test env (sn-personal) — dev/build on pn-test |
+| PrivateNexus        | privatenexus.net         | PrivateNexus prod/dev/build — all on hot-pn (see hot-pn section) |
 
 ---
 
@@ -76,7 +76,9 @@ hot-bm-nl (Hostkey NL, server 22272, oVirt VPS — bare-metal replacement) — P
 
     VLAN 20 (sn-business) and VLAN 40 (sn-personal) are NOT being rebuilt here — those
     roles permanently moved to hot-erp/hot-pn (see PERMANENT decision, 2026-07-24).
-    VLAN 60 (pn-test)'s fate is undecided — see hostkey_server_replacement memory.
+    VLAN 40 (sn-personal)'s own fate (retire vs. repurpose for Phase 4 "HoT Sync") is still open —
+    see hostkey_server_replacement memory. VLAN 60 (pn-test) is settled: **retired outright, Mr.
+    Byrne's decision 2026-08-03** — no rebuild planned, ever.
 
     ⚠ The ORIGINAL bare-metal host (AMD EPYC 3151, Switzerland DC, server 145990) is
     PERMANENTLY DECOMMISSIONED — unfixable NIC fault, refunded, replaced by hot-bm-nl.
@@ -110,13 +112,15 @@ Other WireGuard interfaces on the Gateway VPS (separate from the wg0 bare-metal 
           Client configs: phone/windows/laptop.conf in /root/hot/wireguard-clients/. Predates this
           doc; discovered 2026-07-06 when a new tunnel was almost given the same interface name —
           check `wg show` before reusing wg<N>/ports on this box.
-    wg2 — tunnel to the OLD hot-erp box (Hostinger, 46.202.129.86, formerly named erp-temp).
-          **Superseded 2026-08-01** — ERPNext's real permanent home is now hot-erp-nl over `wg5`
-          (see below); this Hostinger box is retained running-but-idle as a safety net until Mr.
-          Byrne confirms the account can be cancelled, at which point this tunnel should come
-          down too. Gateway 10.10.1.1 / old hot-erp 10.10.1.2, port 51822. See
+    wg2 — **REMOVED 2026-08-03.** Was the tunnel to the OLD hot-erp box (Hostinger,
+          46.202.129.86, formerly named erp-temp), superseded 2026-08-01 when ERPNext's real
+          permanent home became hot-erp-nl over `wg5` (see below). Kept running-but-idle as a
+          safety net until Mr. Byrne confirmed the Hostinger account was set to close — confirmed
+          2026-08-03, so the tunnel was torn down (`wg-quick down wg2` + `systemctl disable
+          wg-quick@wg2`) and the account is being cancelled. Old addressing for reference only:
+          Gateway 10.10.1.1 / old hot-erp 10.10.1.2, port 51822. See
           hot_erp_hostkey_ch_migration_scope memory for the migration and the hot-erp section
-          below — don't route new work through this tunnel.
+          below.
     wg3 — tunnel to hot-pn (151.241.217.140, formerly named pn-vps — renamed 2026-07-24, ssh alias
           `pn-vps` still works as a transitional alias), PrivateNexus's permanent home (Mr. Byrne's personal
           use + PrivateNexus product development; ERPNext/erp-temp is earmarked for hosting client
@@ -156,7 +160,7 @@ SSH config: /root/.ssh/config
 | sn-monitor  | 10.10.50.104   | 50   |
 | sn-security | 10.10.70.106   | 70   |
 
-**Removed 2026-07-30** (confirmed dead-end via full fleet health check, see fleet_health_check_2026_07_30 memory): `proxmox` (10.10.0.2), `sn-business` (10.10.20.101), `sn-personal` (10.10.40.103), `pn-test` (10.10.60.105) — all routed to VLANs/hosts that only existed behind the old wg0 tunnel to the permanently decommissioned original bare-metal host (EPYC 3151, server 145990). sn-business/sn-personal's roles moved permanently to hot-erp/hot-pn; pn-test's fate is still undecided (see Network Topology above and hostkey_server_replacement memory) — if it's ever revived, it will need a new alias pointing at wherever it actually ends up.
+**Removed 2026-07-30** (confirmed dead-end via full fleet health check, see fleet_health_check_2026_07_30 memory): `proxmox` (10.10.0.2), `sn-business` (10.10.20.101), `sn-personal` (10.10.40.103), `pn-test` (10.10.60.105) — all routed to VLANs/hosts that only existed behind the old wg0 tunnel to the permanently decommissioned original bare-metal host (EPYC 3151, server 145990). sn-business/sn-personal's roles moved permanently to hot-erp/hot-pn; pn-test is retired outright (Mr. Byrne's decision, 2026-08-03) and will not be revived — see Network Topology above and hostkey_server_replacement memory. sn-personal's own VLAN fate (retire vs. repurpose) remains separately open.
 
 ---
 
@@ -194,14 +198,15 @@ not Zen 1) but may still matter if HoT ever colocates real hardware again.
 
 Only 4 of the original 7 VM roles were ever rebuilt on hot-bm-nl (see Network Topology above) —
 **101/sn-business, 103/sn-personal, and 105/pn-test do not exist on this host.** sn-business and
-sn-personal's roles moved permanently to hot-erp/hot-pn; pn-test's fate is still undecided. Their
-SSH aliases were removed 2026-07-30 (see SSH Access table above) after a fleet health check
+sn-personal's roles moved permanently to hot-erp/hot-pn (sn-personal's own VLAN fate is still
+separately open); pn-test is retired outright, Mr. Byrne's decision 2026-08-03 — no rebuild, ever.
+Their SSH aliases were removed 2026-07-30 (see SSH Access table above) after a fleet health check
 confirmed they were dead ends. Do not plan capacity against the old 7-VM/11-vCPU/40GB figures below —
 they're historical.
 
 | VM  | Name        | vCPUs | RAM  | Disk   | VLAN / IP              | Primary Services                          |
 |-----|-------------|-------|------|--------|------------------------|-------------------------------------------|
-| 100 | sn-infra    | 1     | 4 GB | 250 GB | VLAN 10 / 10.10.10.100 | Forgejo, PowerDNS-Admin, Namevault, Ntfy  |
+| 100 | sn-infra    | 1     | 4 GB | 250 GB | VLAN 10 / 10.10.10.100 | Forgejo, PowerDNS-Admin, Namevault (Ntfy moved to Gateway VPS 2026-08-03) |
 | 102 | sn-web      | 2     | 4 GB | 250 GB | VLAN 30 / 10.10.30.102 | Client sites (6 sites)                    |
 | 104 | sn-monitor  | 1     | 4 GB | 250 GB | VLAN 50 / 10.10.50.104 | Prometheus, Grafana, Loki, Uptime Kuma    |
 | 106 | sn-security | 2     | 8 GB | 250 GB | VLAN 70 / 10.10.70.106 | Wazuh SIEM 4.14.5 (single-node)          |
@@ -262,6 +267,10 @@ All VMs run as root.
 | Tor               | /opt/stacks/tor/        | v3 hidden service for erp.dickson-supplies.com        |
 | Tang              | systemd (tangd.socket)  | NBDE unlock for ALL 7 VMs — 10.10.0.1:7500 (WireGuard only, NOT Docker) |
 | Vaultwarden       | /opt/stacks/vaultwarden/ | vault.house-of-trae.com — deliberately on the Gateway VPS, not a VM, so secrets stay reachable if bare metal goes down. `ADMIN_TOKEN_FILE` docker secret (pre-hashed argon2id PHC string, not plaintext). |
+| Ntfy              | /opt/stacks/ntfy/       | ntfy.house-of-trae.com — moved here 2026-08-03 from sn-infra (was a single point of failure with the exact fleet it's meant to alert about being down — see Network Topology/sn-infra section). Reuses the container that's been running on the Gateway since 2026-07-02 (Ntfy's original deployment, never actually torn down after an earlier documented "move" to sn-infra) — CrowdSec's alert plugin had been quietly using it the whole time regardless of what Caddy's public vhost pointed at. `⚠ Still open`: the SMS relay (Node.js sms-relay, still on sn-infra — see Alerting Architecture) receives Ntfy webhooks and remains a single point of failure in the SMS channel; scoped separately (sms_relay_migration_scope memory), unblocked now that sn-infra has recovered from the 2026-08-03 outage, but not yet migrated. |
+| Gatus             | /opt/stacks/gatus/      | Independent uptime monitor, port 8080 (internal only, no public vhost). Deliberately on the Gateway, not sn-monitor — sn-monitor (Grafana/Prometheus/Uptime Kuma) lives on hot-bm-nl, so it can't alert on its own host's death; Gatus exists specifically to catch that blind spot. 12 endpoints (Gateway-local services + the hot-bm-nl-hosted public services: Forgejo/Grafana/Wazuh/ERPNext). Alerts via email only (`notifications@house-of-trae.com`) — deliberately not Ntfy/SMS: true at the time this was built (both lived on sn-infra, part of the same failure domain), and still true for SMS (its relay is still on sn-infra), but Ntfy itself moved to the Gateway later the same day (see the sn-infra section above) — email remains the right choice here regardless, since it doesn't depend on Ntfy either. Was undocumented here for 9+ days until found+fixed 2026-08-03 (see gatus_alerting_gap memory) — had been correctly detecting the hot-bm-nl outage the whole time but had zero alerting providers configured, which is why nobody was told. Password secret lives only at `/opt/stacks/gatus/secrets/gatus.env` (`chmod 600`), never in the git-tracked `hot-config` copy. Its Grafana check was separately broken (checking the wrong path, root redirects rather than 200) — found+fixed during the same-day outage recovery, see the hot_bm_nl_outage memory. |
+| sn-infra recovery watchdog | systemd (`sn-infra-recovery-check.timer`) | Not a container — a local systemd timer + script (`/usr/local/bin/sn-infra-recovery-check.sh`, tracked in `hot-config/gateway/scripts/`), added 2026-08-03 during the hot-bm-nl outage. Checks every 15 min whether sn-infra is reachable (fresh wg4 handshake + real SSH), emails a one-time notification via the same SMTP path as Gatus when it detects a down→up transition. Deliberately local, not a `/schedule` cloud agent — cloud sandboxes have no access to wg4/SSH/Tailscale. Served its purpose once already (2026-08-03 recovery); harmless to leave running for any future recurrence. See gatus_alerting_gap and hot_bm_nl_outage memories. |
+| sms-relay | /opt/stacks/sms-relay/  | Rebuilt from scratch here 2026-08-03 (see sms_relay_migration_scope memory) — the original, documented as living on sn-infra, turned out to be completely gone (no container, no systemd unit, nothing on disk) since at least the 2026-07-27 sn-infra rebuild, which never redeployed it. Small Node.js service, no framework, subscribes directly to Ntfy's `hot-alerts` topic (anonymous read already granted there) and forwards only `priority=5`/"urgent" messages to Twilio SMS — CrowdSec's own ban notifications (`priority=high`/4) are correctly excluded. Rate-limited to 1 SMS per alert-group (message title) per 5 min, matching the documented Alerting Architecture limit. `⚠ Not yet functional`: Twilio Account SID/Auth Token/FROM number in `/opt/stacks/sms-relay/secrets/` are still placeholders (Vaultwarden only has the Twilio account's web-console login, not the API credentials) — relay logs what it would send instead of actually sending until Mr. Byrne provides real credentials from the Twilio console. Tracked in `hot-config/gateway/sms-relay/` (secrets excluded, per the `**/secrets/` gitignore rule) — unlike its predecessor, this one won't silently vanish on a future rebuild. |
 
 ### sn-infra (ssh sn-infra — 10.10.10.100)
 | Service        | Path                    | URL                           | Port |
@@ -269,7 +278,15 @@ All VMs run as root.
 | Forgejo        | /opt/stacks/forgejo/    | git.securenexus.net           | 3000 |
 | PowerDNS-Admin | /opt/stacks/pdns-admin/ | dns-admin.house-of-trae.com   | 9191 |
 | Namevault      | /opt/stacks/namegen/    | namevault.co.uk               | 8010 |
-| Ntfy           | /opt/stacks/ntfy/       | ntfy.house-of-trae.com        | 8080 |
+
+**Ntfy moved to the Gateway VPS 2026-08-03** (see Gateway VPS service table below) — no longer
+here. Was documented as living here, but during the 2026-08-03 hot-bm-nl outage, discovered its
+public vhost (`10.10.10.100:8080`) had gone down along with the rest of this VM. Adopted a Gateway-
+local `ntfy` container that had actually been running since 2026-07-02 (Ntfy's original deployment,
+before an earlier "move to sn-infra" that apparently never fully decommissioned it) rather than
+build fresh — confirmed it wasn't just an idle leftover: CrowdSec's own alert plugin
+(`gateway/crowdsec/notifications/http.yaml`) had been posting real ban notifications to it via
+`http://ntfy:80/hot-alerts` the whole time, using a still-valid bearer token, verified live.
 
 ### sn-business (ssh sn-business — 10.10.20.101)
 | Service     | Path                 | URL                      | Port |
@@ -290,16 +307,22 @@ Stack: custom image (`/opt/stacks/dickson/docker/Dockerfile`) — `frappe/erpnex
 
 All 6 are nginx:alpine + static "Coming Soon" pages, reverse-proxied via Caddy (root + www).
 
-### sn-personal (ssh sn-personal — 10.10.40.103)
-Domain: privatenexus.net — primary PrivateNexus test environment (registry images from git.securenexus.net).
-This is the environment used for all end-to-end testing. pn-test is dev/build (source builds + personal services).
+### sn-personal — ⚠️ HISTORICAL, this VM does not currently exist
+**Not rebuilt on hot-bm-nl** (VLAN 40 excluded — see Network Topology above) and its SSH alias
+(`sn-personal`, 10.10.40.103) was removed 2026-07-30 as a dead end (fleet health check). The table
+below describes what this VM ran **before** the original bare-metal host was decommissioned —
+kept for historical reference only, not current state. `privatenexus.net` is **not** served from
+here anymore; it's permanently routed to hot-pn (`10.10.2.2:5173`, see the hot-pn section below).
+Cosmos (and the personal services it ran — Vaultwarden, Immich, Firefly III, Actual Budget,
+Nextcloud, Notesnook) was fully removed in Jun 2026, data was never populated so no loss. **VLAN
+40/sn-personal's fate is still an open decision** — Mr. Byrne has tentatively floated repurposing
+it for the Phase 4 "HoT Sync" roadmap item, but wanted to scope that separately, not bundle it into
+the fleet rebuild. See `hostkey_server_replacement` memory. Don't confuse this with pn-test
+(VLAN 60), which Mr. Byrne confirmed 2026-08-03 is retired outright, not just historical.
 
-Cosmos was fully removed (Jun 2026). All former personal services (Vaultwarden, Immich, Firefly III,
-Actual Budget, Nextcloud, Notesnook) are GONE from this VM — data was never populated so no loss.
-
-| Service                  | Path                       | URL                 | Port | Status |
-|--------------------------|----------------------------|---------------------|------|--------|
-| PrivateNexus (test env)  | /opt/privatenexus/compose/ | privatenexus.net    | 5173 | Active |
+| Service (historical, pre-outage) | Path                       | URL                 | Port |
+|-----------------------------------|----------------------------|---------------------|------|
+| PrivateNexus (former test env)    | /opt/privatenexus/compose/ | privatenexus.net    | 5173 |
 
 ### sn-monitor (ssh sn-monitor — 10.10.50.104)
 | Service     | Path                    | URL                       | Port |
@@ -313,13 +336,14 @@ status.house-of-trae.com — slug `hot-status`, exposes only the 6 group entity 
 Grafana admin password: reset via `grafana cli admin reset-admin-password` — GF_SECURITY_ADMIN_PASSWORD only applies on first init.
 node-exporter UFW gotcha: Prometheus runs in bridge network 172.18.0.0/16 — UFW must allow that subnet to port 9100.
 
-### pn-test (ssh pn-test — 10.10.60.105)
-Domain: tresemme.space — personal services VM. Also hosts PrivateNexus dev/build (local source builds at /opt/privatenexus/).
-Note: privatenexus.net routes to sn-personal (the primary PN test environment, registry images). pn-test = dev + personal services.
-
-| Service      | Path               | Notes                                                                          |
-|--------------|--------------------|--------------------------------------------------------------------------------|
-| PrivateNexus | /opt/privatenexus/ | Active dev — React (frontend) + **Node.js Express v4 ESM** (API, v1.9.0) + PostgreSQL 16 + Redis |
+### pn-test — ⚠️ RETIRED (Mr. Byrne's decision, 2026-08-03)
+Formerly VLAN 60 (10.10.60.105) — hosted PrivateNexus dev/build (local source builds) and was
+earmarked for personal services alongside sn-personal, back when the original bare-metal host was
+live. Its SSH alias was removed 2026-07-30 as a dead end; **confirmed retired outright, not just
+undecided, 2026-08-03** — its only real purpose (PrivateNexus dev/build) is fully redundant now
+that PrivateNexus's permanent home is hot-pn (which combines the old pn-test dev role and the old
+sn-personal test role). No rebuild planned, no VLAN 60, no VM 105. See `hostkey_server_replacement`
+memory for the full history.
 
 **Phase 0 freeze (locked 22 June 2026):** Backend = Node.js Express v4 (ESM). Frontend = React. DB = PostgreSQL 16. Cache/queue = Redis. Identity = Keycloak (privatenexus realm). Gateway = Caddy. Do not suggest Go or NestJS as a rewrite — the codebase is at v1.9 and this decision is closed. See `/root/hot/docs/PrivateNexus_Phase0_Freeze.md` for full rationale and checklist.
 
@@ -349,8 +373,12 @@ existing `vm.v2-medium` CH rental keeps renewing fine), so this landed in NL ins
 as hot-bm-nl — see [[hot_erp_hostkey_ch_migration_scope]] for the full ordering investigation.
 Reached from the Gateway VPS over the dedicated `wg5` tunnel (10.10.4.1 ↔ 10.10.4.2, port 51825).
 Public SSH closed (UFW deny-by-default, matching the hot-pn pattern) — admin access is tunnel-only.
-The old Hostinger box (`hot-erp`/`erp-temp` SSH aliases) is still running as a safety net, no
-longer receiving traffic, retained until Mr. Byrne confirms the Hostinger account can be cancelled.
+The old Hostinger box had been retained running as a safety net, no longer receiving traffic.
+**Mr. Byrne confirmed 2026-08-03 the Hostinger account is set to close** — the now-redundant `wg2`
+tunnel to it was torn down the same day (`wg-quick down wg2` + `systemctl disable wg-quick@wg2`,
+see Network Topology above), and its `hot-erp`/`erp-temp` SSH aliases were removed from
+`/root/.ssh/config` the same day. The account itself is in the process of being cancelled on
+Hostinger's side.
 
 Data migration: real DB (`mysqldump` of the site's own DB user, not a full-instance dump — the
 MariaDB root password on the old box had drifted from what's in its own secrets file, a real,
@@ -372,15 +400,31 @@ Earmarked later (no timeline) to also host client companies' backend software �
 
 Caddy's `erp.dickson-supplies.com` block (and the Tor onion mirror block) both point at
 `10.10.4.2:8000` as of the 2026-08-01 cutover — verified live via a real public HTTPS request
-(`frappe.ping` → `pong`) and a local Host-header test against the onion block's target (a real
-Tor-circuit test wasn't completable from this session's sandbox — egress-restricted, not a config
-problem, confirmed by the local test succeeding against the identical Caddy vhost).
+(`frappe.ping` → `pong`) and a local Host-header test against the onion block's site key itself
+(`Host: <onion-address>`, not the public domain — the two are separate Caddy site blocks and using
+the wrong Host header silently hits the other one), confirmed `200`/`pong`.
 
-**Not yet done, follow-up needed:** save the new box's root password + wg5 keys to Vaultwarden
-(needs Mr. Byrne's `bw unlock` session, same one-off pattern used elsewhere); confirm with Mr.
-Byrne when to cancel the Hostinger account; investigate why the old box's MariaDB root password no
-longer matched its own secrets file (worked around via the site's own DB user, not blocking, but
-worth understanding).
+**Re-checked 2026-08-03, correcting a prior mischaracterization:** a direct SOCKS5 request through
+the Gateway's own local Tor proxy (`127.0.0.1:9050`) to the onion address fails with `curl: (97)`,
+and the Tor daemon's own logs show why: `"Fail to decrypt descriptor for requested onion address.
+It is likely requiring client authorization."` This was previously logged as the test being
+"uncompletable — egress-restricted, not a config problem" — that diagnosis was wrong. The request
+genuinely reaches Tor and gets a real protocol-level response; it fails only because this session
+doesn't hold the client-auth private key (`authorized_clients/tristian.auth` is pubkey-only, see
+the Tor Hidden Services section above) — the service is correctly refusing to decrypt its
+descriptor for an unauthorized client, which is the access-control feature working as designed, not
+a sandbox/network limitation. Separately, the Tor daemon itself is confirmed healthy: bootstrapped
+100%, 15-23 circuits open continuously, and its heartbeat logs show real `INTRODUCE2` cells being
+received periodically — i.e., genuine inbound requests are reaching the hidden service from the
+live Tor network.
+
+**Not yet done, follow-up needed:** investigate why the old box's MariaDB root password no longer
+matched its own secrets file (worked around via the site's own DB user, not blocking, and likely
+moot now the box is being decommissioned). Root password + wg5 keys were already saved to
+Vaultwarden 2026-08-01 ("hot-erp-nl root password (Hostkey NL VPS)" / "hot-erp-nl wg5 WireGuard
+tunnel keys", House of Trae — Gateway VPS folder) — verified still present 2026-08-03. Hostinger
+account cancellation confirmed by Mr. Byrne 2026-08-03 — see the note above and Network Topology's
+wg2 entry.
 
 ---
 
@@ -655,7 +699,7 @@ Backend: Gateway VPS — PostgreSQL backend
 | clients         | Client portal users                                          |
 | house-of-trae   | House of Trae parent — master identity-provider-redirector broker |
 | master          | Keycloak's own built-in admin realm (not app-facing)         |
-| privatenexus    | PrivateNexus app users (dev/test env, pn-test + sn-personal) |
+| privatenexus    | PrivateNexus app users (prod/dev/test, all on hot-pn)        |
 
 10 realms total. All realms: MFA enforced, brute force detection, strong password policy.
 Keycloak OIDC API URL must point to realm root: `.../realms/<realm-name>` (NOT the protocol endpoint — causes 500 errors).
@@ -688,8 +732,22 @@ Zones managed (confirmed live):
   cloud-architects.online (legacy)
 
 tresemme.space records — all → 151.241.217.91:
-  apex (placeholder), subdomains added as personal services deploy on pn-test
-  Removed: nextcloud, vaultwarden, photos, notes, firefly, firefly-iii, actual, pn
+  apex (placeholder). This was pn-test's domain for personal services (Cosmos-era Nextcloud/
+  Vaultwarden/Immich/etc., removed Jun 2026) — pn-test is now retired outright (2026-08-03), so no
+  further subdomains are planned here unless a future personal-services plan (e.g. Phase 4 "HoT
+  Sync", tentatively eyed for sn-personal instead) explicitly picks this domain back up.
+  `pn`/`notes` subdomains are still live — plain Caddy redirects to real external services
+  (privatenexus.net, app.notesnook.com respectively), never actually depended on pn-test, kept as-is.
+  Removed from Caddy 2026-08-03 (DNS records not touched, harmless if still present): `sync`,
+  `identity`, `sse`, `s3`, `monograph` — a leftover self-hosted Notesnook-stack cluster that had been
+  reverse_proxy'ing to the dead pn-test VM (10.10.60.105) since it was decommissioned; found while
+  auditing an unrelated CrowdSec scenario bug (real scan traffic against `monograph.tresemme.space`
+  was being miscounted as Forgejo brute-force activity — see crowdsec_custom_scenarios_audit memory).
+  Older "Removed" list below predates this session and was never reconciled against the live
+  Caddyfile — it lists `notes`/`pn` as removed, but both are confirmed live today (verified via real
+  redirect checks), so that list is stale for at least those two; left as-is rather than guess at
+  the actual history.
+  Previously noted as removed: nextcloud, vaultwarden, photos, notes, firefly, firefly-iii, actual, pn
 
 house-of-trae.com — `_tailscale-challenge` TXT record added 2026-07-16 (Tailscale domain
 verification, admin console "Add + verify domain" flow): `_tailscale-challenge.house-of-trae.com`
@@ -721,7 +779,15 @@ Email domains: @house-of-trae.com, @securenexus.net, @byrne-accounts.org,
 | INFO     | Backup completed, Watchtower update available     | —    | ✓    | —   |
 
 SMS rate limit: max 1 SMS per alert group per 5 minutes.
-SMS relay: Node.js sms-relay on sn-infra (Ntfy webhook → Twilio API).
+SMS relay: **rebuilt on the Gateway VPS 2026-08-03** (see Gateway VPS service table and
+sms_relay_migration_scope memory) — the original, documented as living on sn-infra, was found to be
+completely gone (confirmed during the 2026-08-03 hot-bm-nl outage recovery, not merely at risk from
+it — see hot_bm_nl_outage memory) since at least the 2026-07-27 sn-infra rebuild, which never
+redeployed it. Subscribes to Ntfy directly (`hot-alerts` topic) rather than a per-publish webhook.
+`⚠ Not yet sending real SMS`: Twilio API credentials are still placeholders — only the Twilio
+account's web-console login was recoverable from Vaultwarden, not the Account SID/Auth Token the
+relay needs. Needs Mr. Byrne to pull those from the Twilio console before this channel actually
+works again.
 
 ---
 
@@ -868,11 +934,18 @@ Auth files: `/opt/stacks/tor/data/erp/authorized_clients/` (chown 100:101, chmod
 
 ## Phase 4 — On the Horizon
 
-- Wazuh SIEM on sn-security (VLAN 70)
+**Done, removed from this list (2026-08-03 cleanup):** Wazuh SIEM on sn-security (live since the
+2026-07-27/28 rebuild) and Cosmos retirement (fully removed Jun 2026) — this list wasn't updated
+when either landed.
+
 - CrowdSec custom scenarios
-- PrivateNexus PN-1 → PN-4 + Cosmos retirement
-- HoT Sync (Flutter) — Immich + Nextcloud + Notesnook + Vaultwarden
-- HoT Command (Flutter) — Mobile ops dashboard
+- PrivateNexus PN roadmap gates (v5.0/v6.0/v7.0) — see `PrivateNexus_Release_Roadmap_v1.0.md` and
+  the `open_items_2026_07_27` memory for current gate-item detail; re-verify before trusting any
+  snapshot, this list drifts (e.g. Security Lockdown Mode was listed unbuilt as of 2026-07-27 but
+  was actually finished 2026-08-01 — see `PrivateNexus_Security_Lockdown_Mode_Design.md`)
+- HoT Sync (Flutter) — Immich + Nextcloud + Notesnook + Vaultwarden; tentatively tied to sn-personal
+  (VLAN 40)'s still-open fate, not yet scoped
+- HoT Command (Flutter) — Mobile ops dashboard (also listed as a v7.0 PN roadmap candidate)
 - Second bare metal node (HA)
 - Edge load balancing (second VPS)
 - Terraform / Ansible IaC
@@ -906,7 +979,7 @@ Auth files: `/opt/stacks/tor/data/erp/authorized_clients/` (chown 100:101, chmod
 | Config git repo             | /opt/hot-config                                      |
 | B2 backup bucket            | hot-proxmox-backups                                  |
 | Hetzner Storage Box         | u622237@u622237.your-storagebox.de:23 (hetzner:vzdump)|
-| PrivateNexus dev VM         | pn-test — VLAN 60, 10.10.60.105                      |
+| PrivateNexus prod/dev host  | hot-pn — 151.241.217.140 (pn-test retired 2026-08-03)|
 | This project directory      | /root/hot/                                           |
 | Full roadmap                | /root/hot/docs/HoT_Infrastructure_State_Roadmap_v*.docx — use highest version present (currently v3.6), docx2txt |
 | PN Phase 0 freeze           | /root/hot/docs/PrivateNexus_Phase0_Freeze.md         |
