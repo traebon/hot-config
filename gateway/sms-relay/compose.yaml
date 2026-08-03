@@ -1,0 +1,36 @@
+services:
+  sms-relay:
+    build: .
+    image: hot/sms-relay:local
+    container_name: sms-relay
+    restart: unless-stopped
+    mem_limit: 64m
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"
+    environment:
+      NTFY_URL: "http://ntfy:80"
+      NTFY_TOPIC: "hot-alerts"
+      SMS_TO_NUMBER: "+447403942795"
+      SMS_FROM_NUMBER: "REPLACE_ME_TWILIO_PURCHASED_NUMBER"
+      TWILIO_ACCOUNT_SID_FILE: /run/secrets/twilio_account_sid
+      TWILIO_AUTH_TOKEN_FILE: /run/secrets/twilio_auth_token
+    secrets:
+      - twilio_account_sid
+      - twilio_auth_token
+    networks:
+      - hotinfra_edge
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+secrets:
+  twilio_account_sid:
+    file: ./secrets/twilio_account_sid.txt
+  twilio_auth_token:
+    file: ./secrets/twilio_auth_token.txt
+
+networks:
+  hotinfra_edge:
+    external: true

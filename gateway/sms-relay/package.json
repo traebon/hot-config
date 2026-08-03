@@ -1,0 +1,10 @@
+{
+  "name": "sms-relay",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Subscribes to Ntfy's hot-alerts topic and forwards CRITICAL-priority messages to Twilio SMS",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js"
+  }
+}
