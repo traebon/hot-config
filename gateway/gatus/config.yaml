@@ -11,18 +11,28 @@ connectivity:
     target: 1.1.1.1:53
     interval: 60s
 
+alerting:
+  email:
+    from: "notifications@house-of-trae.com"
+    username: "notifications@house-of-trae.com"
+    password: "${GATUS_SMTP_PASSWORD}"
+    host: "mail.house-of-trae.com"
+    port: 587
+    to: "tristian@securenexus.net"
+
 endpoints:
-  - name: WireGuard Tunnel (bare metal)
+  - name: WireGuard Tunnel (hot-bm-nl)
     group: Infrastructure
-    url: "icmp://10.10.0.2"
+    url: "icmp://10.10.3.2"
     interval: 1m
     conditions:
       - "[CONNECTED] == true"
     alerts:
-      - type: custom
+      - type: email
         failure-threshold: 2
-        success-threshold: 1
-        description: "Bare metal WireGuard tunnel is DOWN"
+        success-threshold: 2
+        send-on-resolved: true
+        description: "hot-bm-nl WireGuard tunnel (wg4) is DOWN -- affects sn-infra/sn-web/sn-monitor/sn-security"
 
   - name: Keycloak SSO
     group: Gateway
@@ -31,6 +41,11 @@ endpoints:
     conditions:
       - "[STATUS] == 200"
       - "[RESPONSE_TIME] < 5000"
+    alerts:
+      - type: email
+        failure-threshold: 2
+        success-threshold: 2
+        send-on-resolved: true
 
   - name: Caddy / TLS
     group: Gateway
@@ -39,6 +54,11 @@ endpoints:
     conditions:
       - "[STATUS] == 200"
       - "[CERTIFICATE_EXPIRATION] > 168h"
+    alerts:
+      - type: email
+        failure-threshold: 2
+        success-threshold: 2
+        send-on-resolved: true
 
   - name: Mailserver SMTP
     group: Gateway
@@ -46,6 +66,11 @@ endpoints:
     interval: 2m
     conditions:
       - "[CONNECTED] == true"
+    alerts:
+      - type: email
+        failure-threshold: 2
+        success-threshold: 2
+        send-on-resolved: true
 
   - name: Mailserver Submission
     group: Gateway
@@ -53,6 +78,11 @@ endpoints:
     interval: 2m
     conditions:
       - "[CONNECTED] == true"
+    alerts:
+      - type: email
+        failure-threshold: 2
+        success-threshold: 2
+        send-on-resolved: true
 
   - name: Ntfy
     group: Gateway
@@ -60,6 +90,11 @@ endpoints:
     interval: 2m
     conditions:
       - "[STATUS] == 200"
+    alerts:
+      - type: email
+        failure-threshold: 2
+        success-threshold: 2
+        send-on-resolved: true
 
   - name: Vaultwarden
     group: Gateway
@@ -67,6 +102,11 @@ endpoints:
     interval: 2m
     conditions:
       - "[STATUS] == 200"
+    alerts:
+      - type: email
+        failure-threshold: 2
+        success-threshold: 2
+        send-on-resolved: true
 
   - name: CrowdSec LAPI
     group: Gateway
@@ -74,6 +114,11 @@ endpoints:
     interval: 5m
     conditions:
       - "[STATUS] == 200"
+    alerts:
+      - type: email
+        failure-threshold: 2
+        success-threshold: 2
+        send-on-resolved: true
 
   - name: ERPNext
     group: Services
@@ -81,6 +126,11 @@ endpoints:
     interval: 5m
     conditions:
       - "[STATUS] == 200"
+    alerts:
+      - type: email
+        failure-threshold: 2
+        success-threshold: 2
+        send-on-resolved: true
 
   - name: Forgejo
     group: Services
@@ -88,6 +138,11 @@ endpoints:
     interval: 5m
     conditions:
       - "[STATUS] == 200"
+    alerts:
+      - type: email
+        failure-threshold: 2
+        success-threshold: 2
+        send-on-resolved: true
 
   - name: Grafana
     group: Services
@@ -95,6 +150,11 @@ endpoints:
     interval: 5m
     conditions:
       - "[STATUS] == 200"
+    alerts:
+      - type: email
+        failure-threshold: 2
+        success-threshold: 2
+        send-on-resolved: true
 
   - name: Wazuh SIEM
     group: Services
@@ -102,3 +162,8 @@ endpoints:
     interval: 5m
     conditions:
       - "[STATUS] == 200"
+    alerts:
+      - type: email
+        failure-threshold: 2
+        success-threshold: 2
+        send-on-resolved: true

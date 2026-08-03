@@ -4,6 +4,8 @@ services:
     container_name: gatus
     restart: unless-stopped
     mem_limit: 64m
+    env_file:
+      - ./secrets/gatus.env
     volumes:
       - ./config.yaml:/config/config.yaml:ro
     networks:
