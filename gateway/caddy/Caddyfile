@@ -272,7 +272,14 @@ ntfy.house-of-trae.com {
     import crowdsec
     import compress
     import secure_headers
-    reverse_proxy 10.10.10.100:8080
+    # Adopted the Gateway-local ntfy container 2026-08-03 (running since 2026-07-02, the
+    # original deployment before Ntfy was ever "moved" to sn-infra -- it was never actually torn
+    # down, and CrowdSec's own notification plugin (gateway/crowdsec/notifications/http.yaml)
+    # has been posting real alerts to it via http://ntfy:80/hot-alerts this whole time. Moving the
+    # public vhost here too makes Ntfy independent of sn-infra/hot-bm-nl, same reasoning as
+    # Vaultwarden's placement -- was previously pointed at 10.10.10.100:8080 (sn-infra), which is
+    # down as of the 2026-08-03 hot-bm-nl outage (see hot_bm_nl_outage memory).
+    reverse_proxy ntfy:80
 }
 ds.house-of-trae.com {
     import crowdsec
