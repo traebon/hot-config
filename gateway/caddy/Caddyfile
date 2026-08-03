@@ -238,37 +238,17 @@ prometheus.securenexus.net {
     import sso
     reverse_proxy 10.10.50.104:9090
 }
-# tresemme.space — personal services on pn-test (10.10.60.105)
+# tresemme.space — pn-test (10.10.60.105) retired outright 2026-08-03, no rebuild planned (see
+# CLAUDE.md's pn-test section). Its old self-hosted Notesnook-stack vhosts (sync/identity/sse/s3/
+# monograph, all reverse_proxy 10.10.60.105) were dead weight timing out against a VM that no
+# longer exists and were removed the same day. pn/notes below are plain redirects to real external
+# services, not proxies to pn-test, so they're kept.
 pn.tresemme.space {
     redir https://privatenexus.net{uri} permanent
 }
 notes.tresemme.space {
     import crowdsec
     redir https://app.notesnook.com permanent
-}
-sync.tresemme.space {
-    import crowdsec
-    import compress
-    reverse_proxy 10.10.60.105:5264
-}
-identity.tresemme.space {
-    import crowdsec
-    import compress
-    reverse_proxy 10.10.60.105:8264
-}
-sse.tresemme.space {
-    import crowdsec
-    import compress
-    reverse_proxy 10.10.60.105:7264
-}
-s3.tresemme.space {
-    import crowdsec
-    reverse_proxy 10.10.60.105:9000
-}
-monograph.tresemme.space {
-    import crowdsec
-    import compress
-    reverse_proxy 10.10.60.105:6264
 }
 dns-admin.house-of-trae.com {
     import crowdsec
