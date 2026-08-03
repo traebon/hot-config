@@ -1,9 +1,8 @@
 type: leaky
 name: hot/keycloak-bf
 description: "Detect brute force against Keycloak SSO token endpoints"
-filter: "evt.Meta.service == 'http' && evt.Meta.http_status == '401' && evt.Meta.http_path contains '/realms/'"
+filter: "evt.Meta.service == 'http' && evt.Parsed.target_fqdn == 'auth.house-of-trae.com' && evt.Meta.http_status in ['401', '500', '502', '503', '504'] && evt.Meta.http_path contains '/realms/'"
 groupby: "evt.Meta.source_ip"
-distinct: "evt.Meta.http_path"
 capacity: 5
 leakspeed: "5m"
 blackhole: 15m
