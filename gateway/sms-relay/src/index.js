@@ -73,17 +73,45 @@ function shouldRateLimit(group) {
   return false;
 }
 
+// Grafana's webhook contact point always posts its fixed JSON alert-group payload as the
+// Ntfy message body - there's no way to template the body via Grafana's webhook settings
+// (checked: no "message"/"payload" field is honored). Detect that shape and pull out the
+// real groupKey/alertname/summary instead of using the generic title/body path, which
+// would otherwise: (a) rate-limit-collide across different alert types, since every
+// Grafana-critical alert currently shares one static Ntfy title, and (b) show a raw JSON
+// dump as the SMS text instead of anything readable.
+function parseGrafanaPayload(message) {
+  let payload;
+  try {
+    payload = JSON.parse(message);
+  } catch {
+    return null;
+  }
+  if (!payload || typeof payload !== "object" || !Array.isArray(payload.alerts) || !payload.groupKey) {
+    return null;
+  }
+  const labels = payload.commonLabels ?? {};
+  const summary = payload.commonAnnotations?.summary ?? "";
+  const status = (payload.status ?? "unknown").toUpperCase();
+  return {
+    group: payload.groupKey,
+    text: `${status}: ${labels.alertname ?? "alert"} (${labels.severity ?? "?"})${summary ? " - " + summary : ""}`,
+  };
+}
+
 async function handleMessage(msg) {
   if (msg.event !== "message") return; // ignore "open"/keepalive events
   if ((msg.priority ?? 3) < SMS_PRIORITY_THRESHOLD) return;
 
-  const group = msg.title ?? "untitled";
+  const grafana = parseGrafanaPayload(msg.message ?? "");
+  const group = grafana?.group ?? msg.title ?? "untitled";
   if (shouldRateLimit(group)) {
     console.log(`[sms-relay] Rate-limited, skipping: ${group}`);
     return;
   }
 
-  const body = `[${group}] ${msg.message ?? ""}`.slice(0, 320);
+  const text = grafana?.text ?? `${msg.title ?? "untitled"}: ${msg.message ?? ""}`;
+  const body = text.slice(0, 320);
   await sendSms(body);
 }
 
