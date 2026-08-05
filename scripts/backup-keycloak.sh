@@ -1,11 +1,11 @@
 #!/bin/bash
 # Keycloak PostgreSQL nightly dump — runs 01:30 on Gateway VPS
-# Primary: push to Proxmox /var/lib/vz/dump/gateway/ (picked up by rclone at 06:00/07:30)
+# Primary: push to hot-bm-nl /var/lib/vz/dump/gateway/ (picked up by rclone at 06:00/07:30)
 # Fallback: direct rclone to hetzner-crypt: if configured, extended 30-day local retention
 set -euo pipefail
 
 DUMP_DIR="/var/backups/keycloak"
-REMOTE_HOST="proxmox"
+REMOTE_HOST="hot-bm-nl"
 REMOTE_PATH="/var/lib/vz/dump/gateway"
 DB_NAME="keycloak"
 DB_USER="keycloak"
@@ -16,7 +16,8 @@ DATE=$(date '+%Y-%m-%d')
 OUTFILE="$DUMP_DIR/keycloak-db-$DATE.sql.gz"
 SMTP_PASS=$(grep -m1 WATCHTOWER_SMTP_PASSWORD /opt/stacks/watchtower/.env | cut -d= -f2)
 ALERT_EMAIL="tristian@securenexus.net"
-NTFY_URL="http://10.10.10.100:8080/hot-alerts"
+NTFY_URL="https://ntfy.house-of-trae.com/hot-alerts"
+NTFY_TOKEN="tk_c2efkgyxtt24uf48bo1snua86tthb"
 
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
 
@@ -36,8 +37,9 @@ Content-Type: text/plain
 
 ${body}
 MAIL
-    # Ntfy best-effort — sn-infra may also be unreachable during bare-metal outage
+    # Ntfy best-effort
     curl -s -o /dev/null --max-time 5 \
+        -H "Authorization: Bearer ${NTFY_TOKEN}" \
         -H "Title: ${title}" -H "Priority: ${priority}" -H "Tags: ${tags}" \
         -d "${body}" "$NTFY_URL" || true
 }
@@ -60,24 +62,47 @@ else
     PRUNED_AFTER=$RETENTION_DAYS_EXTENDED
 
     # Direct rclone push to both cloud remotes — belt-and-suspenders
+    RCLONE_FAILED=0
+    RCLONE_FAIL_DETAIL=""
     if command -v rclone &>/dev/null; then
         REMOTES=$(rclone listremotes 2>/dev/null)
         if echo "$REMOTES" | grep -q "^hetzner-crypt:"; then
             log "Pushing to hetzner-crypt..."
+            set +e
             rclone copy "$OUTFILE" "hetzner-crypt:gateway-vps-backups/keycloak/" \
                 --no-traverse 2>&1 | while IFS= read -r l; do log "  rclone: $l"; done
+            rc=${PIPESTATUS[0]}
+            set -e
+            if [ "$rc" -ne 0 ]; then
+                RCLONE_FAILED=1
+                RCLONE_FAIL_DETAIL+="hetzner-crypt "
+            fi
         fi
         if echo "$REMOTES" | grep -q "^b2-hot-crypt:"; then
             log "Pushing to b2-hot-crypt..."
+            set +e
             rclone copy "$OUTFILE" "b2-hot-crypt:gateway-vps-backups/keycloak/" \
                 --no-traverse 2>&1 | while IFS= read -r l; do log "  rclone: $l"; done
+            rc=${PIPESTATUS[0]}
+            set -e
+            if [ "$rc" -ne 0 ]; then
+                RCLONE_FAILED=1
+                RCLONE_FAIL_DETAIL+="b2-hot-crypt "
+            fi
         fi
     fi
 
     send_alert \
         "Keycloak Backup — Proxmox Push Failed" \
-        "Keycloak nightly dump OK (${SIZE}) but Proxmox unreachable — retained locally for ${RETENTION_DAYS_EXTENDED}d in ${DUMP_DIR}." \
+        "Keycloak nightly dump OK (${SIZE}) but hot-bm-nl unreachable — retained locally for ${RETENTION_DAYS_EXTENDED}d in ${DUMP_DIR}." \
         "high" "warning,floppy_disk"
+
+    if [ "$RCLONE_FAILED" -eq 1 ]; then
+        send_alert \
+            "Keycloak Backup — Cloud (rclone) Push Failed" \
+            "rclone push failed for: ${RCLONE_FAIL_DETAIL}. Check /var/log/hot-keycloak-backup.log. Local copy is safe in ${DUMP_DIR} for ${RETENTION_DAYS_EXTENDED}d." \
+            "high" "warning,floppy_disk"
+    fi
 fi
 
 find "$DUMP_DIR" -name "keycloak-db-*.sql.gz" -mtime "+${PRUNED_AFTER}" -delete

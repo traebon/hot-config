@@ -1,19 +1,20 @@
 #!/bin/bash
 # Gateway VPS nightly backup — runs 05:30 daily
 # Covers: Tor hidden service keys, PowerDNS DB, Mailserver data
-# Primary: push to Proxmox /var/lib/vz/dump/gateway/ (picked up by rclone at 06:00/07:30)
+# Primary: push to hot-bm-nl /var/lib/vz/dump/gateway/ (picked up by rclone at 06:00/07:30)
 # Fallback: direct rclone to hetzner-crypt: if configured, extended 30-day local retention
 set -euo pipefail
 
 BACKUP_DIR="/var/backups/gateway-vps"
-REMOTE_HOST="proxmox"
+REMOTE_HOST="hot-bm-nl"
 REMOTE_PATH="/var/lib/vz/dump/gateway"
 RETENTION_DAYS=7
 RETENTION_DAYS_EXTENDED=30
 DATE=$(date '+%Y-%m-%d')
 SMTP_PASS=$(grep -m1 WATCHTOWER_SMTP_PASSWORD /opt/stacks/watchtower/.env | cut -d= -f2)
 ALERT_EMAIL="tristian@securenexus.net"
-NTFY_URL="http://10.10.10.100:8080/hot-alerts"
+NTFY_URL="https://ntfy.house-of-trae.com/hot-alerts"
+NTFY_TOKEN="tk_c2efkgyxtt24uf48bo1snua86tthb"
 
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
 
@@ -33,8 +34,9 @@ Content-Type: text/plain
 
 ${body}
 MAIL
-    # Ntfy best-effort — sn-infra may also be unreachable during bare-metal outage
+    # Ntfy best-effort
     curl -s -o /dev/null --max-time 5 \
+        -H "Authorization: Bearer ${NTFY_TOKEN}" \
         -H "Title: ${title}" -H "Priority: ${priority}" -H "Tags: ${tags}" \
         -d "${body}" "$NTFY_URL" || true
 }
@@ -79,6 +81,8 @@ else
     SIZES+=" mailserver:$(du -sh "$BACKUP_DIR/mailserver/mailserver-$DATE.tar.gz" | cut -f1)"
 
     # Direct rclone push to both cloud remotes — belt-and-suspenders
+    RCLONE_FAILED=0
+    RCLONE_FAIL_DETAIL=""
     if command -v rclone &>/dev/null; then
         REMOTES=$(rclone listremotes 2>/dev/null)
         for REMOTE in hetzner-crypt b2-hot-crypt; do
@@ -89,17 +93,31 @@ else
                 "$BACKUP_DIR/powerdns/powerdns-db-$DATE.sql.gz" \
                 "$BACKUP_DIR/mailserver/mailserver-$DATE.tar.gz"; do
                 subdir=$(basename $(dirname "$f"))
+                set +e
                 rclone copy "$f" "${REMOTE}:gateway-vps-backups/${subdir}/" \
                     --no-traverse 2>&1 | while IFS= read -r l; do log "    rclone: $l"; done
+                rc=${PIPESTATUS[0]}
+                set -e
+                if [ "$rc" -ne 0 ]; then
+                    RCLONE_FAILED=1
+                    RCLONE_FAIL_DETAIL+="${REMOTE}:${subdir}/$(basename "$f") "
+                fi
             done
         done
-        log "  rclone push complete."
+        log "  rclone push complete (failed=${RCLONE_FAILED})."
     fi
 
     send_alert \
         "Gateway Backup — Proxmox Push Failed" \
-        "Gateway VPS nightly backup OK (${SIZES}) but Proxmox unreachable — retained locally for ${RETENTION_DAYS_EXTENDED}d in ${BACKUP_DIR}." \
+        "Gateway VPS nightly backup OK (${SIZES}) but hot-bm-nl unreachable — retained locally for ${RETENTION_DAYS_EXTENDED}d in ${BACKUP_DIR}." \
         "high" "warning,floppy_disk"
+
+    if [ "$RCLONE_FAILED" -eq 1 ]; then
+        send_alert \
+            "Gateway Backup — Cloud (rclone) Push Failed" \
+            "One or more rclone pushes to Hetzner/B2 failed tonight: ${RCLONE_FAIL_DETAIL}. Check /var/log/hot-gateway-vps-backup.log. Local copy is safe in ${BACKUP_DIR} for ${RETENTION_DAYS_EXTENDED}d." \
+            "high" "warning,floppy_disk"
+    fi
 fi
 
 # ── Local retention ───────────────────────────────────────────────────────────
