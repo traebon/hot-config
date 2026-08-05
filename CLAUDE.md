@@ -811,6 +811,38 @@ Config repo: /opt/hot-config → Forgejo (git.securenexus.net) + Codeberg + GitH
 
 ---
 
+## Automated Patching (apt update && upgrade — deployed 2026-08-05)
+
+Every host runs a daily systemd timer (`apt-daily-update.timer` / `apt-daily-check.timer`,
+`OnCalendar=09:00`, `RandomizedDelaySec=10min` — deliberately outside the 01:00–07:30 backup
+window above). Two variants:
+
+| Variant | Hosts | Behavior |
+|---------|-------|----------|
+| Full auto-upgrade (`apt-daily-update.sh`) | Gateway, sn-infra, sn-web, sn-monitor, sn-security, hot-pn, hot-erp | `apt-get update && apt-get -y upgrade` daily, unattended. |
+| Check-only, manual approval (`apt-daily-check.sh` + `apt-approve-upgrade`) | **hot-bm-nl only** | Lists upgradable packages via Ntfy, never applies. Run `apt-approve-upgrade` on hot-bm-nl by hand to review + apply — this host runs all 4 production VMs, so a bad `pve-kernel`/`qemu-server` bump or unattended reboot here would take the whole fleet down at once. |
+
+**Reboot policy is per-host** (`/etc/apt-daily-update/auto_reboot`, Mr. Byrne's decision
+2026-08-05): `false` (notify only, never reboot) on **Gateway** (single control point — WireGuard
+hub, Tang server for all 7 VMs, DNS, mail) and **hot-bm-nl** (not on this variant at all — see
+above). `true` (auto-reboot ~2 min after upgrading, if `/var/run/reboot-required` exists) on every
+other host — sn-security included, since its LUKS2+Tang binding auto-unlocks on boot without any
+manual step (see NBDE unlock chain in Operational Rules), so an unattended reboot there is safe.
+
+Failures and reboot-required events notify via the same shared Ntfy token CrowdSec/Grafana already
+use (`gateway/crowdsec/notifications/http.yaml`), at `priority=high` — below the `priority=5`
+threshold that triggers SMS (see Alerting Architecture), so a routine patch failure doesn't page
+Mr. Byrne's phone, just shows up in Ntfy/logs.
+
+Verified live on first deploy: ran every script manually on every host before trusting the
+unattended timer. hot-pn and hot-erp-nl both had a genuine pending kernel update and really
+auto-rebooted during this verification — confirmed both came back up cleanly (docker active, all
+containers healthy) before moving on. hot-bm-nl's check-only run correctly listed upgradable
+packages (including `qemu-server` itself) without applying anything, exactly the scenario that
+variant exists to gate. Full detail: `scripts/apt-daily-update-README.md` in `hot-config`.
+
+---
+
 ## Grafana Alerting
 
 SMTP: mail.house-of-trae.com:587 via notifications@house-of-trae.com. Contact points: "email-hot" → tristian@securenexus.net (all critical/high alerts); "ntfy-critical" → webhook to `https://ntfy.house-of-trae.com/hot-alerts` (severity=critical only, added 2026-08-04 — see below).
@@ -847,6 +879,7 @@ Notification policy: group by severity/alertname/instance — group_wait 30s, re
 | ERPNext tabError Log corruption   | After unclean shutdown: `docker exec dickson-db mariadb -u root -p<pw> _ae77c090ad3ef28b -e "REPAIR TABLE \`tabError Log\`;"` — password in secrets/dickson_db_password.txt |
 | ERPNext backend = gunicorn        | Never revert to `bench serve` — command is `gunicorn --workers=2 --worker-class=gthread --threads=4 --timeout=120 wsgi:application` from `/home/frappe/frappe-bench/sites` |
 | ERPNext asset hash drift          | `regen_assets.py` runs at startup to rebuild assets.json from image-layer files; `redis-cli DEL assets_json` also runs to bust ClientCache. Never run `bench build` inside the container — it invalidates hashes lost on next restart. |
+| ERPNext `dickson-worker` stuck restart | `docker restart`/`docker start` on `dickson-worker` alone can get permanently stuck crash-looping on `rm: cannot remove '/home/frappe/frappe-bench/sites/assets': Device or resource busy` (the base image's `entrypoint.sh` does a naive `rm -rf`+`ln -s` against what's actually a named-volume mountpoint — `dickson-backend` avoids this via its own `regen_assets.py`, which clears contents in place instead of removing the mountpoint itself, but `dickson-worker`/`dickson-scheduler` rely on the raw entrypoint). First hit 2026-08-05 when hot-erp-nl auto-rebooted for a kernel update — `dickson-backend`/`dickson-scheduler` came back fine, `dickson-worker` didn't, and repeated `docker restart`/`stop`+`start` cycles on the existing container instance kept failing identically. Fixed by `cd /opt/stacks/dickson && docker compose up -d --force-recreate dickson-worker` — a full container recreate (fresh mount namespace) cleared it immediately; reused container instances did not. |
 | ERPNext secrets must be 644       | frappe runs as UID 1000 — `chmod 600` secrets are unreadable, silently breaking Redis cache/queue                                      |
 | rclone B2                         | hard_delete=true required — otherwise leaves hidden versions                                                                           |
 | Watchtower version                | v1.5.3 only — v1.7.1 Docker API negotiation bug                                                                                        |

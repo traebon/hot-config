@@ -1,0 +1,8 @@
+[Unit]
+Description=House of Trae — daily apt update && upgrade
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/apt-daily-update.sh

@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily apt update && upgrade at 09:00 (House of Trae)
+
+[Timer]
+OnCalendar=*-*-* 09:00:00
+RandomizedDelaySec=10min
+Persistent=true
+
+[Install]
+WantedBy=timers.target
