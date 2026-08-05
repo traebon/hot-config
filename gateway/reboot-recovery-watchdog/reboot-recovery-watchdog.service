@@ -1,0 +1,8 @@
+[Unit]
+Description=House of Trae — auto-reboot recovery watchdog (detect + auto-recover stuck hosts)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/reboot-recovery-watchdog.sh

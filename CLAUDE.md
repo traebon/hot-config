@@ -841,6 +841,46 @@ containers healthy) before moving on. hot-bm-nl's check-only run correctly liste
 packages (including `qemu-server` itself) without applying anything, exactly the scenario that
 variant exists to gate. Full detail: `scripts/apt-daily-update-README.md` in `hot-config`.
 
+### Reboot recovery watchdog (`reboot-recovery-watchdog.timer`, Gateway VPS, deployed 2026-08-05)
+
+Built the same day, after hot-pn's auto-reboot above genuinely hung: WireGuard/ICMP/TCP:22 all
+stayed healthy while sshd never responded, and it took 27+ minutes of manual checking plus a
+Hostkey hard-stop+power-on (same fix as the 2026-08-03 hot-bm-nl outage, CS-510977) before it
+recovered. This watchdog automates that detection-and-recovery sequence going forward, for every
+host that can auto-reboot (`sn-infra`, `sn-web`, `sn-monitor`, `sn-security`, `hot-pn`, `hot-erp`
+— not Gateway/hot-bm-nl, which never auto-reboot in the first place).
+
+Runs every 5 min via systemd timer, checks reachability with a real SSH command (not ping/TCP —
+those stayed healthy the whole time during the hot-pn incident and would not have caught it).
+Per-host state tracked in `/var/lib/reboot-watchdog/`. Escalation, mirroring what actually worked
+for hot-bm-nl and hot-pn:
+
+1. **Unreachable 10+ min** → CRITICAL Ntfy alert (`priority=5/urgent`, triggers SMS) + automatic
+   **soft reboot** — `eq.php?action=reboot` via the Hostkey invapi for `hot-pn` (id `4683`) /
+   `hot-erp` (id `41614`, standalone VPS), or `qm reboot <vmid>` on hot-bm-nl for the 4 Proxmox
+   VMs (`sn-infra`=100, `sn-web`=102, `sn-monitor`=104, `sn-security`=106).
+2. **Still unreachable 20+ min** (10 min after the soft attempt) → CRITICAL alert + automatic
+   **hard power-cycle** — `eq.php?action=hard_off` then `action=on` for the Hostkey-hosted pair,
+   or `qm stop --skiplock <vmid>` + `qm start <vmid>` for the Proxmox VMs.
+3. **Still down after the hard cycle** → re-alerts every 15 min, but takes **no further automatic
+   action** — at that point it's flagged as needing the Hostkey KVM console by hand, same as any
+   hardware/hypervisor-level failure (see the hot-bm-nl outage precedent).
+4. Recovery (SSH reachable again) always sends a follow-up Ntfy notification naming which stage
+   was last attempted, so Mr. Byrne has full visibility even though the whole sequence ran
+   unattended.
+
+Hostkey server IDs (`4683`=hot-pn, `41614`=hot-erp) were verified live against the invapi
+(`eq.php?action=show`, matching each server's real public IP) before being hardcoded here — not
+just trusted from memory, since this script can genuinely hard-power-cycle production
+infrastructure unattended. The escalation logic itself was verified with an isolated test harness
+(fake host, stubbed reachability + actions, compressed thresholds) before being enabled for real,
+confirming the full down → soft → hard → repeat-alert → recovered state machine transitions
+correctly — deliberately not tested by forcing a real host down, given what's at stake if the
+logic were wrong.
+
+Uses the same shared Ntfy token and Hostkey invapi key already documented elsewhere
+(`/opt/stacks/hostkey-api/secrets/hostkey_api_key.txt` — see the `hostkey-invapi-notes` memory).
+
 ---
 
 ## Grafana Alerting
