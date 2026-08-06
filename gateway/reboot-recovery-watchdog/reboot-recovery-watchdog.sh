@@ -53,7 +53,11 @@ hostkey_token() {
   local key resp
   key="$(cat "$HOSTKEY_KEY_FILE")"
   resp="$(curl -fsS -m 15 "https://invapi.hostkey.com/auth.php" -d "action=login&key=$key" 2>/dev/null)" || return 1
-  python3 -c "import json,sys; print(json.loads(sys.argv[1])['token'])" "$resp" 2>/dev/null
+  # Hostkey nests the token under a top-level "result" object:
+  # {"result":{"token":"...", ...}} — not top-level. Verified 2026-08-06 after a real
+  # 7.5h hot-pn outage went unrecovered because this parsed the wrong shape and silently
+  # failed every auth call from day one.
+  python3 -c "import json,sys; print(json.loads(sys.argv[1])['result']['token'])" "$resp" 2>/dev/null
 }
 
 hostkey_call() {
@@ -67,7 +71,7 @@ do_soft_reboot() {
     hostkey)
       local token
       token="$(hostkey_token)" || { log "$host: hostkey auth FAILED, cannot soft-reboot"; return 1; }
-      hostkey_call reboot "$id" "$token" > /dev/null
+      hostkey_call reboot "$id" "$token" > /dev/null || { log "$host: eq/reboot call FAILED"; return 1; }
       log "$host: hostkey eq/reboot(id=$id) issued"
       ;;
     proxmox)
@@ -83,9 +87,9 @@ do_hard_cycle() {
     hostkey)
       local token
       token="$(hostkey_token)" || { log "$host: hostkey auth FAILED, cannot hard-cycle"; return 1; }
-      hostkey_call hard_off "$id" "$token" > /dev/null
+      hostkey_call hard_off "$id" "$token" > /dev/null || { log "$host: eq/hard_off call FAILED"; return 1; }
       sleep 15
-      hostkey_call on "$id" "$token" > /dev/null
+      hostkey_call on "$id" "$token" > /dev/null || { log "$host: eq/on call FAILED"; return 1; }
       log "$host: hostkey eq/hard_off + eq/on (id=$id) issued"
       ;;
     proxmox)
@@ -131,20 +135,34 @@ for host in "${!RECOVERY[@]}"; do
   stage="$(cat "$stage_file" 2>/dev/null || echo none)"
 
   if [ "$stage" = "none" ] && [ "$elapsed" -ge "$SOFT_THRESHOLD_SEC" ]; then
-    mins=$(( elapsed / 60 ))
-    notify urgent "CRITICAL: $host down ${mins}min — soft-rebooting" \
-      "$host unreachable for ${mins}+ min (network/ping can look fine while this happens). Issuing a soft reboot automatically."
-    do_soft_reboot "$host" "$kind" "$id"
-    echo soft > "$stage_file"
-    echo "$now" > "$last_repeat_file"
+    last_repeat="$(cat "$last_repeat_file" 2>/dev/null || echo 0)"
+    if [ $(( now - last_repeat )) -ge "$REPEAT_ALERT_SEC" ]; then
+      mins=$(( elapsed / 60 ))
+      if do_soft_reboot "$host" "$kind" "$id"; then
+        notify urgent "CRITICAL: $host down ${mins}min — soft-rebooting" \
+          "$host unreachable for ${mins}+ min (network/ping can look fine while this happens). Issued a soft reboot automatically."
+        echo soft > "$stage_file"
+      else
+        notify urgent "CRITICAL: $host down ${mins}min — soft reboot FAILED, will retry" \
+          "$host unreachable for ${mins}+ min. Automatic soft-reboot attempt failed (see /var/log/reboot-watchdog.log on the Gateway) — will retry."
+      fi
+      echo "$now" > "$last_repeat_file"
+    fi
 
   elif [ "$stage" = "soft" ] && [ "$elapsed" -ge "$HARD_THRESHOLD_SEC" ]; then
-    mins=$(( elapsed / 60 ))
-    notify urgent "CRITICAL: $host still down ${mins}min — hard power-cycling" \
-      "$host still unreachable ${mins}+ min after a soft reboot. Escalating to a hard stop + power-on (same fix as the 2026-08-03 hot-bm-nl outage)."
-    do_hard_cycle "$host" "$kind" "$id"
-    echo hard > "$stage_file"
-    echo "$now" > "$last_repeat_file"
+    last_repeat="$(cat "$last_repeat_file" 2>/dev/null || echo 0)"
+    if [ $(( now - last_repeat )) -ge "$REPEAT_ALERT_SEC" ]; then
+      mins=$(( elapsed / 60 ))
+      if do_hard_cycle "$host" "$kind" "$id"; then
+        notify urgent "CRITICAL: $host still down ${mins}min — hard power-cycling" \
+          "$host still unreachable ${mins}+ min after a soft reboot. Escalated to a hard stop + power-on (same fix as the 2026-08-03 hot-bm-nl outage)."
+        echo hard > "$stage_file"
+      else
+        notify urgent "CRITICAL: $host still down ${mins}min — hard power-cycle FAILED, will retry" \
+          "$host still unreachable ${mins}+ min after a soft reboot. Automatic hard power-cycle attempt failed (see /var/log/reboot-watchdog.log on the Gateway) — will retry."
+      fi
+      echo "$now" > "$last_repeat_file"
+    fi
 
   elif [ "$stage" = "hard" ]; then
     last_repeat="$(cat "$last_repeat_file" 2>/dev/null || echo "$down_since")"
