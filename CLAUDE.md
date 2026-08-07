@@ -707,6 +707,39 @@ logic were wrong.
 Uses the same shared Ntfy token and Hostkey invapi key already documented elsewhere
 (`/opt/stacks/hostkey-api/secrets/hostkey_api_key.txt` — see the `hostkey-invapi-notes` memory).
 
+**⚠ Real bug found+fixed 2026-08-06/07: the Hostkey token parser used the wrong JSON shape,
+silently failing every hostkey-backed recovery action for 7.5 hours.** `hostkey_token()` parsed
+`auth.php`'s response as `{"token": "..."}` top-level, but the real shape nests it —
+`{"result": {"token": "...", ...}}`. Every `hostkey_token()` call therefore failed, which the
+action functions correctly logged ("hostkey auth FAILED") — but the main loop **unconditionally**
+advanced `stage_file` to `soft`/`hard` regardless of whether the action actually succeeded, so the
+state machine locked into `hard` after the first failed attempt and then just re-alerted every
+~15 min with **no further action ever taken or retried**. This let a real hot-pn outage run
+unremediated from 09:12 to ~16:59 on 2026-08-06 (27 identical "still down, needs the Hostkey KVM
+console" alerts) — found during routine follow-up verification of this watchdog, not by active
+monitoring. Fixed: (1) corrected the JSON parse to `['result']['token']`; (2) `stage_file` now only
+advances when `do_soft_reboot`/`do_hard_cycle` actually return success — on failure it sends a
+distinct "FAILED, will retry" alert and leaves the stage unchanged so the next tick retries, gated
+by the same `REPEAT_ALERT_SEC` throttle. The live outage was recovered manually the same way the
+watchdog was supposed to (hostkey `hard_off` + `on` against id `4683`) before the code fix landed.
+**Verified for real, not just by inspection**: the very next day (2026-08-07 06:07–06:40) sn-monitor
+genuinely went down and the *fixed* script correctly self-healed it end-to-end (soft reboot at
+06:21, hard cycle at 06:36, recovered 06:40) — the first real proof this watchdog works as designed
+end-to-end, not just in the isolated test harness. Root lesson: the original test harness stubbed
+out `do_soft_reboot`/`do_hard_cycle` specifically to avoid touching real APIs while validating
+timing — correct for safety, but it meant the real `hostkey_token()`/`hostkey_call()` code path was
+never actually exercised before deploy. State-machine logic and real API-calling logic both need
+independent verification, not just one via a stub.
+
+**Fail-safe health check** (`reboot-watchdog-healthcheck.sh` on the Gateway, run via one-shot
+`systemd-run --on-calendar` transient units rather than the CronCreate tool, deliberately, so it
+survives independent of any Claude Code session) reports timer liveness, recent journal failures,
+recent watchdog-log activity, and stale per-host state files via Ntfy. Had its own latent bug fixed
+2026-08-08: it originally flagged the watchdog log as "an issue" if it had **any** content ever,
+which — once the log has real permanent history (as it now does, from the incidents above) — would
+report "issues found" on literally every future run forever. Fixed to only look at the last 24h of
+journal/log activity so repeat runs stay meaningful.
+
 ---
 
 ## Grafana Alerting
@@ -716,6 +749,10 @@ Alert rules (folder "HoT Infrastructure Alerts"): Node Down (critical, 2m), Disk
 Notification policy: group by severity/alertname/instance — group_wait 30s, repeat 1h for critical/high, 4h default. A `severity="critical"` route (matching Node Down/Disk >95%/TLS cert <7d, the 3 rules actually labeled `severity: critical`) fires to `ntfy-critical` with `continue: true`, then falls through to the existing critical|high route so email still sends too — both receivers fire for every critical alert.
 
 **Grafana → Ntfy → SMS wired up 2026-08-04** (closes the gap noted in sms_relay_migration_scope memory — Grafana previously had zero path to Ntfy at all, only the SMTP contact point existed). `ntfy-critical` is a `webhook` contact point, `authorization_scheme: Bearer` / `authorization_credentials` = the same Ntfy token CrowdSec's notification plugin already uses (`gateway/crowdsec/notifications/http.yaml`) — **`username`/`password` Basic-Auth fields do NOT work for this** despite matching curl tests succeeding manually; Grafana's webhook notifier 403'd until switched to the `authorization_scheme`/`authorization_credentials` fields, confirmed via a real temporary always-firing test rule pushed through the full pipeline (created, verified delivery + a real SMS, then deleted — no residue). URL includes `?title=Grafana+CRITICAL+Alert&priority=urgent` as query params (Ntfy accepts title/priority via querystring same as headers). Grafana's webhook contact point has **no payload templating** — the Ntfy message body is always Grafana's raw alert-group JSON, so `sms-relay` (see Gateway VPS service table) was extended to detect that shape and extract a readable line + Grafana's own `groupKey` for rate-limiting, instead of colliding on the one static Ntfy title every Grafana-critical alert would otherwise share. Wazuh was checked too — zero Ntfy integration exists there either (only path out is the PN Lockdown Mode webhook for level≥10, unrelated to Ntfy) — not wired up, no ask to do so yet.
+
+**⚠ Real bug found+fixed 2026-08-08: all 6 alert rules were `execErrState: Alerting` (fail-open on query error), causing a mass false-CRITICAL SMS storm.** Grafana and Prometheus both run on sn-monitor itself — when sn-monitor went down and got hard-power-cycled by the reboot-recovery-watchdog (see below) on 2026-08-07 ~06:07–06:40, every alert rule's query to its own just-restarting Prometheus datasource errored out simultaneously, and `execErrState: Alerting` meant every rule (Node Down, Disk >85%/>95%, Memory >90%, TLS cert <14d/<7d) fired CRITICAL for every instance it had last seen — a burst of bogus "Disk >95%"/"Node Down" texts for hosts that were never actually in trouble (real disk usage checked live: 2–32% everywhere). Fixed by setting `execErrState: Error` on all 6 rules via the provisioning API (`PUT /api/v1/provisioning/alert-rules/<uid>` with `X-Disable-Provenance: true`, admin creds in `/opt/stacks/monitoring/secrets/admin_password`) — a query/datasource error now shows as a distinct Error state in Grafana's UI instead of paging as a false CRITICAL. Verified live: all alert states back to Normal, no residual false firings. This will recur on any future sn-monitor restart if `execErrState` ever drifts back to `Alerting` — check `curl -s -u admin:<pw> localhost:3000/api/v1/provisioning/alert-rules` on sn-monitor if unexplained mass CRITICAL SMS bursts happen again.
+
+**Real capacity finding from the same investigation (not yet acted on): hot-bm-nl is memory-constrained and getting worse.** `free -h` on hot-bm-nl showed 29/31 GB used, 1.6 GB available, 4.7 GB swap in use (up from 25/31 GB used / 6.3 GB available / 1.1 GB swap documented 2026-07-30 — see Hardware — VM Allocation above). Root cause: ZFS ARC (`/proc/spl/kstat/zfs/arcstats`, `size`) is using 13.7 GB with `zfs_arc_max=0` (unbounded, `c_max` reported as 32.5 GB — effectively the whole host), competing directly with the ~14.2 GB of actual guest VM RSS for the same 32 GB of physical RAM and pushing both guests and Proxmox's own management daemons into swap. This is what triggered the (correctly real, not a false positive) "Memory >90% proxmox-host" alert seen "Pending" during this investigation. Recommended fix, not yet applied: cap `zfs_arc_max` (e.g. 8 GB) via `/etc/modprobe.d/zfs.conf` + `update-initramfs` so ARC can't crowd out guest memory — flagged to Mr. Byrne rather than applied unilaterally since it's host-wide tuning on the single Proxmox host running all 4 production VMs.
 
 ---
 
