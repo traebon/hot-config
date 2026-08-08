@@ -45,8 +45,16 @@ log "=== Gateway VPS backup START ==="
 mkdir -p "$BACKUP_DIR/tor" "$BACKUP_DIR/powerdns" "$BACKUP_DIR/mailserver"
 
 # ── 1. Tor hidden service keys (unrecoverable — losing key = losing onion address) ──
+# tar exit code 1 ("some files differ", e.g. changed mid-read) is a non-fatal warning, not an
+# error — only exit code 2+ is a real tar failure. Under set -e, an unguarded tar call would
+# otherwise kill the whole script silently on exit 1, before any alert code ever runs (this is
+# exactly what happened to the mailserver archive below on 2026-08-08 — see backup_architecture
+# notes). Guard both tar calls the same way for consistency.
 log "Backing up Tor hidden service keys..."
-tar -czf "$BACKUP_DIR/tor/tor-hidden-service-$DATE.tar.gz" -C /opt/stacks/tor/data erp
+tar -czf "$BACKUP_DIR/tor/tor-hidden-service-$DATE.tar.gz" -C /opt/stacks/tor/data erp || {
+    rc=$?
+    [ "$rc" -eq 1 ] && log "  WARNING: tar exit 1 (files changed mid-read) — archive still usable, continuing." || exit "$rc"
+}
 log "  Tor: $(du -sh "$BACKUP_DIR/tor/tor-hidden-service-$DATE.tar.gz" | cut -f1)"
 
 # ── 2. PowerDNS PostgreSQL ────────────────────────────────────────────────────
@@ -62,7 +70,10 @@ tar -czf "$BACKUP_DIR/mailserver/mailserver-$DATE.tar.gz" \
     --exclude='state/spool-postfix/public' \
     --exclude='state/lib-rspamd/*.sock' \
     -C /opt/stacks/mailserver \
-    data state config mailserver.env
+    data state config mailserver.env || {
+    rc=$?
+    [ "$rc" -eq 1 ] && log "  WARNING: tar exit 1 (files changed mid-read, e.g. live rspamd/postfix state) — archive still usable, continuing." || exit "$rc"
+}
 log "  Mailserver: $(du -sh "$BACKUP_DIR/mailserver/mailserver-$DATE.tar.gz" | cut -f1)"
 
 # ── Push to Proxmox (non-fatal — Proxmox may be unreachable during outage) ───

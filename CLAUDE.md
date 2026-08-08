@@ -127,19 +127,25 @@ Other WireGuard interfaces on the Gateway VPS (separate from the wg0 bare-metal 
           companies' backend software later — not started, no timeline). Originally stood up as a
           bare-metal-outage stand-in for pn-test/sn-personal; **made permanent 2026-07-24** for the
           same reason as wg2 above. Gateway 10.10.2.1 / pn-vps 10.10.2.2, port 51823. See
-          hostkey_server_replacement memory and the pn-vps section below.
+          hostkey_server_replacement memory and the pn-vps section below. hot-pn's own peer
+          `AllowedIPs` widened 2026-08-08 to add `10.10.70.106/32` (sn-security only, for Wazuh
+          agent enrollment — see the sn-security section above) — deliberately not widened to the
+          full VLAN mesh, hot-pn still can't reach sn-infra/sn-web/sn-monitor.
     wg4 — tunnel to hot-bm-nl (server 22272, Hostkey NL, 31.207.47.146) — the bare-metal
           *replacement* candidate itself (server 145990 was decommissioned; NL not CH, see
           hostkey_server_replacement memory), NOT a temporary stand-in like wg2/wg3. Gateway
           10.10.3.1 / hot-bm-nl 10.10.3.2 (interface name wg0 on that host), port 51824. Enabled
-          via systemd on both ends. No services live behind it yet — fleet migration architecture
-          (Proxmox install? VLAN routing rebuild?) not yet decided, see
-          HoT_Bare_Metal_Migration_Checklist.md when that work starts.
+          via systemd on both ends. Fleet migration architecture is now live — see the 4-VM VLAN
+          topology above. hot-bm-nl's own peer `AllowedIPs` (for this tunnel, `wg0.conf` on that
+          host) widened 2026-08-08 to add `10.10.2.2/32` + `10.10.4.2/32` (hot-pn/hot-erp-nl) so it
+          accepts forwarded packets carrying their real source IPs — see the Wazuh agent
+          enrollment note under sn-security above for why.
     wg5 — tunnel to hot-erp-nl (server 41614, Hostkey NL, 151.243.173.46) — ERPNext's new
           permanent home as of the 2026-08-01 migration off Hostinger, see the hot-erp section
           below and hot_erp_hostkey_ch_migration_scope memory. Gateway 10.10.4.1 / hot-erp-nl
           10.10.4.2 (interface name wg0 on that host), port 51825. Enabled via systemd on both
-          ends.
+          ends. hot-erp-nl's own peer `AllowedIPs` widened 2026-08-08, same reason/scope as wg3
+          above (`10.10.70.106/32` only).
 
 **Key rule:** Production traffic never routes through Tailscale. Tailscale = admin SSH only.
 **Key rule:** Bare metal has zero public-facing ports. All public traffic enters via the Gateway VPS.
@@ -286,7 +292,10 @@ local `ntfy` container that had actually been running since 2026-07-02 (Ntfy's o
 before an earlier "move to sn-infra" that apparently never fully decommissioned it) rather than
 build fresh — confirmed it wasn't just an idle leftover: CrowdSec's own alert plugin
 (`gateway/crowdsec/notifications/http.yaml`) had been posting real ban notifications to it via
-`http://ntfy:80/hot-alerts` the whole time, using a still-valid bearer token, verified live.
+`http://ntfy:80/hot-alerts` the whole time, using a still-valid bearer token, verified live. The
+leftover `/opt/stacks/ntfy/` stack here (still present but `Exited`, never actually removed when
+the service moved) was confirmed unused and torn down 2026-08-08 (`docker compose down -v` +
+directory removal) — nothing pointed at it anymore.
 
 ### sn-business (ssh sn-business — 10.10.20.101)
 | Service     | Path                 | URL                      | Port |
@@ -361,6 +370,24 @@ Wazuh creds (saved in Vaultwarden, "House of Trae — Gateway VPS" folder):
 - Dashboard/admin login: `admin` / `bRSsn8P2v1YIbemCHejpEb6l`
 - Wazuh API (wazuh-wui): `mHB2UhhMw0wTc3q8@22vJeOvr`
 - OpenSearch kibanaserver: `h2huT1B1TrUXQg8Wri5FqhdP`
+
+**Agent enrollment — full fleet coverage as of 2026-08-08.** Until this date only the manager
+itself and the Gateway VPS had an agent installed; sn-infra/sn-web/sn-monitor/hot-bm-nl/hot-pn/
+hot-erp-nl all lacked one. All 7 non-manager hosts are now enrolled and Active (`agent_control -l`
+on the manager container). Install pattern: Wazuh's own apt repo
+(`packages.wazuh.com/4.x/apt stable main`, `wazuh.gpg` keyring — minimal Debian VM images need
+`gnupg` installed first), `WAZUH_MANAGER=10.10.70.106 apt-get install -y wazuh-agent`, then
+`/var/ossec/bin/agent-auth -m 10.10.70.106 -A $(hostname)` (talks to `wazuh-authd` on
+sn-security:1515, already running/exposed, no manager-side change needed), `systemctl enable --now
+wazuh-agent`. hot-bm-nl's agent registered under its real hostname `proxmox22272.hostkey.in`.
+
+Reaching sn-security from hot-pn/hot-erp-nl required widening their own wg3/wg5 tunnel `AllowedIPs`
+(client-side only, scoped to `10.10.70.106/32`) **and** hot-bm-nl's wg4 peer `AllowedIPs` (to accept
+their real source IPs, `10.10.2.2/32`+`10.10.4.2/32` — WireGuard drops non-matching sources silently
+at the crypto layer, before iptables ever sees the packet) — plus 4 narrowly-scoped Gateway
+`ufw route allow` rules (wg3/wg5→wg4, restricted to `10.10.70.106` ports `1514`/`1515` only, not
+general VLAN access). Full detail, including the missing-VLAN30↔70-forward-rule bug found along the
+way: `wazuh_agent_enrollment_2026_08_08` memory.
 
 ---
 
@@ -624,18 +651,43 @@ to end, but no current publisher has been confirmed to use that priority yet.
 
 ## Backup Architecture
 
+**Corrected 2026-08-08 — there is no separate generic "06:00 Hetzner / 07:30 B2" pull job.** Each
+script below pushes to its cloud remote(s) directly, on its own cron schedule. This table previously
+implied a shared pull-everything step at fixed times; that mechanism doesn't exist. Verified against
+the Gateway's live crontab (`crontab -l`) and each script's actual logic while investigating a
+2026-08-08 silent-failure bug (see below).
+
 | Tier           | Tool                  | Schedule    | Destination             | Encryption                         |
 |----------------|-----------------------|-------------|-------------------------|------------------------------------|
 | VM snapshots   | vzdump (Proxmox)      | 02:00 daily | /var/lib/vz/dump (ZFS)  | zstd compressed                    |
+| VM snapshots offsite (hot-bm-nl) | rclone crypt (`vzdump-offsite-push.sh`, systemd timer) | 04:30 daily (after the 02:00 vzdump job) | **Hetzner Storage Box only** | rclone crypt (hetzner-crypt remote) |
 | Config sync    | git + cron            | 01:00 daily | Forgejo → Codeberg + GH | Forgejo auth                       |
-| Cloud (Hetzner)| rclone crypt          | 06:00 daily | Hetzner Storage Box     | rclone crypt (hetzner-crypt remote)|
-| Cloud (B2)     | rclone crypt + B2     | 07:30 daily | Backblaze B2            | rclone crypt — hard_delete=true    |
-| hot-pn PrivateNexus DB (formerly pn-vps) | pg_dump (hot-pn) + Gateway pull + rclone crypt | 03:00 hot-pn dump → 03:30 Gateway pull/push | Local (hot-pn, 14d) → Gateway (30d) → Hetzner + B2 | rclone crypt (same hetzner-crypt/b2-hot-crypt remotes) |
+| Keycloak DB (Gateway) | `backup-keycloak.sh`, cron | 01:30 daily | Primary: hot-bm-nl. **Hetzner+B2 only as a fallback** when hot-bm-nl is unreachable that night — not a nightly B2 write | rclone crypt (same two remotes) |
+| hot-pn PrivateNexus DB (formerly pn-vps) | pg_dump (hot-pn, own timer ~03:00) + Gateway rsync pull + rclone crypt | 03:30 daily | Local (hot-pn, 14d) → Gateway (30d) → **Hetzner + B2, both attempted every night unconditionally** — this is the one reliable nightly B2 write, useful as the canary for whether B2 pushes are currently healthy | rclone crypt (hetzner-crypt/b2-hot-crypt) |
+| Gateway VPS backup (Tor keys, PowerDNS DB, Mailserver) | `backup-gateway-vps.sh`, cron | 05:30 daily | Primary: hot-bm-nl. **Hetzner+B2 only as a fallback** when hot-bm-nl is unreachable that night, same pattern as Keycloak above | rclone crypt (same two remotes) |
+| Cloud (B2), overall scope | — | — | Backblaze B2 — **small DB/config backups only, not VM images** (see backup_architecture_b2_scope_2026_08_08 memory) | rclone crypt — hard_delete=true |
 
-Cron: 01:00 config sync → 02:00 vzdump (~3h, done ~05:00) → 03:00 pn-vps DB dump → 03:30 Gateway pulls it → 06:00 Hetzner → 07:30 B2
-⚠️ vzdump runs 3h on 7 VMs. Cloud uploads must NOT start before 06:00 — concurrent HDD I/O caused nightly crashes (Jun 26–28).
-Config repo: /opt/hot-config → Forgejo (git.securenexus.net) + Codeberg + GitHub mirrors
-Config repo: /opt/hot-config → Forgejo (git.securenexus.net) + Codeberg + GitHub mirrors
+Real cron order: 01:00 config sync → 01:30 Keycloak → 02:00 vzdump (~3h, done ~05:00) → 03:00
+hot-pn's own pg_dump → 03:30 Gateway pulls it + pushes Hetzner/B2 → 04:30 hot-bm-nl's own
+vzdump→Hetzner push → 05:30 Gateway VPS backup (Tor/PowerDNS/Mailserver, primary path to hot-bm-nl).
+⚠️ vzdump runs on hot-bm-nl's 4 VMs (100/102/104/106) — real fleet-wide nightly output is **~415GB**
+(VM 102/sn-web alone is ~268GB/backup), so full-image offsite retention (14d) is a ~5.8TB
+steady-state footprint. This is why B2 is deliberately scoped to DB/config-only above — B2's account
+cap was sized for that small scale, not full VM images (Hetzner absorbs those instead).
+
+**Real bug found+fixed 2026-08-08: `backup-gateway-vps.sh`'s mailserver `tar` step could silently
+kill the entire nightly run with zero alerting.** The script runs under `set -e`; `tar` returns exit
+code 1 (not 2) for the ordinary, non-fatal "file changed as we read it" warning that happens when
+archiving a live mail spool/rspamd state directory mid-write — `set -e` doesn't distinguish that
+from a real failure and killed the script immediately, before any of its own alert-sending code
+could run. This happened for real on 2026-08-08's 05:30 run: the log just stops mid-archive, no
+push to hot-bm-nl, no cloud fallback, no email/Ntfy — a full night's backup silently vanished. Fixed
+by wrapping both `tar` calls (Tor keys + mailserver) to tolerate exit code 1 specifically while
+still treating exit 2+ as fatal. Verified same-day: ran the fixed script manually, completed cleanly
+end-to-end (Tor → PowerDNS → Mailserver 300M → pushed to hot-bm-nl). Config repo: /opt/hot-config →
+Forgejo (git.securenexus.net) + Codeberg + GitHub mirrors. ⚠️ Cloud uploads must NOT start before
+06:00 if ever scheduled directly against local disk — concurrent HDD I/O caused nightly crashes (Jun
+26–28) — not currently a live constraint given the schedule above, kept here as the original reason.
 
 ---
 

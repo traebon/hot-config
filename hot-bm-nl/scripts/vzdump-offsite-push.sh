@@ -1,8 +1,11 @@
 #!/bin/bash
 # Pushes the previous night's vzdump archives (VMs 100/102/104/106) from hot-bm-nl's
-# local ZFS-backed dump storage to Hetzner + B2 (rclone crypt), mirroring the pattern
-# already used by the Gateway VPS's own backup-*.sh scripts. Runs after the 02:00
-# daily-fleet-backup vzdump job (systemd timer, see vzdump-offsite-push.timer).
+# local ZFS-backed dump storage to Hetzner (rclone crypt) — Hetzner only, deliberately not
+# B2. Full nightly output across the fleet is ~415GB (VM 102 alone is ~268GB/night); at 14-day
+# retention that's ~5.8TB steady-state, too large for B2's account storage cap (which is sized
+# for the small PrivateNexus DB backup-hot-pn-privatenexus-db.sh pushes instead — see
+# backup_architecture_b2_scope_2026_08_08 memory, Mr. Byrne's decision 2026-08-08). Runs after
+# the 02:00 daily-fleet-backup vzdump job (systemd timer, see vzdump-offsite-push.timer).
 set -uo pipefail
 
 DUMP_DIR="/var/lib/vz/dump"
@@ -54,7 +57,7 @@ log "  Found ${#FILES[@]} fresh file(s) to push."
 
 FAILED=0
 FAIL_DETAIL=""
-for REMOTE in hetzner-crypt b2-hot-crypt; do
+for REMOTE in hetzner-crypt; do
     rclone listremotes 2>/dev/null | grep -q "^${REMOTE}:" || continue
     log "  Pushing to ${REMOTE}..."
     for f in "${FILES[@]}"; do
@@ -72,13 +75,13 @@ done
 if [ "$FAILED" -eq 1 ]; then
     send_alert \
         "vzdump Offsite Push — Cloud Push Failed" \
-        "One or more vzdump files failed to push to Hetzner/B2: ${FAIL_DETAIL}. Check /var/log/vzdump-offsite-push.log on hot-bm-nl. Local copies remain in ${DUMP_DIR}." \
+        "One or more vzdump files failed to push to Hetzner: ${FAIL_DETAIL}. Check /var/log/vzdump-offsite-push.log on hot-bm-nl. Local copies remain in ${DUMP_DIR}." \
         "high" "warning,floppy_disk"
 fi
 
 # Offsite retention — local storage.cfg keeps everything (keep-all=1), so prune the
-# cloud copies here to avoid unbounded growth (this is what tripped the B2 cap before).
-for REMOTE in hetzner-crypt b2-hot-crypt; do
+# cloud copy here to avoid unbounded growth.
+for REMOTE in hetzner-crypt; do
     rclone listremotes 2>/dev/null | grep -q "^${REMOTE}:" || continue
     rclone delete "${REMOTE}:proxmox-vm-backups/" --min-age "${RETENTION_DAYS}d" 2>&1 | while IFS= read -r l; do log "    prune ${REMOTE}: $l"; done
 done
