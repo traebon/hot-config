@@ -1,0 +1,15 @@
+type: leaky
+name: hot/vaultwarden-bf
+description: "Detect brute force against Vaultwarden login (identity token endpoint)"
+filter: "evt.Meta.service == 'http' && evt.Parsed.target_fqdn == 'vault.house-of-trae.com' && evt.Meta.http_status in ['400', '401', '403', '500', '502', '503', '504'] && evt.Meta.http_path == '/identity/connect/token'"
+groupby: "evt.Meta.source_ip"
+capacity: 5
+leakspeed: "5m"
+blackhole: 15m
+labels:
+  service: vaultwarden
+  type: bruteforce
+  behavior: "http:bf"
+  remediation: true
+  confidence: 2
+  spoofable: 0
