@@ -244,7 +244,15 @@ monitor.securenexus.net {
     import crowdsec
     import compress
     import secure_headers
-    import sso
+    # SSO removed 2026-08-09 -- this domain (securenexus.net) doesn't share a parent domain with
+    # oauth2-proxy's fixed callback host (ds.house-of-trae.com), so its CSRF cookie can never reach
+    # the callback -- structurally broken, not fixable via cookie clearing. Switched to the same
+    # IP-allowlist pattern already used for gatus.securenexus.net. See
+    # caddy_sso_domain_mismatch_2026_08_09 memory.
+    @internal_only {
+        not remote_ip 10.10.0.0/16 10.10.90.0/24 151.241.217.91
+    }
+    respond @internal_only 403
     reverse_proxy 10.10.50.104:3001
 }
 status.house-of-trae.com {
@@ -259,7 +267,12 @@ prometheus.securenexus.net {
     import crowdsec
     import compress
     import secure_headers
-    import sso
+    # SSO removed 2026-08-09 -- same cross-domain CSRF cookie bug as monitor.securenexus.net above,
+    # same fix. See caddy_sso_domain_mismatch_2026_08_09 memory.
+    @internal_only {
+        not remote_ip 10.10.0.0/16 10.10.90.0/24 151.241.217.91
+    }
+    respond @internal_only 403
     reverse_proxy 10.10.50.104:9090
 }
 # tresemme.space — pn-test (10.10.60.105) retired outright 2026-08-03, no rebuild planned (see
