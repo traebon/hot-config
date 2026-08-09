@@ -39,6 +39,7 @@ services:
     volumes:
       - /opt/monitoring/grafana/data:/var/lib/grafana
     environment:
+      GF_DATABASE_WAL: "true"
       GF_SERVER_ROOT_URL: "https://grafana.house-of-trae.com"
       GF_SERVER_DOMAIN: "grafana.house-of-trae.com"
       GF_AUTH_GENERIC_OAUTH_ENABLED: "true"

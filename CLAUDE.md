@@ -76,9 +76,10 @@ hot-bm-nl (Hostkey NL, server 22272, oVirt VPS — bare-metal replacement) — P
 
     VLAN 20 (sn-business) and VLAN 40 (sn-personal) are NOT being rebuilt here — those
     roles permanently moved to hot-erp/hot-pn (see PERMANENT decision, 2026-07-24).
-    VLAN 40 (sn-personal)'s own fate (retire vs. repurpose for Phase 4 "HoT Sync") is still open —
-    see hostkey_server_replacement memory. VLAN 60 (pn-test) is settled: **retired outright, Mr.
-    Byrne's decision 2026-08-03** — no rebuild planned, ever.
+    VLAN 40 (sn-personal) and VLAN 60 (pn-test) are both settled: **retired outright, Mr. Byrne's
+    decision** (pn-test 2026-08-03, sn-personal 2026-08-09) — no rebuild planned for either, ever.
+    Any future Phase 4 "HoT Sync" work will need a different landing spot — see the sn-personal
+    section below and hostkey_server_replacement memory.
 
     ⚠ The ORIGINAL bare-metal host (AMD EPYC 3151, Switzerland DC, server 145990) is
     PERMANENTLY DECOMMISSIONED — unfixable NIC fault, refunded, replaced by hot-bm-nl.
@@ -129,8 +130,16 @@ Other WireGuard interfaces on the Gateway VPS (separate from the wg0 bare-metal 
           same reason as wg2 above. Gateway 10.10.2.1 / pn-vps 10.10.2.2, port 51823. See
           hostkey_server_replacement memory and the pn-vps section below. hot-pn's own peer
           `AllowedIPs` widened 2026-08-08 to add `10.10.70.106/32` (sn-security only, for Wazuh
-          agent enrollment — see the sn-security section above) — deliberately not widened to the
-          full VLAN mesh, hot-pn still can't reach sn-infra/sn-web/sn-monitor.
+          agent enrollment — see the sn-security section above), widened again 2026-08-09 to add
+          `10.10.3.2/32` (hot-bm-nl itself, port 8006 only, for PrivateNexus's own Proxmox health
+          check — see the PN Proxmox Health Endpoint Fix note under the hot-pn section below), and
+          widened again the same day to add `10.10.50.104/32` (sn-monitor — the `AllowedIPs` entry
+          itself is IP-level, not port-level; actual port scoping is enforced by two separate
+          Gateway `ufw route allow` forward rules, ports 9090 and 3100, plus matching sn-monitor-side
+          UFW rules, so PN's Fleet widget and log viewer can reach the real central Prometheus/Loki
+          instead of hot-pn's own local stand-in — see the Monitoring (temp) note under the hot-pn
+          section below) — still not widened to the full VLAN mesh, each addition is narrowly scoped
+          to one host and specific ports for a specific real purpose.
     wg4 — tunnel to hot-bm-nl (server 22272, Hostkey NL, 31.207.47.146) — the bare-metal
           *replacement* candidate itself (server 145990 was decommissioned; NL not CH, see
           hostkey_server_replacement memory), NOT a temporary stand-in like wg2/wg3. Gateway
@@ -166,7 +175,7 @@ SSH config: /root/.ssh/config
 | sn-monitor  | 10.10.50.104   | 50   |
 | sn-security | 10.10.70.106   | 70   |
 
-**Removed 2026-07-30** (confirmed dead-end via full fleet health check, see fleet_health_check_2026_07_30 memory): `proxmox` (10.10.0.2), `sn-business` (10.10.20.101), `sn-personal` (10.10.40.103), `pn-test` (10.10.60.105) — all routed to VLANs/hosts that only existed behind the old wg0 tunnel to the permanently decommissioned original bare-metal host (EPYC 3151, server 145990). sn-business/sn-personal's roles moved permanently to hot-erp/hot-pn; pn-test is retired outright (Mr. Byrne's decision, 2026-08-03) and will not be revived — see Network Topology above and hostkey_server_replacement memory. sn-personal's own VLAN fate (retire vs. repurpose) remains separately open.
+**Removed 2026-07-30** (confirmed dead-end via full fleet health check, see fleet_health_check_2026_07_30 memory): `proxmox` (10.10.0.2), `sn-business` (10.10.20.101), `sn-personal` (10.10.40.103), `pn-test` (10.10.60.105) — all routed to VLANs/hosts that only existed behind the old wg0 tunnel to the permanently decommissioned original bare-metal host (EPYC 3151, server 145990). sn-business's role moved permanently to hot-erp/hot-pn; sn-personal and pn-test are both retired outright (Mr. Byrne's decisions, sn-personal 2026-08-09, pn-test 2026-08-03) and will not be revived — see Network Topology above and hostkey_server_replacement memory.
 
 ---
 
@@ -203,9 +212,9 @@ not Zen 1) but may still matter if HoT ever colocates real hardware again.
 ## Hardware — VM Allocation (COMMITTED RESOURCES)
 
 Only 4 of the original 7 VM roles were ever rebuilt on hot-bm-nl (see Network Topology above) —
-**101/sn-business, 103/sn-personal, and 105/pn-test do not exist on this host.** sn-business and
-sn-personal's roles moved permanently to hot-erp/hot-pn (sn-personal's own VLAN fate is still
-separately open); pn-test is retired outright, Mr. Byrne's decision 2026-08-03 — no rebuild, ever.
+**101/sn-business, 103/sn-personal, and 105/pn-test do not exist on this host.** sn-business's role
+moved permanently to hot-erp/hot-pn; sn-personal and pn-test are both retired outright (Mr. Byrne's
+decisions, sn-personal 2026-08-09, pn-test 2026-08-03) — no rebuild for either, ever.
 Their SSH aliases were removed 2026-07-30 (see SSH Access table above) after a fleet health check
 confirmed they were dead ends. Do not plan capacity against the old 7-VM/11-vCPU/40GB figures below —
 they're historical.
@@ -274,8 +283,9 @@ All VMs run as root.
 | Tang              | systemd (tangd.socket)  | NBDE unlock for ALL 7 VMs — 10.10.0.1:7500 (WireGuard only, NOT Docker) |
 | Vaultwarden       | /opt/stacks/vaultwarden/ | vault.house-of-trae.com — deliberately on the Gateway VPS, not a VM, so secrets stay reachable if bare metal goes down. `ADMIN_TOKEN_FILE` docker secret (pre-hashed argon2id PHC string, not plaintext). |
 | Ntfy              | /opt/stacks/ntfy/       | ntfy.house-of-trae.com — moved here 2026-08-03 from sn-infra (was a single point of failure with the exact fleet it's meant to alert about being down — see Network Topology/sn-infra section). Reuses the container that's been running on the Gateway since 2026-07-02 (Ntfy's original deployment, never actually torn down after an earlier documented "move" to sn-infra) — CrowdSec's alert plugin had been quietly using it the whole time regardless of what Caddy's public vhost pointed at. The SMS relay (Node.js sms-relay — see Alerting Architecture and the Gateway VPS service table below) was rebuilt on the Gateway itself 2026-08-03/04, closing out the single-point-of-failure concern that used to apply when it lived on sn-infra. |
-| Gatus             | /opt/stacks/gatus/      | Independent uptime monitor, port 8080 (internal only, no public vhost). Deliberately on the Gateway, not sn-monitor — sn-monitor (Grafana/Prometheus/Uptime Kuma) lives on hot-bm-nl, so it can't alert on its own host's death; Gatus exists specifically to catch that blind spot. 12 endpoints (Gateway-local services + the hot-bm-nl-hosted public services: Forgejo/Grafana/Wazuh/ERPNext). Alerts via email only (`notifications@house-of-trae.com`) — deliberately not Ntfy/SMS: true at the time this was built (both lived on sn-infra, part of the same failure domain), and still true for SMS (its relay is still on sn-infra), but Ntfy itself moved to the Gateway later the same day (see the sn-infra section above) — email remains the right choice here regardless, since it doesn't depend on Ntfy either. Was undocumented here for 9+ days until found+fixed 2026-08-03 (see gatus_alerting_gap memory) — had been correctly detecting the hot-bm-nl outage the whole time but had zero alerting providers configured, which is why nobody was told. Password secret lives only at `/opt/stacks/gatus/secrets/gatus.env` (`chmod 600`), never in the git-tracked `hot-config` copy. Its Grafana check was separately broken (checking the wrong path, root redirects rather than 200) — found+fixed during the same-day outage recovery, see the hot_bm_nl_outage memory. |
+| Gatus             | /opt/stacks/gatus/      | Independent uptime monitor, port 8080 (internal only, no public vhost). Deliberately on the Gateway, not sn-monitor — sn-monitor (Grafana/Prometheus/Uptime Kuma) lives on hot-bm-nl, so it can't alert on its own host's death; Gatus exists specifically to catch that blind spot. 12 endpoints (Gateway-local services + the hot-bm-nl-hosted public services: Forgejo/Grafana/Wazuh/ERPNext). Alerts via email only (`notifications@house-of-trae.com`) — deliberately not Ntfy/SMS: true at the time this was built (both lived on sn-infra, part of the same failure domain), and still true for SMS (its relay is still on sn-infra), but Ntfy itself moved to the Gateway later the same day (see the sn-infra section above) — email remains the right choice here regardless, since it doesn't depend on Ntfy either. Was undocumented here for 9+ days until found+fixed 2026-08-03 (see gatus_alerting_gap memory) — had been correctly detecting the hot-bm-nl outage the whole time but had zero alerting providers configured, which is why nobody was told. Password secret lives only at `/opt/stacks/gatus/secrets/gatus.env` (`chmod 600`), never in the git-tracked `hot-config` copy. Its Grafana check was separately broken (checking the wrong path, root redirects rather than 200) — found+fixed during the same-day outage recovery, see the hot_bm_nl_outage memory. **A second, unrelated Grafana-check bug found+fixed 2026-08-08**: the `[BODY].database == "ok"` JSON-path condition had been silently failing on every check but the very first one after a restart (1497 consecutive false results over 5 days) despite the real endpoint always returning correct content — replaced with a `pat()` raw-body pattern match, confirmed holding across 3+ consecutive check cycles post-fix. See `gatus_grafana_check_bug_2026_08_08` memory. |
 | sn-infra recovery watchdog | systemd (`sn-infra-recovery-check.timer`) | Not a container — a local systemd timer + script (`/usr/local/bin/sn-infra-recovery-check.sh`, tracked in `hot-config/gateway/scripts/`), added 2026-08-03 during the hot-bm-nl outage. Checks every 15 min whether sn-infra is reachable (fresh wg4 handshake + real SSH), emails a one-time notification via the same SMTP path as Gatus when it detects a down→up transition. Deliberately local, not a `/schedule` cloud agent — cloud sandboxes have no access to wg4/SSH/Tailscale. Served its purpose once already (2026-08-03 recovery); harmless to leave running for any future recurrence. See gatus_alerting_gap and hot_bm_nl_outage memories. |
+| Dockge            | /opt/stacks/dockge/     | Docker Compose stack management UI (`louislam/dockge:1`) for every stack in `/opt/stacks/` on the Gateway. Running since 2026-02-19, found undocumented during the 2026-08-08 diagnostic sweep — not a stray leftover, a deliberately-scoped admin tool: `ports: "100.106.41.10:5001:5001"` binds it to the Gateway's own Tailscale IP only, same access pattern already used for hot-bm-nl's Proxmox UI (port 8006, also Tailscale-scoped) — no UFW rule needed since it's not bound to a public interface at all. Mounts `/var/run/docker.sock` + the full `/opt/stacks` tree, so it has complete management capability over every service on this host — reachable only over Tailscale by design, matches the "Tailscale = admin only" rule. Access: `http://100.106.41.10:5001` from an admin device on the tailnet. |
 | sms-relay | /opt/stacks/sms-relay/  | Rebuilt from scratch here 2026-08-03, fully functional as of 2026-08-04 (see sms_relay_migration_scope memory) — the original, documented as living on sn-infra, turned out to be completely gone (no container, no systemd unit, nothing on disk) since at least the 2026-07-27 sn-infra rebuild, which never redeployed it. Small Node.js service, no framework, subscribes directly to Ntfy's `hot-alerts` topic (anonymous read already granted there) and forwards only `priority=5`/"urgent" messages to Twilio SMS — CrowdSec's own ban notifications (`priority=high`/4) are correctly excluded. Rate-limited to 1 SMS per alert-group per 5 min, matching the documented Alerting Architecture limit — grouped by Grafana's own `groupKey` for Grafana-shaped payloads (added 2026-08-04, see Grafana Alerting section), message title otherwise. Real Twilio credentials wired in 2026-08-04 (`/opt/stacks/sms-relay/secrets/`); `SMS_FROM_NUMBER=+447403942795` (Twilio's own hosted number) / `SMS_TO_NUMBER=+447771724186` (Mr. Byrne's real mobile) — Twilio rejects identical To/From (error 21266), hit and fixed live, see user_contact memory. Verified with a real SMS sent and confirmed received. **Now has a real live publisher**: Grafana's 3 CRITICAL-severity alert rules (Node Down/Disk >95%/TLS cert <7d), wired 2026-08-04 — previously nothing published to Ntfy at priority=5 at all except manual tests. Tracked in `hot-config/gateway/sms-relay/` (secrets excluded, per the `**/secrets/` gitignore rule) — unlike its predecessor, this one won't silently vanish on a future rebuild. |
 
 ### sn-infra (ssh sn-infra — 10.10.10.100)
@@ -316,7 +326,7 @@ Stack: custom image (`/opt/stacks/dickson/docker/Dockerfile`) — `frappe/erpnex
 
 All 6 are nginx:alpine + static "Coming Soon" pages, reverse-proxied via Caddy (root + www).
 
-### sn-personal — ⚠️ HISTORICAL, this VM does not currently exist
+### sn-personal — ⚠️ RETIRED (Mr. Byrne's decision, 2026-08-09), this VM does not currently exist
 **Not rebuilt on hot-bm-nl** (VLAN 40 excluded — see Network Topology above) and its SSH alias
 (`sn-personal`, 10.10.40.103) was removed 2026-07-30 as a dead end (fleet health check). The table
 below describes what this VM ran **before** the original bare-metal host was decommissioned —
@@ -324,10 +334,11 @@ kept for historical reference only, not current state. `privatenexus.net` is **n
 here anymore; it's permanently routed to hot-pn (`10.10.2.2:5173`, see the hot-pn section below).
 Cosmos (and the personal services it ran — Vaultwarden, Immich, Firefly III, Actual Budget,
 Nextcloud, Notesnook) was fully removed in Jun 2026, data was never populated so no loss. **VLAN
-40/sn-personal's fate is still an open decision** — Mr. Byrne has tentatively floated repurposing
-it for the Phase 4 "HoT Sync" roadmap item, but wanted to scope that separately, not bundle it into
-the fleet rebuild. See `hostkey_server_replacement` memory. Don't confuse this with pn-test
-(VLAN 60), which Mr. Byrne confirmed 2026-08-03 is retired outright, not just historical.
+40/sn-personal's fate: confirmed retired outright, 2026-08-09** — same call as pn-test, no rebuild
+planned, ever. Mr. Byrne had tentatively floated repurposing it for the Phase 4 "HoT Sync" roadmap
+item, but decided against reserving it for that; HoT Sync will need a different landing spot if it
+ever gets scoped. See `hostkey_server_replacement` memory. Matches pn-test (VLAN 60), which Mr.
+Byrne confirmed 2026-08-03 is retired outright — both VLANs are now settled, not just historical.
 
 | Service (historical, pre-outage) | Path                       | URL                 | Port |
 |-----------------------------------|----------------------------|---------------------|------|
@@ -341,7 +352,7 @@ the fleet rebuild. See `hostkey_server_replacement` memory. Don't confuse this w
 | Loki        | (inside monitoring)     | 10.10.50.104:3100         | 3100 |
 | Uptime Kuma | (inside monitoring)     | status.house-of-trae.com  | —    |
 
-status.house-of-trae.com — slug `hot-status`, exposes only the 6 group entity sites. Admin at monitor.securenexus.net:3001.
+status.house-of-trae.com — slug `hot-status`, exposes only the 6 group entity sites. Admin at **monitor.house-of-trae.com** (moved from monitor.securenexus.net:3001 2026-08-09, old URL 301-redirects — see the SSO section below for why).
 Grafana admin password: reset via `grafana cli admin reset-admin-password` — GF_SECURITY_ADMIN_PASSWORD only applies on first init.
 node-exporter UFW gotcha: Prometheus runs in bridge network 172.18.0.0/16 — UFW must allow that subnet to port 9100.
 
@@ -477,9 +488,10 @@ Topology. UFW locked down (deny-by-default; only SSH, the wg3 port, and 5173/tcp
 | Service      | Path               | Notes                                                                 |
 |--------------|--------------------|-----------------------------------------------------------------------|
 | PrivateNexus | /opt/privatenexus/ | privatenexus.net (Caddy repointed here) — full stack built and deployed from `origin/main`. Reuses the existing Keycloak `privatenexus` client secret unchanged. `PROXMOX_URL`/`PROXMOX_TOKEN` won't work until bare metal is reachable — expected, not a bug. `PDNS_API_KEY` is live and working (PowerDNS reachability fixed 2026-07-15 — Gateway UFW rule, wg0 AllowedIPs widened to `10.10.2.1/32, 10.10.0.1/32`, and a manual route add after `wg syncconf`, which doesn't install kernel routes on its own — see Operational Rules). |
-| Monitoring (temp) | /opt/stacks/monitoring-temp/ | Local Prometheus + node-exporter + Loki + Promtail stand-in (added 2026-07-15), `compose_pn-internal` only, no host ports published. Loki `/ready` returns a cosmetic 503 (known single-node quirk, still ingests correctly) — don't "fix" this into a broken HTTP health check. Permanent now that pn-vps is PrivateNexus's home. |
+| Monitoring (temp) | /opt/stacks/monitoring-temp/ | Local Prometheus + node-exporter + Loki + Promtail stand-in (added 2026-07-15), `compose_pn-internal` only, no host ports published. Loki `/ready` returns a cosmetic 503 (known single-node quirk, still ingests correctly) — don't "fix" this into a broken HTTP health check. Permanent now that pn-vps is PrivateNexus's home. **Real stale-target bug found+fixed 2026-08-09**: `pn-prometheus`'s own scrape config had a hardcoded target for the decommissioned old Hostinger ERP box (`10.10.1.2:9100`, the dead `wg2` tunnel IP, torn down 2026-08-03) still labeled `instance: erp-temp` — reported `down` continuously for 6 days, and PN's own live "Alert Monitor" UI feature (polls this Prometheus directly, not PN's own DB) correctly surfaced it as a permanent "Node down" banner the whole time. This was the real answer to a user-reported alert that took most of a session to trace past two unrelated bugs found along the way. Fixed by removing the target + purging the stale series (`--web.enable-admin-api` enabled temporarily, `delete_series`, then disabled again) — see `pn_erp_temp_stale_target_2026_08_09` memory. **Separately, PN's `.env` had 3 vars marked "TEMPORARY (2026-07-15) ... revert once bare metal is back"** that were never reverted despite hot-bm-nl being back since 2026-07-27 — **all 3 fixed 2026-08-09/10**: `PROMETHEUS_URL` → sn-monitor's real central Prometheus `10.10.50.104:9090` (new `wg3` AllowedIPs + Gateway forward rule + sn-monitor UFW rule, port 9090 — powers PN's home-page "Fleet" VM-tiles widget, previously only ever showed `pn-vps`); `LOKI_URL` → `10.10.50.104:3100` (same connectivity pattern, port 3100, verified via the real `/loki/api/v1/labels` endpoint since `/ready` always cosmetically 503s per the note above); `PROXMOX_URL` → `10.10.3.2:8006` (hot-bm-nl, correcting the dead `10.10.0.2` — connectivity already existed from the same week's services-table Proxmox health-check fix, just a value change). The stale "TEMPORARY" comment block in `.env` was also rewritten to reflect current state. See `pn_erp_temp_stale_target_2026_08_09` memory. |
 | Watchtower | /opt/stacks/watchtower/ | Pinned v1.5.3, monitor-only. PrivateNexus's 3 locally-built services carry `com.centurylinklabs.watchtower.enable=false` (no registry to check). Has a real bearer-token-gated metrics health check (`WATCHTOWER_HTTP_API_METRICS=true`, deliberately not `_UPDATE`) — `services.health_endpoint` uses `tcp://watchtower:8080` since the schema can't carry the token for an HTTP check. Token in Vaultwarden ("pn-vps Watchtower HTTP API token"). |
 | Discovery agent | /opt/privatenexus/scripts/discovery-agent.sh | `privatenexus-discovery-agent.timer` (systemd, boot + hourly) pushes host + container facts to `POST /api/discovery/ingest`, authenticating with a real rotated DB token (`agent_tokens`, `600`-permission secret file) — not the bootstrap fallback. |
+| Proxmox health check | (PN's `services` table, monitored-service row named "Proxmox") | **Fixed 2026-08-09** — had pointed at `tcp://10.10.0.2:8006`, the decommissioned original bare-metal host's address (dead since 2026-07-24), for 19 days straight with zero alerting on the mismatch itself, only a permanently-stuck `down_spike` signal + orphaned `pending` remediation proposal. Repointed to `tcp://10.10.3.2:8006` (hot-bm-nl) with real connectivity: scoped UFW on hot-bm-nl (`10.10.2.2` → port 8006 only), hot-pn's `wg3` `AllowedIPs` widened to add `10.10.3.2/32` (+ manual `ip route add`, `syncconf` doesn't install routes), a matching Gateway `wg3→wg4` forward rule — same pattern as the sn-security/Wazuh fix above. Verified live: service flipped to `healthy` on the next 2-min scheduler cycle, the stuck signal self-resolved automatically. **Separate PN-code-level bug found and left in place on purpose**: the orphaned remediation proposal did not auto-dismiss when its signal resolved — see `pn_proxmox_health_endpoint_fix_2026_08_09` memory. Note this is unrelated to the `PROXMOX_URL`/`PROXMOX_TOKEN` note above (a different governance-API integration, not re-verified during this fix — worth rechecking separately now that hot-bm-nl is reachable, since that note may itself be stale). |
 
 **Current governance state (as of the 2026-07-16/24 audit sessions):** all 15 registered services
 (the original 11 pn-vps containers + 4 mapped external dependencies — Keycloak, PowerDNS API, Caddy
@@ -588,9 +600,10 @@ Zones managed (confirmed live):
 
 tresemme.space records — all → 151.241.217.91:
   apex (placeholder). This was pn-test's domain for personal services (Cosmos-era Nextcloud/
-  Vaultwarden/Immich/etc., removed Jun 2026) — pn-test is now retired outright (2026-08-03), so no
-  further subdomains are planned here unless a future personal-services plan (e.g. Phase 4 "HoT
-  Sync", tentatively eyed for sn-personal instead) explicitly picks this domain back up.
+  Vaultwarden/Immich/etc., removed Jun 2026) — pn-test and sn-personal are now both retired outright
+  (2026-08-03 and 2026-08-09 respectively), so no further subdomains are planned here unless a
+  future personal-services plan (e.g. Phase 4 "HoT Sync", now needing an unrelated landing spot)
+  explicitly picks this domain back up.
   `pn`/`notes` subdomains are still live — plain Caddy redirects to real external services
   (privatenexus.net, app.notesnook.com respectively), never actually depended on pn-test, kept as-is.
   Removed from Caddy 2026-08-03 (DNS records not touched, harmless if still present): `sync`,
@@ -688,6 +701,22 @@ end-to-end (Tor → PowerDNS → Mailserver 300M → pushed to hot-bm-nl). Confi
 Forgejo (git.securenexus.net) + Codeberg + GitHub mirrors. ⚠️ Cloud uploads must NOT start before
 06:00 if ever scheduled directly against local disk — concurrent HDD I/O caused nightly crashes (Jun
 26–28) — not currently a live constraint given the schedule above, kept here as the original reason.
+
+**Fleet-wide sweep for the same bug pattern, same day, turned up a separate housekeeping item:**
+`/usr/local/bin/backup-gateway-vps.sh` and `/usr/local/bin/backup-keycloak.sh` were both stale,
+unused duplicates (dated 2026-07-04, still referencing the retired `proxmox` SSH alias and old
+sn-infra-hosted Ntfy) sitting alongside the real, live scripts at `/opt/hot-config/scripts/` — cron
+only ever called the `/opt/hot-config/` copies (see the table above), so both `/usr/local/bin/`
+duplicates were dead weight, never executed. Both removed 2026-08-08/09 after confirming no
+cron/systemd reference to either path. `/usr/local/bin/` now has no leftover backup scripts at all —
+`backup-keycloak.sh`/`backup-gateway-vps.sh` only exist under `/opt/hot-config/scripts/`.
+
+**B2 cap fix confirmed via the real nightly canary, not just an ad hoc test:** `b2-cap-check.sh`
+(`/usr/local/bin/`, mirrored to `hot-config/gateway/scripts/`, run once via a `systemd-run
+--on-calendar` one-shot timer 2026-08-09 06:15) checked the prior night's real scheduled runs —
+`hot-pn`'s 03:30 pg_dump pushed to `b2-hot-crypt` with zero errors on 2026-08-09, vs. real `403
+storage_cap_exceeded` failures on both 2026-08-07 and 2026-08-08. See
+backup_architecture_b2_scope_2026_08_08 memory for full detail.
 
 ---
 
@@ -808,6 +837,8 @@ Notification policy: group by severity/alertname/instance — group_wait 30s, re
 
 **Real capacity finding from the same investigation, fixed same day: hot-bm-nl was memory-constrained due to an uncapped ZFS ARC.** This is what triggered the (correctly real, not a false positive) "Memory >90% proxmox-host" alert seen "Pending" during this investigation — full detail and the fix (`zfs_arc_max` capped at 8 GB) now lives in the Hardware — VM Allocation section's Hard Limits note, not duplicated here.
 
+**⚠ Separate, previously-undiscovered bug found+fixed 2026-08-09: Grafana's own SQLite database (`grafana.db`) had chronic lock contention (`SQLITE_BUSY`) since 2026-08-05 — 15,761 "database is locked" errors over 7 days, still ongoing when found.** Different root cause from the `execErrState` bug above (that one's still correctly set to `Error`, didn't drift back) — this one caused a genuine 44-minute alert-state flapping burst (02:55-03:39 UTC that morning) across all 6 rules, with **zero real infrastructure impact** (confirmed via range query: every scrape target stayed `up=1` throughout). Also explains an empty Log Explorer datasource picker Mr. Byrne separately hit — both datasources were actually still registered fine (`/api/datasources` confirmed), the picker just couldn't render reliably while Grafana's own DB was locked. No delivered notification went out for the burst (Grafana's notifier was itself failing from the same lock during that window) — what Mr. Byrne saw was the state directly in Grafana's Alerts UI, not an email/SMS/Ntfy message. Root cause: `grafana.ini`'s `[database]` section was fully default, no WAL (write-ahead logging) mode — default SQLite journal mode requires an exclusive lock per write, chokes under concurrent alert-rule evaluation writes. Ruled out an image-version cause (container `Created` timestamp unchanged since 2026-07-28; Watchtower here is deliberately `MONITOR_ONLY=true`, same as PN's). **Fixed**: added `GF_DATABASE_WAL: "true"` to sn-monitor's `docker-compose.yml`, recreated the `grafana` container, verified datasources/alert rules intact and zero lock errors across a real 5-minute post-fix monitoring window spanning multiple evaluation cycles. See `grafana_sqlite_lock_2026_08_09` memory for full detail, including one unresolved oddity (no `-wal`/`-shm` sidecar files appeared despite the fix working — didn't block declaring this fixed since the practical symptom is confirmed gone).
+
 ---
 
 ## Operational Rules (Hard-Won Learnings)
@@ -819,6 +850,7 @@ Notification policy: group by severity/alertname/instance — group_wait 30s, re
 | WireGuard AllowedIPs              | Must update on BOTH VPS and bare metal when adding a new VLAN/subnet                                                                   |
 | VM clone checklist                | Fix UFW input policy (DROP→ACCEPT) and nameserver on every clone                                                                       |
 | Caddy reload                      | `docker compose restart caddy` from /opt/stacks/caddy/ — kill -USR1 and admin API both FAIL                                           |
+| Caddy access logging needs a per-site `log` directive | The global options block's `log { output file /data/access.log ... }` only defines the *destination* — it does NOT automatically enable access logging for any site. Each site block needs its own bare `log` line, or only `http.log.error` (connection failures) gets captured, never real request/response entries. **Found+fixed 2026-08-09**: none of the 34 real site blocks had this, discovered while tracing a real user-reported error that turned out to leave zero trace anywhere. Fixed via a brace-depth-aware script that inserted `log` as the first line of every site block (skipping the global block and all snippet definitions) — see `caddy_access_logging_gap_2026_08_09` memory. |
 | PowerDNS API                      | Port 8081 (not 8053) — Caddy TLS uses acme_dns with api_token                                                                         |
 | Docker secrets                    | chmod 644 (not 600) for non-root container users                                                                                       |
 | Caddy remote_ip                   | Sees Docker bridge IP not real client IP — IP-based access control ineffective                                                         |
@@ -855,7 +887,7 @@ Notification policy: group by severity/alertname/instance — group_wait 30s, re
 | Proxmox NIC PCIe link loss        | Intel I350 NIC (`igb 0000:03:00.0 nic0`) has intermittent PCIe link loss causing complete outages (Jun 26, Jun 27, Jun 28). Fix: `pcie_aspm=off` in `/etc/kernel/cmdline` (NOT /etc/default/grub — Proxmox uses proxmox-boot-tool/systemd-boot, not GRUB). Run `proxmox-boot-tool refresh` after editing cmdline. Applied Jun 28 18:55 boot on kernel 7.0.12-1-pve. **This is a MITIGATION, not a fix** — crashes continued Jun 30 at 05:30 and 08:49 with the identical fault signature (`PCIe link lost` / `Failed to read reg 0xc030!` / NETDEV WATCHDOG timeout / adapter reset), just at ~34h intervals instead of daily. `ethtool -S nic0` shows rx_missed_errors/rx_fifo_errors climbing even between crashes, confirming the fault is still present at a sub-crash level. `lm-sensors` installed Jul 1 — CPU (k10temp) reads ~33°C at time of fault window, ruling out thermal as the cause. Hostkey ticket still open and required: physical NIC reseat/replacement — this is the real fix. NIC watchdog cron at `/etc/cron.d/nic-watchdog` (`/usr/local/bin/nic-watchdog.sh`, every 2 min) attempts `ip link down/up` + `wg-quick up` on link loss but has a 100% failure rate recovering from this specific fault (log: `/var/log/nic-watchdog.log`) — a full reboot is required to restore the NIC. Watchdog now pushes an Ntfy CRITICAL alert on recovery failure (added Jul 1). |
 | Wazuh offline disk edit           | Wazuh compose and config can be edited offline: stop VM → mount disk via NBD → Clevis unlock → LVM activate → mount → edit → unmount all → `qemu-nbd --disconnect` → start VM. |
 | Wazuh dashboard wazuh.yml default password | `/opt/stacks/wazuh/config/wazuh_dashboard/wazuh.yml` ships with placeholder password `MyS3cr37P450r.*-` for the `wazuh-wui` API user. Must be replaced with the real API password after every fresh deploy, then `docker restart wazuh-wazuh.dashboard-1`. Symptom: dashboard shows "could not accept any API entry". |
-| Docker Mailserver ClamAV stale signatures | `ghcr.io/docker-mailserver/docker-mailserver:latest` (currently release 15.1.0) hasn't been rebuilt by upstream since 2025-08-12 — confirmed via the GHCR registry digest directly, not a local pull/cache issue. Bundled ClamAV (1.0.7) is stuck in a permanent freshclam CDN cool-down loop ("Forbidden; Blocked by CDN") since ClamAV's CDN blocks outdated client versions — `docker compose pull` is a no-op until upstream ships a new release. The `:edge` tag does have current ClamAV (1.4.3, live signatures) but is upstream's nightly/unstable branch — deliberately NOT adopted for production mail (every domain's SMTP/IMAP, including notifications@house-of-trae.com alerting) just to fix a secondary AV layer; rspamd remains the unaffected primary spam/phishing filter. Real long-term fix if ever prioritized: decouple ClamAV into its own sidecar (`clamav/clamav` image, actively maintained independently) with docker-mailserver's milter pointed at that external clamd socket — scoped but not started as of 2026-07-05. **Related bug found+fixed 2026-08-08: `clamd` was being OOM-killed daily** (kernel logs showed it killed at ~988MB resident, same time ~13:00, three days running 08-05/06/07) — the mailserver container's `mem_limit` was only `1024m`, too tight for clamd's own footprint plus postfix/dovecot/rspamd/amavis sharing the same cgroup. Raised to `2048m` in `compose.yaml`, applied via `docker compose up -d` (brief recreate, verified back up within ~5s). Doesn't fix the underlying stale-signatures issue above, just stops the daily OOM-kill side effect of it. |
+| Docker Mailserver ClamAV signatures | **Corrected 2026-08-09 — the "permanent CDN block" below is stale, not current state.** `ghcr.io/docker-mailserver/docker-mailserver:latest` (currently release 15.1.0) still hasn't been rebuilt by upstream since 2025-08-12 (bundled ClamAV stays 1.0.7, "OUTDATED" warning is cosmetic/permanent), but the freshclam CDN block itself **cleared on its own around 2026-07-28** — confirmed live via `/var/log/mail/freshclam.log*` on the Gateway: real successful `daily.cld` updates every ~12-24h from 2026-07-28 (v28074) through 2026-08-09 (v28086, current, matching a fresh `clamscan --version` check), zero "Forbidden; Blocked by CDN" errors anywhere in that window — a sharp contrast with the sustained daily 403/429 failures logged through 2026-07-12. Root cause of the original block and exact reason it cleared are both unknown (ClamAV's CDN blocks outdated client versions, presumably lifted after enough cooldown) — not investigated further since the practical effect (signatures were stale) is what mattered and that's resolved. Item 9's proposed ClamAV-sidecar decoupling fix (`clamav/clamav` image, scoped 2026-07-05, never started) is **no longer needed** — the trigger condition ("only worth picking up if the stale-signature situation actually causes a problem") no longer holds. The `:edge` tag point (current ClamAV 1.4.3, nightly/unstable, deliberately not adopted for production mail) still stands as background context. **Related, separate bug found+fixed 2026-08-08: `clamd` was being OOM-killed daily** (kernel logs showed it killed at ~988MB resident, same time ~13:00, three days running 08-05/06/07) — the mailserver container's `mem_limit` was only `1024m`, too tight for clamd's own footprint plus postfix/dovecot/rspamd/amavis sharing the same cgroup. Raised to `2048m` in `compose.yaml`, applied via `docker compose up -d` (brief recreate, verified back up within ~5s) — unrelated to the CDN-block finding above, just a coincidentally-adjacent ClamAV issue found the same week. |
 
 ---
 
@@ -893,7 +925,7 @@ Notification policy: group by severity/alertname/instance — group_wait 30s, re
 
 ### SSO via oauth2-proxy (default pattern for new web apps)
 
-Gateway runs a shared `oauth2-proxy` (`/opt/stacks/oauth2-proxy/`) as an OIDC client (`oauth2-proxy` in the `securenexus` Keycloak realm), with `--cookie-domain=.house-of-trae.com` so one login covers every app that gates behind it, and a fixed `--redirect-url=https://ds.house-of-trae.com/oauth2/callback` (must stay the sole Keycloak-registered redirect URI regardless of which app initiated login — oauth2-proxy carries the original app URL through the OAuth `state` param and 302s back to it after auth).
+Gateway runs a shared `oauth2-proxy` (`/opt/stacks/oauth2-proxy/`) as an OIDC client (`oauth2-proxy` in the `securenexus` Keycloak realm), configured with **two** `--cookie-domain` flags (`.house-of-trae.com` and `.securenexus.net` — oauth2-proxy picks whichever matches the requesting host) and a fixed `--redirect-url=https://ds.house-of-trae.com/oauth2/callback` (must stay the sole Keycloak-registered redirect URI regardless of which app initiated login — oauth2-proxy carries the original app URL through the OAuth `state` param and 302s back to it after auth).
 
 The Caddyfile has an `(sso)` snippet (global snippets section) that wires this up correctly — including the path-matcher fix needed so `/oauth2/*` callback requests don't get caught by their own auth check (`forward_auth` has no path scoping by default, so without a `not path /oauth2/*` matcher it loops on itself). To gate a new app, just add `import sso` alongside `import crowdsec` in its site block:
 ```
@@ -905,6 +937,27 @@ newapp.house-of-trae.com {
 }
 ```
 First deployed for `webmail.house-of-trae.com` (Roundcube) — Roundcube's own IMAP/SMTP login still runs after the gate (this is a pre-auth wall using centralized identity, not a skip-login IMAP OAUTH2 integration). True passwordless SSO into Roundcube would require enabling Docker Mailserver's OAUTH2/XOAUTH2 support against Keycloak plus the Roundcube `oauth2` plugin — bigger scope, not yet done, evaluate only if the pre-auth wall proves insufficient.
+
+**⚠ `import sso` only works for apps under `house-of-trae.com` itself — found+fixed 2026-08-09.**
+Despite `--cookie-domain` covering both `.house-of-trae.com` and `.securenexus.net`, the SSO gate is
+structurally broken for any `securenexus.net` app: the CSRF cookie set during `/oauth2/start` is
+scoped to whichever domain initiated the request (correct, dynamic per-host behavior), but the
+callback always completes at the single fixed `ds.house-of-trae.com` URL above — a
+`.securenexus.net`-scoped cookie can never be sent to a `house-of-trae.com` request, so the callback
+can never find it. Real, reproducible symptom: "Login Failed: Unable to find a valid CSRF token."
+every single time, not fixable by clearing cookies/retrying. Confirmed live on the old
+`monitor.securenexus.net`. **Real fix applied: moved both affected apps off `securenexus.net`
+entirely** — `monitor.securenexus.net` → **`monitor.house-of-trae.com`**,
+`prometheus.securenexus.net` → **`prometheus.house-of-trae.com`** (new `A` records via PowerDNS,
+`import sso` restored and verified actually working — `Set-Cookie` now shows
+`Domain=house-of-trae.com`, matching the callback). Old `securenexus.net` URLs kept as permanent
+301 redirects to the new ones, matching the existing `mail.house-of-trae.com` →
+`webmail.house-of-trae.com` pattern. An IP-allowlist workaround (matching
+`gatus.securenexus.net`/`rspamd.securenexus.net`'s pattern) was applied first, then superseded by
+this domain move the same day — see `caddy_sso_domain_mismatch_2026_08_09` memory for the full
+history. **Before adding `import sso` to any future site block, confirm the domain is under
+`house-of-trae.com`** — if not, either put it there or use IP allowlisting instead, or this bug
+recurs.
 
 ---
 
@@ -933,13 +986,29 @@ Auth files: `/opt/stacks/tor/data/erp/authorized_clients/` (chown 100:101, chmod
 2026-07-27/28 rebuild) and Cosmos retirement (fully removed Jun 2026) — this list wasn't updated
 when either landed.
 
-- CrowdSec custom scenarios
+- ~~CrowdSec custom scenarios~~ **Done since 2026-07-02, this line was stale (2nd time — a
+  2026-08-03 audit already found the same staleness and fixed it, but the fix itself never landed
+  here).** 3 local scenarios live in `/opt/hot-config/gateway/crowdsec/scenarios/`: `hot/admin-scan`
+  (multi-path scan detection), `hot/forgejo-bf`, `hot/keycloak-bf` — all bug-audited and fixed
+  2026-08-03 (3 real bugs found: a 5xx-blind status filter, zero host-scoping letting unrelated
+  traffic pollute a bucket, and a `distinct` clause that silently defeated brute-force counting on 2
+  of the 3 scenarios since creation). See `crowdsec_custom_scenarios_audit_2026_08_03` memory.
+  **Re-scoped 2026-08-09**: checked whether other HoT login surfaces (ERPNext, Grafana, Wazuh
+  dashboard, PowerDNS-Admin) have the same kind of status-code blind spot — all four return a
+  standard 401/403 on bad login and are already covered by the installed
+  `LePresidente/http-generic-401-bf`/`403-bf` scenarios. **One real gap found and fixed same day:
+  Vaultwarden's `/identity/connect/token` returns HTTP 400 on bad login (confirmed live), which none
+  of the installed scenarios watched for.** Built `hot/vaultwarden-bf` (4th local scenario, same
+  no-`distinct` leaky-bucket pattern as the other 3), deployed live and verified loaded
+  (`cscli scenarios list`, clean container restart, bouncer still authenticating after), committed
+  and pushed to all 3 `hot-config` remotes (`694e427`).
 - PrivateNexus PN roadmap gates (v5.0/v6.0/v7.0) — see `PrivateNexus_Release_Roadmap_v1.0.md` and
   the `open_items_2026_07_27` memory for current gate-item detail; re-verify before trusting any
   snapshot, this list drifts (e.g. Security Lockdown Mode was listed unbuilt as of 2026-07-27 but
   was actually finished 2026-08-01 — see `PrivateNexus_Security_Lockdown_Mode_Design.md`)
-- HoT Sync (Flutter) — Immich + Nextcloud + Notesnook + Vaultwarden; tentatively tied to sn-personal
-  (VLAN 40)'s still-open fate, not yet scoped
+- HoT Sync (Flutter) — Immich + Nextcloud + Notesnook + Vaultwarden; no longer tied to sn-personal
+  (VLAN 40 retired outright 2026-08-09, see the sn-personal section above) — needs a fresh landing
+  spot if this is ever scoped, not yet scoped either way
 - HoT Command (Flutter) — Mobile ops dashboard (also listed as a v7.0 PN roadmap candidate)
 - Second bare metal node (HA)
 - Edge load balancing (second VPS)
