@@ -65,11 +65,13 @@
 }
 # Group Domains
 house-of-trae.com, www.house-of-trae.com {
+    log
     import crowdsec
     import secure_headers
     respond "House of Trae — Coming Soon" 200
 }
 securenexus.net, www.securenexus.net {
+    log
     import crowdsec
     import secure_headers
     handle /.well-known/webfinger {
@@ -81,50 +83,59 @@ securenexus.net, www.securenexus.net {
     }
 }
 byrne-accounts.org, www.byrne-accounts.org {
+    log
     import crowdsec
     import secure_headers
     respond "Byrne Accounts — Coming Soon" 200
 }
 stratus-digital.com, www.stratus-digital.com {
+    log
     import crowdsec
     import compress
     import block_probes
     reverse_proxy 10.10.30.102:8001
 }
 discreet-elite.uk, www.discreet-elite.uk {
+    log
     import crowdsec
     import compress
     import block_probes
     reverse_proxy 10.10.30.102:8002
 }
 emerald-markets.net, www.emerald-markets.net {
+    log
     import crowdsec
     import compress
     import block_probes
     reverse_proxy 10.10.30.102:8003
 }
 rubyosiris.com, www.rubyosiris.com {
+    log
     import crowdsec
     import compress
     import block_probes
     reverse_proxy 10.10.30.102:8004
 }
 evilrabbitart.com, www.evilrabbitart.com {
+    log
     import crowdsec
     import compress
     import block_probes
     reverse_proxy 10.10.30.102:8005
 }
 dickson-supplies.com, www.dickson-supplies.com {
+    log
     import crowdsec
     import compress
     import block_probes
     reverse_proxy 10.10.30.102:8006
 }
 www.privatenexus.net {
+    log
     redir https://privatenexus.net{uri} permanent
 }
 privatenexus.net {
+    log
     import crowdsec
     import compress
     # PERMANENT (decided 2026-07-24): PrivateNexus's home is hot-pn (formerly
@@ -135,18 +146,21 @@ privatenexus.net {
     header Strict-Transport-Security "max-age=31536000; includeSubDomains"
 }
 tresemme.space {
+    log
     import crowdsec
     import secure_headers
     respond "House of Trae — Personal" 200
 }
 # Transition Domain
 cloud-architects.online, www.cloud-architects.online {
+    log
     import crowdsec
     import secure_headers
     respond "Stratus Digital — Coming Soon" 200
 }
 # Auth (Keycloak SSO)
 auth.house-of-trae.com {
+    log
     import crowdsec
     import compress
     import secure_headers
@@ -154,16 +168,19 @@ auth.house-of-trae.com {
 }
 # Mail
 mail.house-of-trae.com {
+    log
     import crowdsec
     redir https://webmail.house-of-trae.com{uri} permanent
 }
 webmail.house-of-trae.com {
+    log
     import crowdsec
     import compress
     import sso
     reverse_proxy roundcube:80
 }
 git.securenexus.net, git.house-of-trae.com {
+    log
     import crowdsec
     import compress
     reverse_proxy 10.10.10.100:3000
@@ -175,6 +192,7 @@ git.securenexus.net, git.house-of-trae.com {
     }
 }
 wazuh.house-of-trae.com {
+    log
     import crowdsec
     import compress
     import secure_headers
@@ -188,12 +206,14 @@ wazuh.house-of-trae.com {
 # Points at hot-erp-nl (Hostkey NL, server 41614) over the wg5 tunnel — migrated
 # 2026-08-01 from hot-erp (Hostinger, wg2) per item 26 in open_items_2026_07_27.
 http://qcrzygpg5qbzch4c2qlcgiktuvzf3xwqwtd7mkcn5r4g4mxebmpptkid.onion {
+    log
     reverse_proxy 10.10.4.2:8000 {
         header_up Host erp.dickson-supplies.com
     }
 }
 # Dickson Supplies - ERPNext
 erp.dickson-supplies.com {
+    log
     import crowdsec
     import compress
     # Migrated 2026-08-01 from hot-erp (Hostinger, wg2/10.10.1.2) to hot-erp-nl
@@ -213,12 +233,14 @@ erp.dickson-supplies.com {
 }
 # Monitoring Stack
 grafana.house-of-trae.com {
+    log
     import crowdsec
     import compress
     import secure_headers
     reverse_proxy 10.10.50.104:3000
 }
 monitor.securenexus.net {
+    log
     import crowdsec
     import compress
     import secure_headers
@@ -226,12 +248,14 @@ monitor.securenexus.net {
     reverse_proxy 10.10.50.104:3001
 }
 status.house-of-trae.com {
+    log
     import crowdsec
     import compress
     import secure_headers
     reverse_proxy 10.10.50.104:3001
 }
 prometheus.securenexus.net {
+    log
     import crowdsec
     import compress
     import secure_headers
@@ -244,31 +268,37 @@ prometheus.securenexus.net {
 # longer exists and were removed the same day. pn/notes below are plain redirects to real external
 # services, not proxies to pn-test, so they're kept.
 pn.tresemme.space {
+    log
     redir https://privatenexus.net{uri} permanent
 }
 notes.tresemme.space {
+    log
     import crowdsec
     redir https://app.notesnook.com permanent
 }
 dns-admin.house-of-trae.com {
+    log
     import crowdsec
     import compress
     import secure_headers
     reverse_proxy 10.10.10.100:9191
 }
 wiki.house-of-trae.com {
+    log
     import crowdsec
     import compress
     import secure_headers
     reverse_proxy 10.10.10.100:3030
 }
 namevault.co.uk {
+    log
     import crowdsec
     import compress
     import secure_headers
     reverse_proxy 10.10.10.100:8010
 }
 ntfy.house-of-trae.com {
+    log
     import crowdsec
     import compress
     import secure_headers
@@ -282,6 +312,7 @@ ntfy.house-of-trae.com {
     reverse_proxy ntfy:80
 }
 ds.house-of-trae.com {
+    log
     import crowdsec
     reverse_proxy oauth2-proxy:4180
     header {
@@ -292,6 +323,7 @@ ds.house-of-trae.com {
     }
 }
 gatus.securenexus.net {
+    log
     import crowdsec
     import compress
     @internal_only {
@@ -301,6 +333,7 @@ gatus.securenexus.net {
     reverse_proxy gatus:8080
 }
 vault.house-of-trae.com {
+    log
     import crowdsec
     import compress
     reverse_proxy vaultwarden:80
@@ -312,6 +345,7 @@ vault.house-of-trae.com {
     }
 }
 rspamd.securenexus.net {
+    log
     import crowdsec
     import compress
     @local_only {
