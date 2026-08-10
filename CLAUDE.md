@@ -35,6 +35,7 @@ All reference documents are in /root/hot/docs/. Use docx2txt or pdftotext (both 
 | PrivateNexus_PRD_v1.0.md                                | MD    | Product Requirements Document — current build state, all functional reqs, gaps |
 | PrivateNexus_Multitenancy_RBAC_Design.md                | MD    | Multi-tenancy and RBAC design — schema, isolation rules, migration path         |
 | PrivateNexus_Security_Lockdown_Mode_Design.md            | MD    | Security lockdown mode design (v6.0 gate item) — tier model, Wazuh/CrowdSec integration, scoped+locked 2026-07-30, not yet built |
+| PrivateNexus_Catalogue_Deploy_Flow_Scope.md               | MD    | Catalogue-driven deploy flow scope (item 21 follow-on) — Cosmos-style pick/customize/review-compose/deploy flow, scoped 2026-08-10, **Phase 1 (Nextcloud) and Phase 2 (Notesnook) both confirmed working end-to-end same day** — see hot-pn section below |
 | PrivateNexus_Commercial_Packaging_Licensing.md          | MD    | Commercial packaging — edition model, pricing logic, open-core boundary, GTM   |
 | dnssec-ds-records.md                                    | MD    | DNSSEC DS record reference for managed zones                                    |
 | HoT_Bare_Metal_Migration_Checklist.md                   | MD    | Hostkey bare-metal server replacement — phased migration/rebuild checklist      |
@@ -485,9 +486,90 @@ Reached from the Gateway VPS over the dedicated `wg3` tunnel (10.10.2.1 ↔ 10.1
 Topology. UFW locked down (deny-by-default; only SSH, the wg3 port, and 5173/tcp scoped to
 10.10.2.1 are open). Claude Code (native install) is also set up on this box for direct use there.
 
+**Catalogue deploy flow, Phase 1 — built 2026-08-10** (see `docs/PrivateNexus_Catalogue_Deploy_Flow_Scope.md`
+for the full scope this implements). New: `GET/POST /api/catalogue/:id/deploy-form|preview` in
+`routes/catalogue.js`, a `service.provision_from_catalogue` action type + executor in
+`routes/actions.js` (reuses the existing `action_requests` governance queue — propose → review
+real generated compose in the UI → admin approve → real deploy on this host → auto-registered in
+`services`, no Discovery round-trip needed). Nextcloud is the first real templated app
+(`catalogue/templates/nextcloud/docker-compose.yml.tmpl`, Postgres + Redis) — deploys to
+`/opt/stacks/<slug>/`, bound to `127.0.0.1` only, DNS/Caddy deliberately not auto-wired (Option A
+from the scope doc — generate-not-apply, revisit later).
+
+**Real architecture bug found+fixed the same day, once actually exercised end-to-end**: the
+original executor shelled out to `docker compose up -d`, which could never have worked —
+`privatenexus-backend` has no `docker` CLI, no host socket, and (until fixed) no `/opt/stacks`
+mount; it only reaches Docker via `privatenexus-docker-proxy` (`NETWORKS: 0` — network create/list
+deliberately blocked). Fixed with a real 3-part change: `/opt/stacks` bind-mounted into the backend
+(host dir `chown root:1000`/`775` for the container's real UID/GID); one shared Docker network
+(`pn-catalogue-deployments`) pre-created once via direct host access, outside the restricted proxy;
+executor rewritten to parse the rendered compose YAML (added the `yaml` npm dependency) and drive
+`dockerode` directly (`createContainer`+`start` per service, `NetworkMode` set to the shared
+network). Verified live via a real dockerode probe through the actual proxy connection before
+trusting it — `NETWORKS: 0` turns out to only block create/list, not *attaching* to an
+already-existing network at container-creation time. Full detail, including the read-only-`/app`
+gotcha hit while writing the verification probe itself, in
+`pn_catalogue_deploy_flow_phase1_build_2026_08_10` memory.
+
+Both containers rebuilt multiple times this session (image-baked, not bind-mounted — edits need a
+real `docker compose build`, not just a restart/`up -d`); frontend also gained real error-surfacing
+on the Approve/Reject buttons (previously failed silently) and a self-approval relaxation for
+single-operator tenants (`tristian` is the only account here — dual-control can't be satisfied by
+exactly one person; now auto-relaxes when no other proposer/reviewer exists on record, with a
+distinct audit entry, and re-tightens the moment a second real person acts). Also caught a real
+naming collision before shipping (`deployError`/`showDeployModal` already existed for the unrelated
+image-redeploy feature — renamed all new state to a `catalogueDeploy*` prefix).
+
+**End-to-end confirmed working, 2026-08-10.** Real deploy through the actual UI succeeded — 3
+containers (Nextcloud + Postgres + Redis), auto-registered, real `status.php` check green. One more
+bug found+fixed along the way: the Redis template's `$$(cat ...)` (correct for Docker Compose's own
+variable-escaping) needed to be a single `$` now that there's no Compose layer left to unescape it —
+found via `docker inspect` showing the literal unresolved `$$` in the real container `Cmd`, not
+assumed. Fixed the template, rebuilt the backend, and fixed the already-running Redis container
+directly (stateless, safe to recreate) since it predated the fix. Verified fully: real `PONG` with
+the real secret, and `config.php` inside the container confirmed to hold the matching real password.
+See `pn_catalogue_deploy_flow_phase1_build_2026_08_10` memory for the full trace.
+
+**Phase 2 (Notesnook) built same day.** A real 5+-service stack (Mongo, MinIO + a one-shot bucket-
+setup container, identity/sync/SSE/monograph servers) — adapted from HoT's own previously-working
+self-hosted Notesnook compose file (still sitting in `hot-config` git history from the old pn-test
+VM, `pn-test/notesnook/docker-compose.yml`), not guessed. Required real executor upgrades Nextcloud
+never exercised: health-check-gated startup ordering and one-shot init-container support (`routes/
+actions.js` — `waitForHealthy`/`waitForExit`, translates compose `depends_on` conditions and
+`healthcheck:` blocks into real dockerode polling). Also added a `static_secret_files` concept to
+the preview route (`routes/catalogue.js`) for reusing a real existing credential — Notesnook's
+identity server needs working SMTP, wired to HoT's real shared relay password (same one Grafana
+already uses) via a file reference rather than embedding the plaintext value in this app's
+git-tracked `default-repo.json`. Verified the new mechanics with real isolated dockerode probes
+before considering it done (the actual Mongo healthcheck-as-init trick genuinely reaches `healthy`
+in ~6s; one-shot exit-code detection confirmed).
+
+**Confirmed working end-to-end, 2026-08-10, after 4 real bugs found+fixed via live deploy
+attempts** (isolated probes hadn't caught any of these): (1) Mongo's string-form `command:` broke
+the raw Docker API's array-only `Cmd` field — added a `cmdArrayFor()` helper in `routes/actions.js`;
+(2) the 3 ASP.NET-based images (identity/sync/sse) all bake in `ASPNETCORE_HTTP_PORTS=8080` as an
+image default, silently overriding the 8264/5264/7264 ports the template assumes — fixed with an
+explicit per-service override; (3) the real deeper cause once (2) alone didn't fix it: the `yaml`
+npm package does **not** expand `<<: *anchor` merge keys by default — without `{ merge: true }`,
+`<<` parses as a literal string key, silently dropping every real `server-discovery` env var
+(including the port var these images likely read to pick their own Kestrel bind port) across all 4
+services using the anchor. Fixed via `parseYaml(generated_compose, { merge: true })` in
+`routes/actions.js` — **this is a generic executor bug, not Notesnook-specific**, any future
+template using YAML anchors would have hit it too; (4) `notesnook-monograph` (Bun-based, no
+wget/curl, dev server binds only `::1` not `127.0.0.1`) needed a `bun -e 'fetch(...)'`-based
+healthcheck against `[::1]` explicitly instead of the wget+`localhost` pattern that worked fine for
+the other 3 .NET services. All 7 containers now up (6 healthy, `s3-setup` exited 0 as designed),
+service auto-registered. **5th bug found+fixed same day**: Caddy's default proxy timeout was
+killing the client-facing HTTP response before a deploy this long finished server-side (backend
+kept processing correctly regardless, confirmed via direct polling) — fixed via a scoped `/api/*`
+`response_header_timeout 10m` in the Gateway's Caddyfile (see the Gateway VPS Caddy row below for
+the exact change), verified with a real throwaway deploy through the public URL (clean `200` in
+30s, no `504`), then fully torn down. See `pn_catalogue_deploy_flow_phase2_notesnook_2026_08_10`
+memory for the full trace. Ready for Mr. Byrne to try through the real UI.
+
 | Service      | Path               | Notes                                                                 |
 |--------------|--------------------|-----------------------------------------------------------------------|
-| PrivateNexus | /opt/privatenexus/ | privatenexus.net (Caddy repointed here) — full stack built and deployed from `origin/main`. Reuses the existing Keycloak `privatenexus` client secret unchanged. `PROXMOX_URL`/`PROXMOX_TOKEN` won't work until bare metal is reachable — expected, not a bug. `PDNS_API_KEY` is live and working (PowerDNS reachability fixed 2026-07-15 — Gateway UFW rule, wg0 AllowedIPs widened to `10.10.2.1/32, 10.10.0.1/32`, and a manual route add after `wg syncconf`, which doesn't install kernel routes on its own — see Operational Rules). |
+| PrivateNexus | /opt/privatenexus/ | privatenexus.net (Caddy repointed here) — full stack built and deployed from `origin/main`. Reuses the existing Keycloak `privatenexus` client secret unchanged. **`PROXMOX_URL` corrected 2026-08-09/10** (now points at hot-bm-nl, `10.10.3.2:8006`, real connectivity confirmed) — the original "won't work until bare metal is reachable" note is stale, bare metal has been reachable for weeks. **`PROXMOX_TOKEN` is still a literal placeholder** (`unavailable-proxmox-behind-dead-baremetal`, checked live 2026-08-10) — a real Proxmox API token needs generating on hot-bm-nl before this specific governance-API integration actually works; not done, not attempted without checking first. `PDNS_API_KEY` is live and working (PowerDNS reachability fixed 2026-07-15 — Gateway UFW rule, wg0 AllowedIPs widened to `10.10.2.1/32, 10.10.0.1/32`, and a manual route add after `wg syncconf`, which doesn't install kernel routes on its own — see Operational Rules). |
 | Monitoring (temp) | /opt/stacks/monitoring-temp/ | Local Prometheus + node-exporter + Loki + Promtail stand-in (added 2026-07-15), `compose_pn-internal` only, no host ports published. Loki `/ready` returns a cosmetic 503 (known single-node quirk, still ingests correctly) — don't "fix" this into a broken HTTP health check. Permanent now that pn-vps is PrivateNexus's home. **Real stale-target bug found+fixed 2026-08-09**: `pn-prometheus`'s own scrape config had a hardcoded target for the decommissioned old Hostinger ERP box (`10.10.1.2:9100`, the dead `wg2` tunnel IP, torn down 2026-08-03) still labeled `instance: erp-temp` — reported `down` continuously for 6 days, and PN's own live "Alert Monitor" UI feature (polls this Prometheus directly, not PN's own DB) correctly surfaced it as a permanent "Node down" banner the whole time. This was the real answer to a user-reported alert that took most of a session to trace past two unrelated bugs found along the way. Fixed by removing the target + purging the stale series (`--web.enable-admin-api` enabled temporarily, `delete_series`, then disabled again) — see `pn_erp_temp_stale_target_2026_08_09` memory. **Separately, PN's `.env` had 3 vars marked "TEMPORARY (2026-07-15) ... revert once bare metal is back"** that were never reverted despite hot-bm-nl being back since 2026-07-27 — **all 3 fixed 2026-08-09/10**: `PROMETHEUS_URL` → sn-monitor's real central Prometheus `10.10.50.104:9090` (new `wg3` AllowedIPs + Gateway forward rule + sn-monitor UFW rule, port 9090 — powers PN's home-page "Fleet" VM-tiles widget, previously only ever showed `pn-vps`); `LOKI_URL` → `10.10.50.104:3100` (same connectivity pattern, port 3100, verified via the real `/loki/api/v1/labels` endpoint since `/ready` always cosmetically 503s per the note above); `PROXMOX_URL` → `10.10.3.2:8006` (hot-bm-nl, correcting the dead `10.10.0.2` — connectivity already existed from the same week's services-table Proxmox health-check fix, just a value change). The stale "TEMPORARY" comment block in `.env` was also rewritten to reflect current state. See `pn_erp_temp_stale_target_2026_08_09` memory. |
 | Watchtower | /opt/stacks/watchtower/ | Pinned v1.5.3, monitor-only. PrivateNexus's 3 locally-built services carry `com.centurylinklabs.watchtower.enable=false` (no registry to check). Has a real bearer-token-gated metrics health check (`WATCHTOWER_HTTP_API_METRICS=true`, deliberately not `_UPDATE`) — `services.health_endpoint` uses `tcp://watchtower:8080` since the schema can't carry the token for an HTTP check. Token in Vaultwarden ("pn-vps Watchtower HTTP API token"). |
 | Discovery agent | /opt/privatenexus/scripts/discovery-agent.sh | `privatenexus-discovery-agent.timer` (systemd, boot + hourly) pushes host + container facts to `POST /api/discovery/ingest`, authenticating with a real rotated DB token (`agent_tokens`, `600`-permission secret file) — not the bootstrap fallback. |
@@ -616,6 +698,20 @@ tresemme.space records — all → 151.241.217.91:
   redirect checks), so that list is stale for at least those two; left as-is rather than guess at
   the actual history.
   Previously noted as removed: nextcloud, vaultwarden, photos, notes, firefly, firefly-iii, actual, pn
+
+privatenexus.net — same class of Cosmos-era leftover found+removed 2026-08-10, this time on
+`privatenexus.net` itself rather than `tresemme.space`: real `A` records for `cloud`, `nextcloud`,
+`vault`, `photos`, `notes`, `notes-auth`, `notes-sse`, `notes-sync`, `notes-pub`, `notes-s3` — all →
+151.241.217.91, zero matching Caddy site blocks for any of them (only bare `privatenexus.net`/
+`www.privatenexus.net` exist). Found because Mr. Byrne hit a real `ERR_SSL_PROTOCOL_ERROR` trying
+`cloud.privatenexus.net` (an understandable guess while testing the new PN Catalogue deploy flow's
+Nextcloud instance — unrelated to it in fact, since that instance is deliberately `127.0.0.1`-only
+per the Phase 1 scope, not publicly wired at all). **Also found and removed the actual root cause,
+a `*.privatenexus.net` wildcard `A` record** — deleting the 10 specific dead names alone didn't fix
+the symptom, since the wildcard immediately backfilled `cloud.privatenexus.net` again; removing the
+wildcard was the real fix, confirmed via public `dig` (correctly returns nothing now, instead of a
+confusing SSL error). `privatenexus.net`'s own apex record untouched throughout, confirmed still
+resolving correctly.
 
 house-of-trae.com — `_tailscale-challenge` TXT record added 2026-07-16 (Tailscale domain
 verification, admin console "Add + verify domain" flow): `_tailscale-challenge.house-of-trae.com`

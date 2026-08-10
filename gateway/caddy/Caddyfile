@@ -142,6 +142,18 @@ privatenexus.net {
     # pn-vps, Hostkey CH, 151.241.217.140) over the wg3 tunnel, deliberately
     # kept off bare metal so a future Proxmox/bare-metal outage can't take it
     # down too -- see hostkey_server_replacement memory. Not a revert target.
+    # /api/* gets a much longer response timeout than Caddy's default -- found 2026-08-10 via a
+    # real Catalogue deploy (Notesnook, 7 health-checked containers) genuinely taking several
+    # minutes server-side while Caddy 504'd the client at ~60s. The backend kept processing
+    # correctly regardless (confirmed via direct DB/container polling both times this hit), but a
+    # real user clicking Approve in the browser would see a false-looking timeout/error. Scoped to
+    # /api/* only, not the whole site, so static frontend asset requests keep the tight default.
+    @api path /api/*
+    reverse_proxy @api 10.10.2.2:5173 {
+        transport http {
+            response_header_timeout 10m
+        }
+    }
     reverse_proxy 10.10.2.2:5173
     header Strict-Transport-Security "max-age=31536000; includeSubDomains"
 }
