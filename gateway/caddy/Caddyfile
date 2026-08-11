@@ -157,6 +157,55 @@ privatenexus.net {
     reverse_proxy 10.10.2.2:5173
     header Strict-Transport-Security "max-age=31536000; includeSubDomains"
 }
+cloud.house-of-trae.com {
+    log
+    import crowdsec
+    import compress
+    # No `import sso` here deliberately -- WebDAV/CalDAV/CardDAV device sync clients (phone/desktop
+    # Nextcloud apps) hit this domain directly with app passwords/Basic auth, not a browser, so they
+    # can't complete oauth2-proxy's interactive redirect flow. Nextcloud's own login + 2FA is the
+    # auth boundary here instead, matching the documented exception (New Service Deployment
+    # Checklist item 13) for services that can't sensibly support a browser login gate.
+    # Deployed via the PrivateNexus Catalogue deploy flow (Phase 1), lives on hot-pn over wg3 --
+    # same reverse-proxy-to-tunnel-IP pattern as the privatenexus.net block above.
+    reverse_proxy 10.10.2.2:28142
+    header Strict-Transport-Security "max-age=31536000; includeSubDomains"
+}
+# Notesnook self-hosted backend (Catalogue deploy Phase 2, 2026-08-10) -- 4 of its 5 services wired
+# here 2026-08-11. Same as cloud.house-of-trae.com above: native app clients (auth/sync/SSE
+# protocol, not a browser), so no `import sso` -- Notesnook's own account auth is the boundary.
+# notes-pub (monograph, public note-sharing links) deliberately NOT wired -- that image binds its
+# listener to [::1] (IPv6 loopback) only, confirmed unreachable even from another container on the
+# same docker network, so a plain port-publish can't reach it; would need a network-namespace-
+# sharing sidecar proxy to fix. Optional feature, skipped unless actually needed.
+notes-auth.house-of-trae.com {
+    log
+    import crowdsec
+    import compress
+    reverse_proxy 10.10.2.2:8264
+    header Strict-Transport-Security "max-age=31536000; includeSubDomains"
+}
+notes-sync.house-of-trae.com {
+    log
+    import crowdsec
+    import compress
+    reverse_proxy 10.10.2.2:5264
+    header Strict-Transport-Security "max-age=31536000; includeSubDomains"
+}
+notes-sse.house-of-trae.com {
+    log
+    import crowdsec
+    import compress
+    reverse_proxy 10.10.2.2:7264
+    header Strict-Transport-Security "max-age=31536000; includeSubDomains"
+}
+notes-s3.house-of-trae.com {
+    log
+    import crowdsec
+    import compress
+    reverse_proxy 10.10.2.2:9000
+    header Strict-Transport-Security "max-age=31536000; includeSubDomains"
+}
 tresemme.space {
     log
     import crowdsec
