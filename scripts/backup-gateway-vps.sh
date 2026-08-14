@@ -1,13 +1,15 @@
 #!/bin/bash
 # Gateway VPS nightly backup — runs 05:30 daily
 # Covers: Tor hidden service keys, PowerDNS DB, Mailserver data
-# Primary: push to hot-bm-nl /var/lib/vz/dump/gateway/ (picked up by rclone at 06:00/07:30)
+# Primary: push to hot-bm-nl /local-zfs/vzdump-local/dump/gateway/ (picked up by rclone at 06:00/07:30)
 # Fallback: direct rclone to hetzner-crypt: if configured, extended 30-day local retention
+# Path moved off the root LV 2026-08-14 — see hot_bm_nl_disk_full_2026_08_14 memory (root LV
+# hit 100% because vzdump backups + this path were never pruned; both moved to the ZFS pool).
 set -euo pipefail
 
 BACKUP_DIR="/var/backups/gateway-vps"
 REMOTE_HOST="hot-bm-nl"
-REMOTE_PATH="/var/lib/vz/dump/gateway"
+REMOTE_PATH="/local-zfs/vzdump-local/dump/gateway"
 RETENTION_DAYS=7
 RETENTION_DAYS_EXTENDED=30
 DATE=$(date '+%Y-%m-%d')

@@ -8,7 +8,7 @@
 # the 02:00 daily-fleet-backup vzdump job (systemd timer, see vzdump-offsite-push.timer).
 set -uo pipefail
 
-DUMP_DIR="/var/lib/vz/dump"
+DUMP_DIR="/local-zfs/vzdump-local/dump"
 RETENTION_DAYS=14
 ALERT_EMAIL="tristian@securenexus.net"
 SMTP_HOST="10.10.3.1"
@@ -79,8 +79,10 @@ if [ "$FAILED" -eq 1 ]; then
         "high" "warning,floppy_disk"
 fi
 
-# Offsite retention — local storage.cfg keeps everything (keep-all=1), so prune the
-# cloud copy here to avoid unbounded growth.
+# Offsite retention — local storage.cfg now uses keep-daily=3,keep-weekly=1 (fixed
+# 2026-08-14, was keep-all=1 and filled the root LV to 100% — see
+# hot_bm_nl_disk_full_2026_08_14 memory), but still prune the cloud copy independently
+# to avoid unbounded growth there too.
 for REMOTE in hetzner-crypt; do
     rclone listremotes 2>/dev/null | grep -q "^${REMOTE}:" || continue
     rclone delete "${REMOTE}:proxmox-vm-backups/" --min-age "${RETENTION_DAYS}d" 2>&1 | while IFS= read -r l; do log "    prune ${REMOTE}: $l"; done
