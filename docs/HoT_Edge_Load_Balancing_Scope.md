@@ -49,9 +49,14 @@ does. Today they do anyway, purely because of how ingress is wired.
 | hot-pn | 151.241.217.140 | `privatenexus.net` → Gateway Caddy → wg3 tunnel → `10.10.2.2:5173` | **None.** UFW: `5173/tcp`, plus 4 catalogue-deployed app ports (Nextcloud 28142, Notesnook identity/sync/sse 8264/5264/7264, s3 9000), all scoped to `10.10.2.1` (Gateway's wg3 IP) only. |
 | hot-erp-nl | 151.243.173.46 | `erp.dickson-supplies.com` → Gateway Caddy → wg5 tunnel → `10.10.4.2:8000` | **None.** UFW: `8000/tcp` scoped to `10.10.4.1` (Gateway's wg5 IP) only. |
 
-**Side finding, not in scope to fix here but worth flagging to Mr. Byrne separately:** hot-pn's SSH
-(`22/tcp`) is open to `Anywhere`, while hot-erp-nl's SSH is correctly scoped to `10.10.4.1` (wg5
-tunnel only) — an inconsistency between the two hosts' otherwise-matching lockdown patterns.
+**Side finding — fixed 2026-08-18, see `claude-md/services-hotpn.md` and `hot_pn_ssh_hardening_2026_08_18` memory.**
+hot-pn's SSH (`22/tcp`) was open to `Anywhere` while hot-erp-nl's was correctly scoped to
+`10.10.4.1` (wg5 tunnel only) — investigated and confirmed a genuine oversight (never revisited
+since the 2026-07-15 standup, actively targeted: 83,020 failed SSH attempts/7d, no local
+mitigation). Fixed by installing Tailscale on hot-pn (it had none — likely the actual root cause of
+why direct public SSH existed at all) and scoping `22/tcp` to `10.10.2.1` (wg3 peer) +
+`100.64.0.0/10` (Tailscale), matching hot-erp-nl's pattern while preserving Mr. Byrne's direct
+Termius access via Tailscale.
 
 So: if the Gateway is down, `privatenexus.net` and `erp.dickson-supplies.com` are unreachable **even
 though the hosts serving them are fully healthy** — there is currently no way to reach either
@@ -135,3 +140,56 @@ than B or C.
    this rely on hot-pn/hot-erp-nl self-checking instead, accepting the split-brain risk that implies?
 4. Is there a business driver (SLA, client contract, revenue conversation) behind this now, or is it
    opportunistic hardening — this materially changes whether Option A is worth scoping further.
+
+---
+
+## 6. Second-edge-VPS location scoping (Option A) — CH vs NL vs London
+
+Researched 2026-08-18 at Mr. Byrne's direction, since Option A's premise ("different
+provider/region") only actually delivers diversity if the second edge isn't just re-using a
+datacenter HoT already depends on.
+
+**Current footprint is already concentrated in two Hostkey DCs, not spread out:**
+- **CH (Zürich)**: Gateway VPS *and* hot-pn — a Zürich-facility-level incident takes out the sole
+  ingress point and PrivateNexus's home in the same event.
+- **NL (Amsterdam-area)**: hot-bm-nl (all 4 Proxmox VMs) *and* hot-erp-nl — same concentration risk
+  on the other coast.
+
+Standing up a second edge in either CH or NL again would not add real resilience against a
+facility-level Hostkey outage in that DC — it would just be a second host sharing the same existing
+single point of failure.
+
+**London confirmed as a genuinely distinct third Hostkey DC** (`hostkey.com/vps/` catalog,
+2026-08-18: "Lifeline House, 80 Clifton Street, London EC2A 4HB") — zero HoT infrastructure
+currently sits there. This is the only one of the three that actually buys facility-level
+diversity from the existing footprint.
+
+**Pricing, same `vm.v2-*` family already used for hot-pn/hot-erp-nl** (public catalog, not yet
+confirmed live via invapi for this specific location — see caveat below):
+| Preset | Specs | List price |
+|---|---|---|
+| vm.v2-nano | 2 vCPU / 4GB / 60GB NVMe | €6.71/mo — matches hot-erp-nl's own tier |
+| vm.v2-mini | 4 vCPU / 8GB / 120GB NVMe | €8/mo |
+| vm.v2-medium | 8 vCPU / 16GB / 160GB NVMe | €14/mo — matches hot-pn's own tier |
+
+An edge running Caddy+CrowdSec+a WireGuard hub (Option A's actual job) is closer in profile to the
+Gateway VPS itself (4 vCPU/8GB) than to a nano — `vm.v2-mini` is the more realistic starting point,
+not the cheapest tier.
+
+**⚠ Caveat, from direct prior experience, not theoretical**: the public catalog page does not show
+per-location preset availability. [[hostkey_invapi_notes]] and the hot-erp Hostkey CH migration
+already hit exactly this gap once — CH was confirmed *blocked* for new `vm.v2-*` orders via a live
+invapi check, despite nothing on the public site suggesting a restriction, which is why hot-erp
+landed in NL instead of CH. **Do not treat this table as confirmation London will actually accept a
+`vm.v2-*` order** — that needs the same live `eq.php?action=order_instance` (or a non-destructive
+appraisal call, if one can be found) check before committing, not an assumption from this page.
+
+**Provider vs. location — two different axes of diversity, worth being explicit about**: staying on
+Hostkey for a third DC keeps everything operationally consistent — same invapi billing key/tooling
+already in `hostkey_invapi_notes`, same reboot-recovery-watchdog integration pattern (soft/hard
+power-cycle via `eq.php`), same patching playbook. It does **not** diversify away from a
+Hostkey-account-wide or Hostkey-company-wide incident (e.g. a billing/API outage, or an
+account-level issue) — that would need a genuinely different vendor, a materially bigger lift (new
+billing relationship, no existing scripts/watchdog wiring, unfamiliar API). Worth deciding
+explicitly which failure mode this project is meant to protect against — single-DC/facility outage
+(London on Hostkey solves this) vs. single-provider outage (does not) — before picking a target.

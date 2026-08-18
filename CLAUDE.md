@@ -146,6 +146,8 @@ per Claude Code's own sizing guidance.
 | Tailscale sn-web            | 100.91.130.53                                        |
 | Tailscale sn-monitor        | 100.109.177.48                                        |
 | Tailscale sn-security       | 100.118.146.83                                        |
+| Tailscale hot-pn            | 100.121.175.15 (added 2026-08-18, closes SSH-hardening gap — see below) |
+| Tailscale hot-erp-nl        | 100.95.195.20 (added 2026-08-18, redundancy parity w/ rest of fleet — SSH there was already tunnel-scoped, no exposure) |
 | Tailscale Ubuntu WS         | 100.116.130.37                                       |
 | Tailscale Windows (latitude)| 100.106.225.126                                      |
 | Tailscale Windows (traebake)| 100.127.229.35                                       |
