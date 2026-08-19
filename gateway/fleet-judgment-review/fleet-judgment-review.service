@@ -1,0 +1,9 @@
+[Unit]
+Description=House of Trae — weekly LLM-driven judgment review (Option D1, report-only)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/fleet-judgment-review.sh
+TimeoutStartSec=600

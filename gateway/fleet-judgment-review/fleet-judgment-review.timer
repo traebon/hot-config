@@ -1,0 +1,9 @@
+[Unit]
+Description=Run the weekly fleet judgment review (Sundays, after backups, before apt-daily-update)
+
+[Timer]
+OnCalendar=Sun *-*-* 08:30:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

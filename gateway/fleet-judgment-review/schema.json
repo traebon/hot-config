@@ -1,0 +1,30 @@
+{
+  "type": "object",
+  "properties": {
+    "needs_attention": {
+      "type": "boolean",
+      "description": "true only if something in this review genuinely needs a human to look, beyond what fleet-health-sweep/fleet-discovery-push already escalated on their own"
+    },
+    "summary": {
+      "type": "string",
+      "description": "One or two sentences, suitable as an Ntfy notification body"
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "title": {"type": "string"},
+          "severity": {
+            "type": "string",
+            "enum": ["info", "worth_noting", "concerning"]
+          },
+          "detail": {"type": "string"},
+          "recommended_action": {"type": "string"}
+        },
+        "required": ["title", "severity", "detail"]
+      }
+    }
+  },
+  "required": ["needs_attention", "summary", "findings"]
+}

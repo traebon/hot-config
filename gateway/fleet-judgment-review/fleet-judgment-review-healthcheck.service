@@ -1,0 +1,6 @@
+[Unit]
+Description=House of Trae — fail-safe health check for fleet-judgment-review.timer
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/fleet-judgment-review-healthcheck.sh
