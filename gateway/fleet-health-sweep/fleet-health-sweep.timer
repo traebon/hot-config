@@ -1,0 +1,10 @@
+[Unit]
+Description=Run the fleet health sweep nightly at 07:45 (after backups, before apt-daily-update)
+
+[Timer]
+OnCalendar=*-*-* 07:45:00
+RandomizedDelaySec=5min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

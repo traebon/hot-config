@@ -1,0 +1,8 @@
+[Unit]
+Description=House of Trae — nightly fleet health sweep (systemd/dpkg/wazuh/stacks/ufw drift)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/fleet-health-sweep.sh
