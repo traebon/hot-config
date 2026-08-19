@@ -13,10 +13,14 @@
 # Bash, no Edit, no Write, no SSH. It cannot verify anything live and is instructed not
 # to claim to; its job is to flag what's worth a human (or a future session) checking,
 # not to re-check things itself or touch anything. Every fact it reasons over is
-# collected into a local snapshot BEFORE the claude invocation starts, by this script,
-# using only local Gateway files (fleet-health-sweep/fleet-discovery-push logs, local
-# journalctl, systemd timer state) — nothing here requires SSH into the fleet, since
-# A/B2/C already did that collection work; this only re-reads what they produced.
+# collected into a local snapshot BEFORE the claude invocation starts, by THIS script
+# (which does have real network access, unlike the claude invocation itself) — mostly
+# local Gateway files (fleet-health-sweep/fleet-discovery-push logs, local journalctl,
+# systemd timer state), since A/B2/C already did that collection work and this only
+# re-reads what they produced, plus one live pull: PrivateNexus's Discovery-candidate
+# queue (formerly a standalone cloud routine, Option D2 — folded in here 2026-08-19
+# after the cloud sandbox turned out unable to reach privatenexus.net at all; see the
+# PN_REVIEW_URL section below).
 set -uo pipefail
 
 SNAPSHOT_ROOT="/var/lib/fleet-judgment-review/snapshots"
@@ -27,6 +31,17 @@ NTFY_TOPIC="hot-alerts"
 NTFY_TOKEN_FILE="/etc/apt-daily-update/ntfy_token"
 LOOKBACK_DAYS=7
 SCHEMA_FILE="/opt/hot-config/gateway/fleet-judgment-review/schema.json"
+
+# Option D2 (a standalone cloud-scheduled routine reviewing PrivateNexus's
+# Discovery-candidate queue) was built 2026-08-19 but paused the same day — the
+# CCR cloud sandbox's default network egress policy blocks it from reaching
+# privatenexus.net at all (confirmed via both curl and WebFetch). Folded into
+# D1 instead, same day, at Mr. Byrne's direction: the Gateway already has real
+# outbound network access, so this script just pulls the same read-only export
+# directly. See docs/HoT_Automation_Self_Healing_Scope.md Section 7.5 and the
+# option_d_judgment_review_scope_2026_08_19 memory for the full trace.
+PN_REVIEW_URL="https://privatenexus.net/api/discovery/review-export"
+PN_TOKEN_FILE="/etc/fleet-judgment-review-d2/pn_review_token"
 
 mkdir -p "$SNAPSHOT_ROOT" "$STATE_DIR"
 
@@ -67,6 +82,23 @@ journalctl --since "${LOOKBACK_DAYS} days ago" --no-pager \
 
 systemctl list-timers --all > "$SNAPSHOT_DIR/systemd-timers-snapshot.txt" 2>/dev/null
 
+# Former Option D2: pull PrivateNexus's Discovery-candidate queue directly (real
+# outbound internet access, unlike the paused cloud routine). Read-only token,
+# GET-only endpoint — this script never approves/rejects/mutates anything here,
+# same report-only posture as the rest of this job.
+pn_discovery_ok=false
+if [ -f "$PN_TOKEN_FILE" ]; then
+  if curl -fsS -m 20 -H "Authorization: Bearer $(cat "$PN_TOKEN_FILE")" \
+      "$PN_REVIEW_URL" > "$SNAPSHOT_DIR/pn-discovery-review.json" 2>>"$REPORT_LOG"; then
+    pn_discovery_ok=true
+  else
+    echo '{"ok": false, "error": "fetch failed - see fleet-judgment-review.log for this run"}' \
+      > "$SNAPSHOT_DIR/pn-discovery-review.json"
+  fi
+else
+  echo '{"ok": false, "error": "PN_TOKEN_FILE missing on this host"}' > "$SNAPSHOT_DIR/pn-discovery-review.json"
+fi
+
 cat > "$SNAPSHOT_DIR/README.txt" <<EOF
 Snapshot for fleet-judgment-review run $RUN_ID, covering the last $LOOKBACK_DAYS days
 (cutoff: $cutoff). Collected entirely from local Gateway files/commands — no SSH into
@@ -81,6 +113,11 @@ ran (see hourly/nightly timers). Files:
                                   any NEXT showing "-" — the exact wedge-bug signature
                                   found and fixed 2026-08-19, see the Operational Rules
                                   entry on OnCalendar)
+  pn-discovery-review.json     - PrivateNexus's Discovery-candidate queue (pending
+                                  candidates + recently-registered services + status
+                                  counts), fetched live via a read-only Bearer token
+                                  (former Option D2, folded into this job 2026-08-19 —
+                                  fetch ok: $pn_discovery_ok)
 EOF
 
 # --- judge: read-only claude invocation, structured output ---
@@ -97,9 +134,29 @@ found and fixed 2026-08-19 (see claude-md/operational-rules.md), a recurrence an
 if that specific host/timer wasn't checked before; (4) discrepancies between what CLAUDE.md documents as true \
 and what these logs actually show; (5) anything resembling a past documented incident's early signature. Do NOT \
 flag routine items the mechanical system is already handling correctly (e.g. a streak that recovered to 0, a \
-clean sweep with zero findings) — only flag what needs a human's judgment or a documentation update. If nothing \
-in these files warrants attention, say so plainly and set needs_attention to false — a genuinely quiet week is a \
-valid, expected result, not a failure to find something."
+clean sweep with zero findings) — only flag what needs a human's judgment or a documentation update. \
+\
+Also read pn-discovery-review.json — PrivateNexus's Discovery-candidate queue (this used to be a separate cloud \
+routine, Option D2, folded into this job because the cloud sandbox couldn't reach privatenexus.net; ignore it \
+entirely if the file shows ok:false, that just means this week's fetch failed, not that the queue is empty). It \
+has 'candidates' (all currently-pending Discovery candidates awaiting human review — fields include source, host, \
+raw_name, raw_image, suggested_slug/name/category/access_mode/runtime/health_ep, completeness_score, \
+discovered_at), 'recent_services' (the last 30 real registered services, for pattern context), and 'summary' \
+(status counts). Apply the same judgment-not-restatement standard: (6) any candidate whose raw_name/raw_image \
+looks sensitive or unexpected for this fleet's normal stack (Caddy/PowerDNS/Keycloak/Wazuh/Grafana/Prometheus/ \
+Loki/ERPNext/PrivateNexus's own containers/Nextcloud/Notesnook/node-exporter/Promtail/Watchtower/host agents) — \
+flag anything that doesn't fit; (7) any candidate whose suggested_slug looks like it duplicates something already \
+in recent_services (points at a real dedup bug upstream); (8) a large or growing backlog, or candidates with an \
+old discovered_at (multiple weeks) still pending — flag as 'someone should clear this queue' with a rough count \
+and oldest date, not by listing every item; (9) low completeness_score on candidates that should obviously be \
+well-identified (a well-known raw_image but null suggested_category/health_ep) — may point at a gap in how the \
+hourly discovery-push script infers metadata; (10) anything in summary that looks like a healthy queue isn't \
+actually being reviewed (e.g. approved/rejected essentially never happening while pending keeps growing). Do NOT \
+flag routine, unremarkable candidates just because they exist — an ordinary backlog of normal House of Trae \
+service containers is expected and not worth a line of the report. \
+\
+If nothing in any of these files warrants attention, say so plainly and set needs_attention to false — a \
+genuinely quiet week is a valid, expected result, not a failure to find something."
 
 SCHEMA="$(cat "$SCHEMA_FILE")"
 

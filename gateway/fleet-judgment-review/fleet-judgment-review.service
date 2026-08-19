@@ -5,5 +5,11 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
+# The claude CLI only resolves via /root/.local/bin, which systemd's default
+# minimal unit environment does not include (real bug found 2026-08-19: the
+# script's only prior verification was via an interactive shell, with the
+# full login PATH — the real systemd trigger path was never exercised until
+# the D2-fold-in change surfaced "claude: command not found", exit 127).
+Environment="PATH=/root/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 ExecStart=/usr/local/bin/fleet-judgment-review.sh
 TimeoutStartSec=600
