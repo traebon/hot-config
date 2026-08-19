@@ -1,0 +1,8 @@
+[Unit]
+Description=House of Trae — Gateway-consolidated push into PN's Discovery pipeline (Option B2)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/fleet-discovery-push.sh

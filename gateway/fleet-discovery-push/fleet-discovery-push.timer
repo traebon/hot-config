@@ -1,0 +1,9 @@
+[Unit]
+Description=Push fleet inventory into PN's Discovery pipeline hourly (offset from hot-pn's own agent)
+
+[Timer]
+OnCalendar=*:45
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -2,8 +2,7 @@
 Description=Run the PrivateNexus discovery agent at boot and hourly
 
 [Timer]
-OnBootSec=2min
-OnUnitActiveSec=1h
+OnCalendar=*:15
 Persistent=true
 
 [Install]
