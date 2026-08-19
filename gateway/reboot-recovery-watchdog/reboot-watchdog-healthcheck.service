@@ -1,0 +1,6 @@
+[Unit]
+Description=House of Trae — fail-safe health check of reboot-recovery-watchdog.timer
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/reboot-watchdog-healthcheck.sh
