@@ -532,3 +532,227 @@ notification-channel and Vaultwarden corrections, the PATH bug, and this finding
 3. ~~Weekly vs nightly~~ **Decided — weekly.**
 4. ~~Does D need its own fail-safe from day one~~ **Decided — yes**, built in from the start
    (`fleet-judgment-review-healthcheck.timer`), not retrofitted after a gap.
+
+---
+
+## 8. Fleet-health-sweep addition — catalogue-deployed live-vs-approved binding drift (scoped 2026-08-20)
+
+**Concrete trigger, not hypothetical.** Investigating a Nextcloud admin-password request 2026-08-20
+found that hot-pn's Catalogue-deployed `nextcloud` container had been silently recreated
+2026-08-11T03:27:23Z — about a day after its original approved+executed deploy
+(`action_requests` row `78f8f3f2`, 2026-08-10 01:21 UTC, approved as `127.0.0.1:28142`) — rebound to
+`10.10.2.2:28142` (the wg3 tunnel IP, genuinely reachable from the Gateway). No second
+`action_requests` row exists for the change, and no origin could be traced (no shell history on
+hot-pn, no local Claude Code project directory for either `root` or the `user` account). It sat
+undocumented for 9 days until a 2026-08-19 session built a health check on top of the undocumented
+binding without ever flagging the mismatch itself. Full trace:
+`pn_nextcloud_binding_and_personal_cleanup_2026_08_20` memory.
+
+**Why `fleet-health-sweep`'s existing checks didn't catch it.** Its `stacks-inventory` drift check
+(`services-fleet.md`) only diffs `ls -1 /opt/stacks/` — directory *names* — on every stack host,
+hot-pn included. `nextcloud`'s directory existed the whole time; only its container's runtime port
+binding changed. Nothing in Option A/B/C/D as built today compares a Catalogue-deployed stack's
+actual running config against what the governance flow (`action_requests`) says was approved — the
+entire point of that propose→review→approve→execute flow is a WYSIWYG guarantee between what Mr.
+Byrne approves and what runs, and this is the first confirmed case of it silently failing to hold.
+
+**What the check would do**, added as a new block in `fleet-health-sweep.sh`, hot-pn only (the only
+host running the Catalogue deploy flow):
+1. Query `action_requests` for the most recent `status='executed'` row per `slug` where
+   `action_type='service.provision_from_catalogue'` (via `ssh hot-pn "docker exec
+   privatenexus-db psql -U privatenexus -d privatenexus -c ..."`, same pattern already used to
+   investigate this incident).
+2. Parse each row's `params->>'generated_compose'` (YAML) to extract the approved `ports:` binding
+   per service — host IP, host port, container port.
+3. For each service's real `container_name`, pull the live binding via `docker inspect <name>
+   --format '{{json .HostConfig.PortBindings}}'` (ground truth — this is what actually decided the
+   incident above, the on-disk `docker-compose.yml` copy is not reliably trustworthy, see finding
+   above where it had also been silently rewritten to match the drifted state).
+4. Compare. Any mismatch (host IP, host port, or a container that's vanished/been added) is a
+   real finding.
+
+**Report as a streak-based `report_check`, not a one-shot `report_drift` — this is the one
+deliberate design choice worth calling out.** Every other drift check in `fleet-health-sweep`
+(`stacks-inventory`, `ufw-rules`) reports a diff once and then *accepts the new state as the new
+baseline* — correct for those, since "a new directory appeared" or "a UFW rule changed" isn't
+inherently wrong, it just needs a human to notice and decide. A live-vs-approved-governance
+mismatch is different in kind: the approved record is the source of truth by design, and silently
+re-baselining against whatever's currently running would defeat the entire point of the check —
+it would have accepted the 2026-08-11 rebind as fine forever, exactly the failure this is meant to
+catch. So this check should behave like `systemd-failed`/`dpkg-audit`/`wazuh-agent`: fail every
+night the mismatch persists, streak, escalate to `urgent`/SMS after `ESCALATE_AFTER` (3) consecutive
+nights, and only clear when the live state is actually brought back in line with an approved
+`action_requests` record (either by fixing the container, or — as happened with this incident — by
+Mr. Byrne explicitly deciding to formalize the new state, which should itself go through a new
+approved action, not just a doc edit, so the check has something to reconcile against).
+
+**Built and live, 2026-08-20.** `/usr/local/bin/catalogue-drift-check.py` (deployed on hot-pn,
+tracked in `hot-config/hot-pn/catalogue-drift-check/`) does steps 1-4 above — queries the DB via
+`json_agg` rather than the base64 column originally sketched (Postgres's `encode(...,'base64')`
+inserts a line break every 76 chars, which silently truncated every compose blob on first test —
+JSON output escapes embedded newlines properly instead), then diffs live `docker inspect`
+bindings against the approved compose. **Extended beyond the original sketch**: it tracks every
+`container_name` in the approved compose, not just ones with a declared `ports:` — the first real
+test run against hot-pn's actual `notesnook` stack found `notesnook-s3`/`notesnook-identity`/
+`notesnook-sse` all published to `10.10.2.2` on their container-native ports despite having **no**
+`ports:` entry at all in the approved compose (meant to stay internal-only) — a version of the
+checker that only compared declared ports would have missed all three. `fleet-health-sweep.sh` now
+calls it for hot-pn only and reports as `catalogue-binding-drift`, streak-based as designed above.
+
+**Open question resolved during build**: a documented decision is sufficient to clear the check —
+no fresh `action_requests` row required. Implemented as a git-tracked exceptions file,
+`catalogue-drift-exceptions.conf` (same directory), one `slug:container:accepted_live_binding` line
+per formalized case, each with an inline comment naming the memory/decision it traces to. Chosen
+over requiring a synthetic `action_requests` insert because that would mean writing directly into
+PN's live governance table outside its own app/API — a bigger, separately-worth-deciding step, not
+a housekeeping default. The `nextcloud` case (see above) is currently the only entry.
+
+**First real run, 2026-08-20 — found a second drift, resolved the same day after a real mistake
+and a real (brief) production outage.** `nextcloud` correctly cleared (exceptions file match).
+`notesnook` did not: 4 mismatches, `notesnook-s3`/`notesnook-identity`/`notesnook-sse` approved as
+internal-only (no `ports:` at all) but live-published to `10.10.2.2`, plus `notesnook-sync`'s host
+port itself drifted (`23683` approved vs `5264` live).
+
+Asked Mr. Byrne to decide per-container, same pattern as `nextcloud`. **Initial assessment of 3 of
+the 4 was wrong**: checked only PN's `services.health_endpoint` (references `notesnook-identity`
+alone), concluded `s3`/`sync`/`sse` had "no known consumer," and reverted those three on that basis
+— Mr. Byrne's answer ("revert the three unused ones") was correct given the information provided,
+the information itself was incomplete. Caddy's live Caddyfile has real public site blocks
+(`notes-sync`/`notes-sse`/`notes-s3.house-of-trae.com`) reverse-proxying directly to those exact
+bindings, wired the same day (2026-08-11) as the container recreate — this was genuine, deliberate
+production wiring, just never reflected back into the governance record or documented anywhere
+(which is why the drift check flagged it as unexplained in the first place — the *governance* gap
+was real, the *usage* gap was the mistaken part). The revert caused a real outage: `notes-sync`,
+`notes-sse`, and `notes-s3.house-of-trae.com` all returned `502` for roughly 2-5 minutes, caught by
+checking the live public URLs directly (not assumed) and fixed immediately by recreating all 3
+containers back to their pre-revert configuration, replicating the exact `docker inspect` config
+that was captured before touching anything. All 4 `notesnook` containers (including `identity`,
+which was correctly identified as needing formalization from the start) are now in the exceptions
+file together.
+
+**A second, unrelated mistake happened re-verifying the fix.** Re-running `fleet-health-sweep.sh`
+manually (twice, for testing) advanced the streak on an unrelated check —
+`gateway/systemd-failed`, flagging `fleet-judgment-review.service` — from its real value of 1
+(today's genuine 07:45 run) to 3, crossing `ESCALATE_AFTER` and firing a real
+`priority=urgent`/SMS-triggering alert reporting "3 consecutive nights." The underlying bug
+(`claude: command not found` under the real systemd trigger path, exit 127) had already been fixed
+and verified via a direct script run 18 hours earlier (`fleet-judgment-review.log` shows the
+very next invocation, 9 seconds later, succeeding cleanly) — but that verification ran the script
+directly rather than through `systemctl start`, so the unit's own `Active: failed` state was never
+cleared, and `systemctl --failed` kept reporting it as newly-failed on every sweep run since. Fixed
+via `systemctl reset-failed fleet-judgment-review.service` + one more clean sweep run, which
+correctly fired a `RECOVERED` notice. **Lesson for manually re-running `fleet-health-sweep.sh` for
+testing in the future: it has real side effects on every host's real streak state, not just the
+check being tested** — a stale-but-resolved `systemctl --failed` entry anywhere in the fleet can
+get pushed past its escalation threshold by pure repetition, independent of whatever you're
+actually testing.
+
+Full trace of both incidents: `pn_nextcloud_binding_and_personal_cleanup_2026_08_20` memory.
+
+---
+
+## 9. Fleet-health-sweep addition — compose-vs-live drift, every host (scoped 2026-08-20)
+
+**Why this is worth scoping, not just fixing hot-pn.** Section 8's check only covers hot-pn's
+PrivateNexus Catalogue deploy flow, because that's the one place a formal "approved config" record
+(`action_requests`) exists to diff against. But the underlying failure mode — a container's real
+runtime config silently diverging from the file that's supposed to define it — isn't specific to
+that governance flow. Every other host in the fleet deploys via plain `docker compose up -d`
+against a `docker-compose.yml` in `/opt/stacks/<service>/`; nothing currently checks whether the
+live container's actual `docker inspect` config still matches that file. `fleet-health-sweep`'s
+existing `stacks-inventory` check only diffs directory *names*, same blind spot as before Section
+8 — it would not have caught either the `nextcloud` or `notesnook` drift, and it wouldn't catch
+the equivalent on any other host either.
+
+**Real facts checked before scoping this, not assumed** (`ls`/`grep` across every host's
+`/opt/stacks/`, 2026-08-20):
+- **Three filename conventions in live use, not one**: `docker-compose.yml` (most hosts),
+  `compose.yml` (Gateway's `caddy`, `powerdns`, `dockge`, `unbound`), `compose.yaml` (Gateway's
+  `crowdsec`, `keycloak`, `mailserver`, `ntfy`, `oauth2-proxy`, `roundcube`, `sms-relay`,
+  `stalwart`, `vaultwarden`, `gatus`). A checker must try all three per stack directory.
+- **Two Gateway stack directories have no compose file at all** — `hostkey-api`, `tailscale-api`
+  — not Docker services (systemd/script-based); must be skipped, not flagged as broken.
+- **Most services declare an explicit `container_name:`** (confirmed: every stack on sn-web,
+  sn-infra, sn-monitor, hot-erp-nl does), matching the assumption the hot-pn checker already
+  relies on. **But not all** — real counterexample found: **`wazuh` on sn-security (3 services)
+  declares zero `container_name:` lines** — a container-name-keyed parser (what Section 8's
+  checker does) would have **zero coverage of Wazuh entirely**, silently. Wazuh in particular is
+  too high-value a target (it already has its own documented history of process-vs-systemd-state
+  mismatches, see `fleet_health_checks` memory) to leave uncovered by default. (Correction: the
+  Gateway's `sms-relay`/`tor` were originally flagged here too, from a rough `grep -c
+  'image:\|build:'` proxy count of 2 — false positive, both build **and** tag their own image in
+  one service block, `image:`+`build:` together, so the "2" was really one service matched twice.
+  Verified directly with the real parser below: both resolve to exactly 1 declared service each,
+  no gap. Wazuh is the only confirmed real case.)
+
+**What the check would do**, one new block in `fleet-health-sweep.sh`, all `STACK_HOSTS`:
+1. For each `/opt/stacks/<service>/` directory, find its compose file (try all three names) and
+   parse `container_name:`/`ports:` pairs the same way `catalogue-drift-check.py` does (regex,
+   not a full YAML parser — same tradeoff, same justification). For services with no explicit
+   `container_name:`, derive Compose's default name from the directory + service key as a
+   fallback rather than skipping.
+2. For each named container, pull the live binding via `docker inspect ... PortBindings` (same
+   ground-truth approach as Section 8 — a stale/edited-but-not-reapplied compose file on disk is
+   not a valid comparison target either way).
+3. Compare. Track "no `ports:` at all" as `None`/unpublished the same way Section 8's checker
+   does, for the same reason — the more severe drift direction (internal-only service quietly
+   published) is exactly the kind Section 8's first real run found on `notesnook`, and there's no
+   reason to expect it's confined to hot-pn.
+
+**Report as a one-shot `report_drift`, not a streak-based `report_check` — the opposite call from
+Section 8, and worth stating why explicitly.** Section 8's hot-pn check escalates because a real
+governance record exists and is authoritative by design; silently re-baselining there would bless
+an actual policy bypass. No such formal approval step exists for the general fleet's compose
+files — a mismatch here just means "the file on disk doesn't describe reality," which is
+ordinary config drift, the same category `stacks-inventory`/`ufw-rules` already handle as
+one-shot diffs. Escalating it to `urgent`/SMS after 3 nights would be disproportionate for what is
+usually going to be *someone forgot to update the compose file after a manual change*, not a
+security-relevant bypass.
+
+**The one lesson from Section 8 that must carry over regardless of report type**: today's real
+outage happened because "no known consumer" was concluded from checking only one internal
+reference (PN's `health_endpoint` field) without checking the thing that actually mattered
+(Caddy's live config). Any drift this check reports — on any host — needs the same caution before
+anyone "fixes" it by reverting: check the host's actual Caddyfile blocks (and anything else that
+might reverse-proxy to it) for real consumers before assuming a mismatched binding is safe to
+change, not just the one most-obvious internal reference. Worth stating directly in the
+notification/runbook for this check, not left as tribal knowledge.
+
+**Container-name resolution piece built and verified, 2026-08-20** —
+`/usr/local/bin/compose-service-names.py`, deployed to all 7 `STACK_HOSTS` (tracked in
+`hot-config/gateway/fleet-health-sweep/compose-service-names/`). Rather than reimplementing
+Compose's default-naming algorithm from the spec, it asks the Docker daemon directly: every
+container `docker compose` creates carries `com.docker.compose.project`/
+`com.docker.compose.service` labels regardless of whether `container_name:` was set, so matching
+on those labels is ground truth with no naming-scheme guesswork needed — one code path handles
+both the "declared" and "compose-default" cases identically, rather than a normal-case-plus-a-special-
+fallback. Parses the `services:` block specifically (stops at the next 0-indent top-level key —
+found live that a naive "any 2-space-indented `key:`" match also catches `volumes:`'s own
+top-level entries sitting at the same indent, e.g. Wazuh's file has 13 volume names right after
+its 3 real services).
+
+Verified against real multi-service stacks on every host, not just Wazuh: correctly resolves all 3
+Wazuh services via the `compose-default` path (`wazuh.manager` → `wazuh-wazuh.manager-1`, etc.,
+confirmed against live `docker ps`), and correctly resolves every `declared`-path stack tested
+(`keycloak`, `powerdns`, `dickson` [7 services], `monitoring` [5 services], `forgejo`) with zero
+mismatches. Along the way, captured real port-string formats the hot-pn-only parser never had to
+handle — 2-part `"1514:1514"` (no host IP, implicit `0.0.0.0`), a `/udp` protocol suffix
+(`"514:514/udp"`), and an explicit-IP 3-part form with protocol (`"0.0.0.0:53:53/tcp"`) — captured
+verbatim rather than semantically parsed, correctly deferring the actual comparison logic (which
+needs to understand these formats, not just store them) to whichever check eventually consumes this
+script's output.
+
+**Still not built**: the actual drift-comparison logic (step 2/3 above) that would call this script
+and diff its output against live `docker inspect` bindings, and the `fleet-health-sweep.sh`
+wiring. Running this from the Gateway (SSH out to every host, matching every other
+`fleet-health-sweep` check) is fine as-is — checked whether shipping compose file contents over
+SSH risked exposing secrets (grepped every Gateway compose file for
+`PASSWORD`/`SECRET`/`TOKEN`/`API_KEY` outside the `*_FILE`/Docker-secrets pattern, 2026-08-20):
+every hit is either a Compose top-level `secrets:` definition (points at a file, no literal value
+in the compose file itself) or `${VAR}` shell interpolation, never a bare plaintext value. And this
+check specifically only ever needs `ports:`/`container_name:` from the file and `PortBindings`
+from `docker inspect` — it has no reason to ever touch `environment:` or `docker inspect`'s
+`Config.Env` (which, unlike the compose file, *does* hold fully-resolved real secret values once a
+container is actually running — confirmed while building the `notesnook` restore scripts in the
+incident above). So the secrets concern doesn't actually constrain this design; noted here so a
+future implementer doesn't have to re-derive it.

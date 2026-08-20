@@ -6,14 +6,15 @@
 # (see fleet_health_checks memory — 2026-07-30, then not again until 2026-08-16, over
 # two weeks apart, which is roughly how long several real incidents sat undetected).
 #
-# Point checks (systemctl --failed, dpkg --audit, wazuh agent liveness) persist a
-# per-host/per-check streak and escalate Ntfy priority after ESCALATE_AFTER consecutive
-# failing nights — directly answers the "alert fired at too low a severity and nobody
-# looked" failure class (the grub-pc incident: 4 identical unescalated priority=high
-# alerts, ignored). Drift checks (/opt/stacks inventory, ufw rules) are one-shot
-# snapshot diffs — a config change is a single event, not an ongoing condition, so no
-# streak/escalation applies; the snapshot is updated after reporting so tomorrow's diff
-# is against today, not stuck repeating the same change forever.
+# Point checks (systemctl --failed, dpkg --audit, wazuh agent liveness, hot-pn's
+# catalogue-binding-drift — added 2026-08-20, see below) persist a per-host/per-check
+# streak and escalate Ntfy priority after ESCALATE_AFTER consecutive failing nights —
+# directly answers the "alert fired at too low a severity and nobody looked" failure
+# class (the grub-pc incident: 4 identical unescalated priority=high alerts, ignored).
+# Drift checks (/opt/stacks inventory, ufw rules) are one-shot snapshot diffs — a config
+# change is a single event, not an ongoing condition, so no streak/escalation applies;
+# the snapshot is updated after reporting so tomorrow's diff is against today, not stuck
+# repeating the same change forever.
 #
 # Deliberately a plain systemd timer on the Gateway, not a cloud-scheduled routine —
 # a cloud sandbox has no path to wg4/SSH/Tailscale, same constraint already documented
@@ -162,6 +163,40 @@ for name in gateway hot-bm-nl sn-infra sn-web sn-monitor sn-security hot-pn hot-
   # --- ufw rule drift (config drift, e.g. the hot-pn SSH-open-to-Anywhere case) ---
   ufw="$(run_remote "$alias" "ufw status verbose 2>/dev/null")"
   [ -n "$ufw" ] && report_drift "$name" "ufw-rules" "$ufw"
+
+  # --- catalogue-deployed stack drift: live port binding vs. governance-approved binding
+  # (hot-pn only -- the only host running PN's Catalogue deploy flow). Scoped in
+  # docs/HoT_Automation_Self_Healing_Scope.md Section 8 (2026-08-20), after hot-pn's
+  # `nextcloud` container was found silently rebound 2026-08-11 outside the
+  # propose->review->approve governance flow entirely, undetected for 9 days -- see
+  # pn_nextcloud_binding_and_personal_cleanup_2026_08_20 memory. Deliberately a
+  # streak-based report_check, NOT a one-shot report_drift like stacks-inventory/ufw-rules
+  # above: those two correctly auto-accept a new state as the next baseline, but doing
+  # that here would silently bless an undocumented governance-bypass forever -- exactly
+  # the failure this check exists to catch. Uses
+  # /usr/local/bin/catalogue-drift-check.py (deployed on hot-pn, tracked in
+  # hot-config/hot-pn/catalogue-drift-check/) to compare live docker inspect bindings
+  # against the latest approved action_requests row per slug, filtered against this
+  # repo's catalogue-drift-exceptions.conf (only entries Mr. Byrne has explicitly
+  # decided to formalize, e.g. the nextcloud case above -- not a general silence list).
+  if [ "$name" = "hot-pn" ]; then
+    exceptions_file="/opt/hot-config/gateway/fleet-health-sweep/catalogue-drift-exceptions.conf"
+    drift_raw="$(run_remote "$alias" "python3 /usr/local/bin/catalogue-drift-check.py")"
+    drift_unresolved=""
+    while IFS= read -r dline; do
+      [ -z "$dline" ] && continue
+      key="$(echo "$dline" | awk -F'|' '{print $1":"$2":"$4}')"
+      if [ -f "$exceptions_file" ] && grep -vE '^\s*(#|$)' "$exceptions_file" | grep -qxF "$key"; then
+        continue
+      fi
+      drift_unresolved="${drift_unresolved}${dline}"$'\n'
+    done <<< "$drift_raw"
+    if [ -z "$drift_unresolved" ]; then
+      report_check "$name" "catalogue-binding-drift" ok ""
+    else
+      report_check "$name" "catalogue-binding-drift" fail "$drift_unresolved"
+    fi
+  fi
 
 done
 
