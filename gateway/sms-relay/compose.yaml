@@ -10,8 +10,8 @@ services:
     environment:
       NTFY_URL: "http://ntfy:80"
       NTFY_TOPIC: "hot-alerts"
-      SMS_TO_NUMBER: "+447403942795"
-      SMS_FROM_NUMBER: "REPLACE_ME_TWILIO_PURCHASED_NUMBER"
+      SMS_TO_NUMBER: "+447771724186"
+      SMS_FROM_NUMBER: "+447403942795"
       TWILIO_ACCOUNT_SID_FILE: /run/secrets/twilio_account_sid
       TWILIO_AUTH_TOKEN_FILE: /run/secrets/twilio_auth_token
     secrets:

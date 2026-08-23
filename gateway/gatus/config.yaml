@@ -149,11 +149,18 @@ endpoints:
     # Root path redirects (302) to login, not 200 - found 2026-08-03 when this alerted
     # spuriously as "down" right after the real hot-bm-nl outage recovered. Use the real
     # health endpoint instead.
+    # [BODY].database == "ok" (JSON path equality) was found 2026-08-08 to fail on every
+    # check but the very first one after a restart (1497 consecutive false results over 5
+    # days), despite curl replicating the exact same request (same network, DNS, TLS/HTTP
+    # version, headers) always returning the correct {"database":"ok",...} body — looks like
+    # a quirk in this Gatus version's JSON-path comparator, not a real Grafana problem.
+    # Switched to a raw-body pattern match, which sidesteps whatever's wrong with the JSON
+    # path evaluator. See backup_architecture-adjacent gatus_grafana_check_bug memory.
     url: "https://grafana.house-of-trae.com/api/health"
     interval: 5m
     conditions:
       - "[STATUS] == 200"
-      - "[BODY].database == \"ok\""
+      - "[BODY] == pat(*\"database\":*\"ok\"*)"
     alerts:
       - type: email
         failure-threshold: 2
@@ -163,6 +170,132 @@ endpoints:
   - name: Wazuh SIEM
     group: Services
     url: "https://wazuh.house-of-trae.com"
+    interval: 5m
+    conditions:
+      - "[STATUS] == 200"
+    alerts:
+      - type: email
+        failure-threshold: 2
+        success-threshold: 2
+        send-on-resolved: true
+
+  # Added 2026-08-17 -- closing a real gap found while scoping the edge load-balancing project
+  # (docs/HoT_Edge_Load_Balancing_Scope.md): Gatus exists specifically to catch sn-monitor/
+  # hot-bm-nl dying (Uptime Kuma can't alert on its own host's death), but until now it only
+  # independently covered one service per VM (ERPNext/Forgejo/Grafana/Wazuh above) -- sn-web's 6
+  # client sites and sn-infra's PowerDNS-Admin/Namevault had zero independent-of-hot-bm-nl health
+  # signal at all, only Uptime Kuma (which dies with the same host). Confirmed real status codes
+  # via curl before writing conditions, not guessed.
+
+  - name: PowerDNS-Admin
+    group: Services
+    url: "https://dns-admin.house-of-trae.com"
+    interval: 5m
+    conditions:
+      - "[STATUS] == 200"
+    alerts:
+      - type: email
+        failure-threshold: 2
+        success-threshold: 2
+        send-on-resolved: true
+
+  - name: Namevault
+    group: Services
+    url: "https://namevault.co.uk"
+    interval: 5m
+    conditions:
+      - "[STATUS] == 200"
+    alerts:
+      - type: email
+        failure-threshold: 2
+        success-threshold: 2
+        send-on-resolved: true
+
+  - name: Prometheus
+    group: Services
+    # SSO-gated (import sso). Confirmed via curl (same network as this container) that the real,
+    # healthy first-hop response is a 302 to /oauth2/start -- that redirect firing correctly IS
+    # the healthy signal here (proves Caddy+oauth2-proxy+backend routing chain is alive). Needs
+    # `client.ignore-redirect: true` or Gatus's Go HTTP client follows the redirect into the
+    # stateless OAuth dance itself, which 400s without a real browser session/cookies -- found by
+    # testing 2026-08-17, not assumed; without this the check permanently false-fails even though
+    # the real endpoint is healthy the whole time (same class of bug as the Grafana root-redirect
+    # and JSON-path issues documented above).
+    url: "https://prometheus.house-of-trae.com"
+    interval: 5m
+    client:
+      ignore-redirect: true
+    conditions:
+      - "[STATUS] == 302"
+    alerts:
+      - type: email
+        failure-threshold: 2
+        success-threshold: 2
+        send-on-resolved: true
+
+  - name: Stratus Digital
+    group: sn-web Client Sites
+    url: "https://stratus-digital.com"
+    interval: 5m
+    conditions:
+      - "[STATUS] == 200"
+    alerts:
+      - type: email
+        failure-threshold: 2
+        success-threshold: 2
+        send-on-resolved: true
+
+  - name: Discreet Elite
+    group: sn-web Client Sites
+    url: "https://discreet-elite.uk"
+    interval: 5m
+    conditions:
+      - "[STATUS] == 200"
+    alerts:
+      - type: email
+        failure-threshold: 2
+        success-threshold: 2
+        send-on-resolved: true
+
+  - name: Emerald Markets
+    group: sn-web Client Sites
+    url: "https://emerald-markets.net"
+    interval: 5m
+    conditions:
+      - "[STATUS] == 200"
+    alerts:
+      - type: email
+        failure-threshold: 2
+        success-threshold: 2
+        send-on-resolved: true
+
+  - name: Ruby Osiris
+    group: sn-web Client Sites
+    url: "https://rubyosiris.com"
+    interval: 5m
+    conditions:
+      - "[STATUS] == 200"
+    alerts:
+      - type: email
+        failure-threshold: 2
+        success-threshold: 2
+        send-on-resolved: true
+
+  - name: Evil Rabbit Art
+    group: sn-web Client Sites
+    url: "https://evilrabbitart.com"
+    interval: 5m
+    conditions:
+      - "[STATUS] == 200"
+    alerts:
+      - type: email
+        failure-threshold: 2
+        success-threshold: 2
+        send-on-resolved: true
+
+  - name: Dickson Supplies (web)
+    group: sn-web Client Sites
+    url: "https://dickson-supplies.com"
     interval: 5m
     conditions:
       - "[STATUS] == 200"

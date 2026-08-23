@@ -1,6 +1,6 @@
 services:
   vaultwarden:
-    image: vaultwarden/server:latest
+    image: vaultwarden/server:1.37.1
     container_name: vaultwarden
     restart: unless-stopped
     mem_limit: 128m

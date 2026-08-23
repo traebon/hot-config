@@ -108,6 +108,28 @@ sync_file "$STACKS/promtail/promtail-config.yml"  "$REPO/gateway/promtail/promta
 # Watchtower
 sync_file "$STACKS/watchtower/docker-compose.yml" "$REPO/gateway/watchtower/docker-compose.yml"
 
+# Vaultwarden, oauth2-proxy, Gatus, Ntfy, sms-relay, Dockge — found 2026-08-23 during a full
+# fleet sync sweep: none of these were ever wired into the recurring sync, only ever hand-copied
+# once. oauth2-proxy/Gatus/Ntfy happened to still match live by luck; Vaultwarden and sms-relay
+# had genuinely drifted — sms-relay's tracked copy was frozen at the pre-fix 2026-08-03 state,
+# the exact broken FROM/TO Twilio config from the 2026-08-04 incident (SMS_TO_NUMBER pointing at
+# the sender number, SMS_FROM_NUMBER a literal "REPLACE_ME" placeholder) — a restore from this
+# repo would have silently reintroduced an already-fixed bug. Dockge had zero backup coverage at
+# all. `gatus/config.yaml`'s only "secret-looking" line is `${GATUS_SMTP_PASSWORD}` (env-var
+# indirection, not a literal value) — safe for the leak-guard and for git, matching the
+# `secrets/gatus.env` split already documented in CLAUDE.md.
+sync_file "$STACKS/vaultwarden/compose.yaml"   "$REPO/gateway/vaultwarden/compose.yaml"
+sync_file "$STACKS/oauth2-proxy/compose.yaml"  "$REPO/gateway/oauth2-proxy/compose.yaml"
+sync_file "$STACKS/gatus/compose.yaml"         "$REPO/gateway/gatus/compose.yaml"
+sync_file "$STACKS/gatus/config.yaml"          "$REPO/gateway/gatus/config.yaml"
+sync_file "$STACKS/ntfy/compose.yaml"          "$REPO/gateway/ntfy/compose.yaml"
+sync_file "$STACKS/ntfy/server.yml"            "$REPO/gateway/ntfy/server.yml"
+sync_file "$STACKS/sms-relay/compose.yaml"     "$REPO/gateway/sms-relay/compose.yaml"
+sync_file "$STACKS/sms-relay/Dockerfile"       "$REPO/gateway/sms-relay/Dockerfile"
+sync_file "$STACKS/sms-relay/package.json"     "$REPO/gateway/sms-relay/package.json"
+sync_file "$STACKS/sms-relay/src/index.js"     "$REPO/gateway/sms-relay/src/index.js"
+sync_file "$STACKS/dockge/compose.yml"         "$REPO/gateway/dockge/compose.yml"
+
 # ── Sync sn-monitor configs (via SSH) ────────────────────────────────────────
 
 log "Syncing sn-monitor configs..."
@@ -158,6 +180,9 @@ log "Syncing sn-security configs..."
 sync_remote sn-security /opt/stacks/forgejo-runner/docker-compose.yml "$REPO/sn-security/forgejo-runner/docker-compose.yml"
 sync_remote sn-security /opt/stacks/forgejo-runner/config.yaml        "$REPO/sn-security/forgejo-runner/config.yaml"
 sync_remote sn-security /opt/stacks/forgejo-runner/entrypoint.sh      "$REPO/sn-security/forgejo-runner/entrypoint.sh"
+# Wazuh SIEM — found 2026-08-23 during the full fleet sync sweep: never synced at all despite
+# being a major service on this host (manager + indexer + dashboard).
+sync_remote sn-security /opt/stacks/wazuh/docker-compose.yml          "$REPO/sn-security/wazuh/docker-compose.yml"
 
 # ── Secret-leak guard ─────────────────────────────────────────────────────────
 # Synced compose files must use *_FILE / *__FILE Docker-secret indirection only.
