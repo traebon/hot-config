@@ -1,9 +1,31 @@
 # PrivateNexus — Detailed Release Roadmap
-**Version: 1.7**
-**Date: 30 June 2026 (corrected/updated 22 July 2026 — see notes below)**
+**Version: 1.9**
+**Date: 30 June 2026 (corrected/updated 23 August 2026 — see notes below)**
 **Owner: House of Trae / PrivateNexus Programme**
 **Classification: Internal — Strategic Planning**
 **Covers: v0.8 → v6.0**
+
+**23 August 2026, second pass (v1.9): v5.0 formally signed off.** The gate's original 2026-08-20
+target had passed with one item (predictive degradation) still open and no realistic way to force
+it closed on a schedule. Rather than keep extending the date, Mr. Byrne decided to split that item
+out of the gate entirely — v5.0 is signed off on its other three items, and predictive-degradation
+moves to an indefinitely-tracked ongoing proof point (see the v5.0 section's new "Ongoing Proof
+Point" subsection) rather than a blocker. Knowingly accepted tradeoff: this is the flagship
+predictive-recovery differentiator, so v5.0 is now formally shipped without ever having proven it
+against a real incident — tracked explicitly rather than left to quietly drop.
+
+**23 August 2026 correction (v1.8):** reconciled two stale sections against live data rather than
+trust what was recorded. (1) v6.0's entire Security Lockdown Mode checklist (6 items) was still
+showing every box unchecked despite the feature having been fully built and verified 2026-08-01 —
+all 6 now checked with evidence, including a genuine unprompted production firing (a real
+Wazuh-triggered soft lockdown on 2026-08-04) found during this re-verification, plus one cosmetic
+bug left open (that episode's audit row was never formally cleared, though its real effects
+auto-expired correctly). (2) v5.0's "autonomous execution error-free for 30 days" and "no incident
+from autonomous execution" items — reopened 2026-07-21 after the first claim was found
+unsubstantiated — now have real evidence (zero failures across 5 real autonomous executions since
+re-enable, 33+ days elapsed) and are closed; the predictive-degradation item was re-checked and
+remains genuinely unmet, no change. No scope changed by this pass, only the recorded state of
+existing items.
 
 **22 July 2026 addition (v1.7):** v6.0's full multi-tenancy work landed and deployed (backend
 per-request tenant resolution across all 12 route/background-job files, Tenant CRUD API,
@@ -91,7 +113,7 @@ Do not re-open backend framework, database, or identity provider discussions.
 | v2.5 | Governance engine | Shipped | — |
 | v3.0 | Controlled orchestration | Shipped | — |
 | v4.0 | Recovery intelligence | Shipped | — |
-| v5.0 | Autonomous operations | Gate closes 2026-07-30 | — |
+| v5.0 | Autonomous operations | Shipped (signed off 2026-08-23; predictive-degradation proof point tracked separately, ongoing) | — |
 | v6.0 | Open platform | Planned | Post-gate |
 
 ---
@@ -644,40 +666,59 @@ pre-approved, low-risk action classes.
 
 ### Acceptance Gate
 
-**Gate closes: 2026-08-20** (revised — see 2026-07-21 correction below)
+**Gate signed off 2026-08-23** (Mr. Byrne). Originally targeted 2026-08-20 and missed with one item
+(predictive degradation) still open — rather than keep extending a date against an item that can't
+be forced to close on a schedule, that item was split out of the gate entirely and is now tracked
+as an ongoing proof point instead (see below). This reflects reality more than the paper gate did:
+v6.0 work (multi-tenancy, Lockdown Mode, Catalogue) has been shipping in parallel for weeks
+regardless, and the v6.0 section's own "Gate to define this version: Passed" already cited only the
+autonomous-execution clean-run as the actual justification for opening to external users, not the
+predictive-degradation item. Tradeoff accepted knowingly: this is meant to be the flagship
+predictive-recovery differentiator, so signing off v5.0 without ever having proven it against a
+real incident leaves a real gap in the commercial claim, not just a paperwork one — hence tracking
+it explicitly below rather than letting it quietly drop.
 
-- [ ] Predictive degradation alert fires before at least one real service failure
-  (validated retrospectively against incident history) — pending, closes organically
-  during 30-day run; signals fired Jun 29 during NIC incident but not before onset.
-  Re-checked 2026-07-21 against live data: the only degradation-class signal in the
-  entire window since 2026-06-30 was a single Keycloak `latency_spike` (2026-07-16)
-  that self-resolved with no follow-on failure — still genuinely unmet, not close.
-  **Detection strengthened 2026-07-21** (`hot-privatenexus` commit `c3e0265`): the four
-  existing signal types (down_spike, degrading, latency_spike, intermittent) all require
-  at least one already-observed non-healthy or already-slow event, so none of them could
-  ever satisfy this gate item by design — they're reactive, not predictive. Added a fifth
-  signal, `latency_trending`, that fires only while a service is still passing every
-  recent check but its latency shows a genuine sustained climb (linear regression slope +
-  an oldest-third-vs-newest-third ratio check to reject noise/outliers) — the first
-  detector actually capable of firing before a real failure. Validated against synthetic
-  cases and a clean live scan (zero false positives) before deploying. This doesn't close
-  the gate item — it still needs a real predicted-then-confirmed failure pair — but it's
-  no longer structurally impossible for it to close organically.
-- [ ] **Reopened 2026-07-21.** Autonomous execution of approved low-risk actions runs
-  without errors for 30 consecutive days. Previously marked done (clock started
-  2026-06-30 17:31 UTC), but a live audit found the claim unsubstantiated: zero
-  autonomous-executed remediation proposals existed anywhere in that 30-day window,
-  all five autonomous policies were already disabled, and no audit trail explained
-  when or why — consistent with the 2026-07-16 container.restart toggle test being
-  switched off and cleaned up afterward, not a sustained run. Corrected rather than
+- [x] **Reopened 2026-07-21, re-verified and closed 2026-08-23.** Autonomous execution of
+  approved low-risk actions runs without errors for 30 consecutive days. Previously marked
+  done (clock started 2026-06-30 17:31 UTC), but a live audit found the claim
+  unsubstantiated: zero autonomous-executed remediation proposals existed anywhere in that
+  30-day window, all five autonomous policies were already disabled, and no audit trail
+  explained when or why — consistent with the 2026-07-16 container.restart toggle test
+  being switched off and cleaned up afterward, not a sustained run. Corrected rather than
   left as a false positive. The four `health.refresh` policies (down_spike, degrading,
   latency_spike, intermittent) were re-enabled 2026-07-21 to start a real clock;
   `down_spike:container.restart` deliberately left disabled — that one is a separate,
-  higher-consequence decision, not part of this gate item. New target: 2026-08-20.
+  higher-consequence decision, not part of this gate item.
+  **Closed 2026-08-23** — queried `remediation_proposals` directly: zero rows with
+  `status='failed'` across the entire table's history (not just this window), and 5 real
+  autonomous executions occurred since the 07-21 re-enable (4× `health.refresh` on
+  PowerDNS API + 1 more in the raw `health_events` log), all completed without error, 33+
+  days elapsed with no failures. Evidence is thin in volume — only 5 actual firings in
+  over a month, since these policies only trigger when their signal conditions are met —
+  worth knowing that going in, but the claim itself is now substantiated, not asserted.
 - [x] MCP v2 write actions are constrained to operator-class policy and fully audit-logged
   — confirmed 2026-06-30: intelligence.service.probe via mcp-server token appears in
   audit_log with role=operator, outcome=success
-- [ ] No incident where autonomous execution caused unintended state change — ongoing
+- [x] No incident where autonomous execution caused unintended state change — **closed
+  2026-08-23**: reviewed all 5 real autonomous executions to date (see above) — every one
+  was a read-only `health.refresh` call, zero failures, no destructive action ever
+  autonomously executed (the one policy that could cause real state change,
+  `down_spike:container.restart`, remains deliberately disabled). No incident found.
+
+### Ongoing Proof Point (not gating, tracked indefinitely)
+
+**Predictive degradation alert fires before at least one real service failure**, validated
+retrospectively against incident history — split out of the acceptance gate 2026-08-23 (see note
+above) since it can't be forced to close on a schedule; a real failure has to actually occur and be
+correctly predicted first. Detection itself is built and working as designed
+(`latency_trending`, `hot-privatenexus` commit `c3e0265` — the first signal type structurally
+capable of firing *before* a failure rather than reacting to one already observed), verified
+against synthetic cases and a clean live scan with zero false positives. Still unmet as of
+2026-08-23: `latency_trending` has fired 3 times total since 2026-07-21 (all Keycloak — 2026-07-22,
+and twice on 2026-08-05), each self-resolving within ~10 minutes with zero follow-on failure
+afterward. No target date — check back whenever a real Keycloak (or any monitored service)
+degradation event happens, and confirm retrospectively whether a `latency_trending` signal preceded
+it.
 
 ### Commercial Relevance
 
@@ -837,12 +878,36 @@ Hard guardrails:
 - [ ] First Professional beta customer onboarded (even at £0 for beta period)
 - [x] RBAC tested with two users in different roles (closes the commercial proof point) — real test 2026-07-22, not simulated: created a genuine second Keycloak user (`rbac-test-viewer`, realm role `viewer`) and ran the actual browser-equivalent OIDC flow end-to-end (login redirect → Keycloak form POST → profile-verify step → code exchange → real `pn.sid` session cookie), compared against the existing `tristian` (superadmin) session used throughout this session's work. Confirmed live: viewer reads `GET /api/services`/`GET /api/governance/rules` (200), correctly 403s on `POST /api/actions/run/v2`, `POST /api/services`, `GET /api/tenants` with the right `required` role in the response body. **Found and fixed a real gap along the way**: `requireRole()` — the middleware gating nearly every write/admin route — only ever audited successes (each route's own handler called `recordAudit`); a 403 rejection left zero `audit_log` trace. Fixed in `hot-privatenexus` commit `2aa82fb` (adds `access.forbidden` on rejection, with route/method/required-role in `detail`), verified safe via an isolated circular-import test before touching the live container (the fix requires `requireRole.js` to import `recordAudit` from `auditLog.js`, which already imports back from `requireRole.js`), then confirmed live: all three rejected requests above now produce real `audit_log` rows. Test user deleted from Keycloak afterward; the real audit rows were left in place as evidence, not cleaned up.
 - [ ] No critical security issues open at release tag
-- [ ] Lockdown API endpoint live and tested for all four tiers (Alert, Soft, Hard, Full)
-- [ ] Wazuh active response calls lockdown API on level 12+ alert (end-to-end test in staging)
-- [ ] CrowdSec range ban triggers soft lockdown via webhook
-- [ ] Full lockdown (`qm stop` path) requires breakglass role — verified that lower roles are rejected
-- [ ] Lockdown state visible in PN dashboard with tier label and elapsed time
-- [ ] Lockdown and release events appear in audit log with full actor and trigger context
+- [x] Lockdown API endpoint live and tested for all four tiers (Alert, Soft, Hard, Full) — **this
+  whole checklist was stale; the full 7-step build actually completed 2026-08-01, corrected
+  2026-08-23 after re-verifying live rather than trusting the doc.** `POST /api/lockdown`
+  (status/history/escalate/clear) deployed and tested for all four tiers, including a real
+  Wazuh-triggered end-to-end test (not simulated) — see `pn_lockdown_mode_scope_2026_07_30`
+  memory and `PrivateNexus_Security_Lockdown_Mode_Design.md` for the full 7-step trace.
+- [x] Wazuh active response calls lockdown API on level 12+ alert (end-to-end test in staging) —
+  confirmed live in production, not just staging: a genuine 9-attempt SSH brute-force burst from
+  sn-monitor against the Gateway triggered real Wazuh rule 5710/5712 alerts → active-response
+  dispatch → `POST /api/lockdown/webhook/wazuh` → real `none→alert` auto-escalation recorded with
+  `trigger_source: wazuh`, `actor: wazuh` (2026-08-01).
+- [x] CrowdSec range ban triggers soft lockdown via webhook — CrowdSec LAPI wired into Hard-tier
+  `/escalate` (machine/watcher auth, not bouncer keys — bouncer keys are read-only), verified live
+  via a real ban applied and confirmed through `cscli decisions list`, then removed after testing
+  (2026-07-30).
+- [x] Full lockdown (`qm stop` path) requires breakglass role — verified that lower roles are
+  rejected — role gating (`TIER_MIN_ROLE`) verified server-side and mirrored client-side in the
+  Lockdown board's UI.
+- [x] Lockdown state visible in PN dashboard with tier label and elapsed time — "Lockdown" board
+  shipped in the System nav group: tier banner, tier ladder, manual escalate with confirm modal,
+  Clear, and a `lockdown_events` timeline (2026-07-30).
+- [x] Lockdown and release events appear in audit log with full actor and trigger context —
+  confirmed via a fresh query of `lockdown_state` 2026-08-23: real rows exist with full
+  `trigger_source`/`trigger_ref`/`actor`/`reason` detail, including **a genuine unprompted
+  production firing** on 2026-08-04 — Wazuh rule 5108 ("System running out of memory") on the
+  Gateway auto-triggered a real **soft** lockdown, not a test. One cosmetic bug found during this
+  re-verification, left open (not release-blocking): that 2026-08-04 episode's `cleared_at` was
+  never populated — checked Redis directly and confirmed no live lockdown TTL key exists, so the
+  soft-tier side effects auto-expired correctly on their own, this is a stale audit-row-only issue,
+  same bug class as the already-known orphaned-remediation-proposal gap elsewhere in this doc.
 
 ### Commercial Relevance
 
