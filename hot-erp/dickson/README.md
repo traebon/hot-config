@@ -1,13 +1,16 @@
 # hot-erp — ERPNext
 
-**Migrated 2026-08-01 to hot-erp-nl (Hostkey NL, server 41614, wg5 tunnel)** — see
-`hot_erp_hostkey_ch_migration_scope` memory and CLAUDE.md's hot-erp section for the full story
-(CH was blocked for new orders at migration time, landed in NL instead). Everything below this
-line describes the *original* Hostinger deployment (2026-07-06/07-09) — still accurate for how
-this stack is built and what's non-standard about it (reconstructed Dockerfile, posawesome
-source, etc.), since the migration moved the existing volumes/DB as-is rather than rebuilding.
-The Hostinger box itself is retained idle, no longer serving traffic, pending Mr. Byrne's
-go-ahead to cancel the account.
+**Migrated 2026-08-01 to hot-erp-nl (Hostkey NL, server 41614, wg5 tunnel) — hot-erp-nl is
+PERMANENT, not a stand-in.** See `hot_erp_hostkey_ch_migration_scope` memory and CLAUDE.md's
+hot-erp section for the full story (CH was blocked for new orders at migration time, landed in NL
+instead). Everything below this line describes the *original* Hostinger deployment
+(2026-07-06/07-09) — still accurate for how this stack is built and what's non-standard about it
+(reconstructed Dockerfile, posawesome source, etc.), since the migration moved the existing
+volumes/DB as-is rather than rebuilding. **Corrected 2026-08-23**: the Hostinger box is not
+"retained idle pending go-ahead" — Mr. Byrne confirmed cancellation 2026-08-03, the old `wg2`
+tunnel was torn down the same day, and the account is in the process of closing. The "Revert plan"
+and "Networking" sections further down still describe the old Hostinger/wg2/sn-business setup as
+if it were current or reversible — both corrected in place below rather than left to mislead.
 
 ---
 
@@ -98,14 +101,17 @@ but hasn't been independently verified against the fresh-backup contents.
 
 ## Networking
 
-Connects to the Gateway VPS over a dedicated WireGuard tunnel, **`wg2`** (10.10.1.1 Gateway /
+**Historical (Hostinger/erp-temp era, superseded 2026-08-01) — kept for context, not current.**
+Connected to the Gateway VPS over a dedicated WireGuard tunnel, `wg2` (10.10.1.1 Gateway /
 10.10.1.2 erp-temp, port 51822) — deliberately a new interface name/subnet, since `wg1` on the
-Gateway VPS was already in use for Mr. Byrne's personal road-warrior VPN
-(`10.10.90.0/24`, undocumented in CLAUDE.md prior to this — see `/root/hot/wireguard-clients/`).
-Caddy's `erp.dickson-supplies.com` block on the Gateway VPS was repointed from
-`10.10.20.101:8000` (sn-business) to `10.10.1.2:8000` (erp-temp) — commented inline with a revert
-note. The Tor hidden service mirror needed no separate change since it routes through the same
-Caddy site block.
+Gateway VPS was already in use for Mr. Byrne's personal road-warrior VPN (`10.10.90.0/24`). Caddy's
+`erp.dickson-supplies.com` block was pointed at `10.10.1.2:8000`.
+
+**Current (hot-erp-nl, permanent since 2026-08-01):** connects over `wg5` (10.10.4.1 Gateway /
+10.10.4.2 hot-erp-nl, port 51825). Caddy's `erp.dickson-supplies.com` block points at
+`10.10.4.2:8000`. `wg2` itself was torn down 2026-08-03 once the Hostinger account cancellation
+was confirmed — it no longer exists on either end. The Tor hidden service mirror needed no
+separate change either time, since it routes through the same Caddy site block.
 
 ## Custom branding placeholders (2026-07-15)
 
@@ -125,15 +131,14 @@ clear stale cached asset-hash references from before the rebuild (a `bench build
 the content-hash suffix on bundle filenames; deleting the `assets_json` key alone wasn't enough --
 some other cached page/doctype content was still serving the old hashes).
 
-## Revert plan (once bare metal is restored)
+## Revert plan — MOOT, corrected 2026-08-23
 
-1. Confirm sn-business (10.10.20.101) is reachable and ERPNext there is healthy
-2. Change Caddy's `erp.dickson-supplies.com` block back to `reverse_proxy 10.10.20.101:8000`
-   (the commented-out original is right there in the Caddyfile)
-3. Historical data through 2026-06-29 is already restored (see "Data restore" above). Decide what
-   to do with anything entered into erp-temp during the fresh-site window (2026-07-06 → restore
-   date) — it's preserved in the `_data.fresh-backup` volume copies, not merged. Needs Mr. Byrne's
-   input on how to reconcile/migrate it into the real instance, not an automated step
-4. Tear down erp-temp's containers/volumes once confirmed no longer needed, `wg-quick down wg2`
-   on both ends, remove the wg2 UFW rules, and decide whether to keep or release the VPS itself
-5. Update this README and `CLAUDE.md`'s Service Locations table to remove references to erp-temp
+This section originally planned a revert back to sn-business "once bare metal is restored." That
+premise no longer applies: sn-business will never be rebuilt (its role moved permanently to
+hot-erp-nl/hot-pn, Mr. Byrne's decision), and hot-erp-nl itself was made ERPNext's *permanent* home
+2026-08-01 — this isn't a stand-in awaiting a revert. Steps 1-2 and 4 (revert Caddy to sn-business,
+tear down the temporary VPS) never happened and never will. Step 3's open question (data entered
+during the 2026-07-06→07-09 fresh-site window, preserved in `_data.fresh-backup` volume copies, not
+merged) is still genuinely unresolved — worth Mr. Byrne's input on whether that's still worth
+reconciling at this point, independent of any revert. Step 5 (remove stale erp-temp references) is
+this same cleanup pass, done here and in the top-level `hot-erp/README.md`.

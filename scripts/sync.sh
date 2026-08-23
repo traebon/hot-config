@@ -120,10 +120,14 @@ sync_remote sn-web /opt/stacks/ruby/docker-compose.yml            "$REPO/sn-web/
 sync_remote sn-web /opt/stacks/evilrabbit/docker-compose.yml      "$REPO/sn-web/evilrabbit/docker-compose.yml"
 sync_remote sn-web /opt/stacks/dicksonweb/docker-compose.yml      "$REPO/sn-web/dicksonweb/docker-compose.yml"
 
-# ── Sync sn-business configs (via SSH) ───────────────────────────────────────
+# ── Sync hot-erp-nl configs (via SSH) ────────────────────────────────────────
+# ERPNext/Dickson permanently moved off sn-business to hot-erp-nl (2026-08-01) — sn-business
+# itself has no live host or SSH alias and never will again (role moved permanently, see
+# CLAUDE.md's services-hoterp.md). This replaces the old dead `sync_remote sn-business ...` line,
+# which had been silently WARN-failing every run since the migration.
 
-log "Syncing sn-business configs..."
-sync_remote sn-business /opt/stacks/dickson/docker-compose.yml "$REPO/sn-business/dickson/docker-compose.yml"
+log "Syncing hot-erp-nl configs..."
+sync_remote hot-erp-nl /opt/stacks/dickson/docker-compose.yml "$REPO/hot-erp/dickson/docker-compose.yml"
 
 # ── Sync Tor hidden service configs ──────────────────────────────────────────
 # data/ is intentionally excluded — private keys must NEVER go to git

@@ -1,12 +1,17 @@
-# erp-temp — overview
+# hot-erp — overview
 
-Temporary ERPNext stand-in VPS (46.202.129.86) while sn-business stays behind the dead bare-metal
-host — see [[hostkey_server_replacement]] for the full story. Stack-specific docs live in
-subdirectories:
+**Corrected 2026-08-23** — this file previously described the *temporary* erp-temp/Hostinger
+stand-in (46.202.129.86) as if it were still current. It isn't. ERPNext's permanent home since
+2026-08-01 is **hot-erp-nl** (Hostkey NL, server 41614, 151.243.173.46), reached over the
+dedicated `wg5` tunnel (10.10.4.1 Gateway / 10.10.4.2 hot-erp-nl, port 51825) — see CLAUDE.md's
+`services-hoterp.md` for the full current state. The old Hostinger box and its `wg2` tunnel were
+torn down 2026-08-03 and the account is cancelled; `sn-business` (the original bare-metal home)
+will never be rebuilt — its role moved permanently to hot-erp-nl/hot-pn.
+
+Stack-specific docs live in subdirectories:
 
 - `dickson/README.md` — the actual ERPNext/Dickson Supplies stack: setup, data-restore history,
-  and the revert plan back to sn-business
-- Monitoring (node-exporter + Promtail, added 2026-07-22) has no local README — it's documented
-  from the pn-vps side in `../pn-vps/monitoring-temp/README.md`, since that's the actual hub these
-  feed into over the cross-tunnel route through the Gateway. Check there for setup detail and the
-  teardown steps.
+  and the (now-moot) revert-to-bare-metal plan, corrected the same day as this file
+- Monitoring (node-exporter + Prometheus, deployed 2026-08-08) has its own local READMEs under
+  `node-exporter/` and `prometheus-local/` — deliberately not wired into sn-monitor's central
+  Prometheus, see CLAUDE.md for why
