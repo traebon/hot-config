@@ -107,7 +107,11 @@ sync_remote sn-monitor /opt/monitoring/prometheus/config/prometheus.yml  "$REPO/
 
 log "Syncing sn-infra configs..."
 sync_remote sn-infra /opt/stacks/pdns-admin/docker-compose.yml  "$REPO/sn-infra/pdns-admin/docker-compose.yml"
-sync_remote sn-infra /opt/stacks/namegen/docker-compose.yml     "$REPO/sn-infra/namegen/docker-compose.yml"
+# Path corrected 2026-08-23: on-disk directory is `namevault`, not `namegen` (renamed at some
+# point after the 2026-07-27 sn-infra rebuild — container_names inside the compose still say
+# `namegen-app`/`namegen-db`, that's just internal naming, unrelated). The old `namegen` path had
+# been silently WARN-failing every sync since, last successful pull was the rebuild day itself.
+sync_remote sn-infra /opt/stacks/namevault/docker-compose.yml   "$REPO/sn-infra/namevault/docker-compose.yml"
 sync_remote sn-infra /opt/stacks/forgejo/docker-compose.yml     "$REPO/sn-infra/forgejo/docker-compose.yml"
 
 # ── Sync sn-web configs (via SSH) ────────────────────────────────────────────
