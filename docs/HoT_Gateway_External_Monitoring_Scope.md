@@ -147,3 +147,30 @@ unlocked the vault via a shared `bw unlock` session key 2026-08-23; the transien
 (`/etc/uptimerobot-api/api_key.txt`) was removed once the Vaultwarden item was created and
 confirmed, since nothing on the Gateway runs an automated job against this key — Vaultwarden is the
 sole copy.
+
+## 7. JARVIS MCP integration — built 2026-08-23
+
+Mr. Byrne asked for the external monitor's status to be reachable by JARVIS (Claude Code on the
+Gateway) directly, rather than only through PrivateNexus. Built a small standalone MCP server
+(`/opt/mcp-servers/uptimerobot/server.py`, Python + the official `mcp` SDK in a dedicated venv)
+exposing two read-only tools — `get_monitors` (per-monitor status/latency/interval for all 3 edge
+hosts) and `get_account_summary` (up/down/paused counts, plan limits, SMS credits) — backed
+directly by UptimeRobot's REST API. Registered via `claude mcp add` (stdio transport, local project
+scope), API key read from `/etc/uptimerobot-mcp/api_key.txt` (600, root-only — a second, dedicated
+copy alongside the Vaultwarden original, since this is a real running process that needs to read
+it, same pattern as `/etc/apt-daily-update/ntfy_token` etc.).
+
+Verified end-to-end before registering, not just code-reviewed: called the tool functions directly
+first (real live data returned), then drove the actual MCP stdio JSON-RPC protocol by hand
+(`initialize` → `tools/list` → `tools/call`), confirming all three round-trip correctly with real
+UptimeRobot data. `claude mcp list` confirms the server connects. **Not yet tool-callable in the
+session that built it** — Claude Code's tool list is fixed at session/context start, so this needs
+a fresh session (or a context refresh) before JARVIS can actually invoke `get_monitors`/
+`get_account_summary` for the first time; the registration and server themselves are done and
+verified independent of that.
+
+This is separate from the (still-unbuilt) v6.0 "JARVIS MCP expansion" roadmap item in
+`PrivateNexus_Release_Roadmap_v1.0.md` — that item is about PrivateNexus's *own* MCP server gaining
+new tools (Prometheus, PostgreSQL, Forgejo, Proxmox, Wazuh...), architecturally different from this
+standalone server. Explicitly decided not to route this through PN's MCP server instead (see the
+"is it added to the mcp server" exchange) — Mr. Byrne wanted it on JARVIS directly.

@@ -157,6 +157,11 @@ sync_file "$STACKS/sms-relay/package.json"     "$REPO/gateway/sms-relay/package.
 sync_file "$STACKS/sms-relay/src/index.js"     "$REPO/gateway/sms-relay/src/index.js"
 sync_file "$STACKS/dockge/compose.yml"         "$REPO/gateway/dockge/compose.yml"
 
+# UptimeRobot MCP server for JARVIS itself — not a /opt/stacks Docker service, lives at
+# /opt/mcp-servers/ instead. API key deliberately excluded (Vaultwarden is the source of truth,
+# a second live copy sits at /etc/uptimerobot-mcp/api_key.txt for the running process to read).
+sync_file /opt/mcp-servers/uptimerobot/server.py "$REPO/gateway/uptimerobot-mcp/server.py"
+
 # ── Sync sn-monitor configs (via SSH) ────────────────────────────────────────
 
 log "Syncing sn-monitor configs..."
