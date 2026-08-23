@@ -35,6 +35,17 @@ log "Syncing Gateway VPS configs..."
 # CLAUDE.md (master infra context)
 sync_file /root/hot/CLAUDE.md "$REPO/CLAUDE.md"
 
+# claude-md/ topic files — CLAUDE.md was split 2026-08-16 (streamlining track 2) into per-topic
+# imports (@claude-md/network.md etc.). This block was never added at split time, so every one of
+# those files — i.e. essentially all of CLAUDE.md's real content — had been silently absent from
+# the git mirror ever since; only the top-level shell file that imports them was ever backed up.
+# Found+fixed 2026-08-23 while chasing an unrelated sync warning.
+mkdir -p "$REPO/claude-md"
+for f in /root/hot/claude-md/*.md; do
+  [ -e "$f" ] || continue
+  sync_file "$f" "$REPO/claude-md/$(basename "$f")"
+done
+
 # Infrastructure roadmap (master state & roadmap — DOCX, version-agnostic)
 # Picks the highest-versioned roadmap docx and drops any older tracked copy,
 # so version bumps (v3.3 -> v3.4 -> ...) are followed automatically.
