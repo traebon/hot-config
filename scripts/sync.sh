@@ -7,7 +7,33 @@ REPO="/opt/hot-config"
 STACKS="/opt/stacks"
 GIT="git -C $REPO"
 
+# Self-check alerting — added 2026-08-23 after a fleet-wide sweep found this script had been
+# silently failing (dead sn-business host, a renamed sn-infra path) for weeks with nothing but an
+# unread WARN line in a log file. Every failure mode below now reaches Ntfy instead of relying on
+# someone noticing. Reuses the same shared Gateway Ntfy token every other script here uses
+# (apt-daily-update, reboot-recovery-watchdog, fleet-health-sweep).
+NTFY_URL="https://ntfy.house-of-trae.com"
+NTFY_TOPIC="hot-alerts"
+NTFY_TOKEN_FILE="/etc/apt-daily-update/ntfy_token"
+WARNINGS=()
+
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
+
+notify() {
+  local priority="$1" title="$2" message="$3"
+  [ -f "$NTFY_TOKEN_FILE" ] || return 0
+  curl -fsS -m 10 -u ":$(cat "$NTFY_TOKEN_FILE")" \
+    -H "X-Title: $title" -H "X-Priority: $priority" \
+    -d "$message" "$NTFY_URL/$NTFY_TOPIC" >/dev/null 2>&1 || true
+}
+
+# Call before any exit path (including the early "nothing to commit" one) so a sync_remote
+# failure never gets silently absorbed just because no *doc* changes happened to trigger a commit.
+alert_if_warnings() {
+  if [ ${#WARNINGS[@]} -gt 0 ]; then
+    notify high "hot-config sync: ${#WARNINGS[@]} issue(s)" "$(printf '%s\n' "${WARNINGS[@]}")"
+  fi
+}
 
 # ── Sync Gateway VPS configs ────────────────────────────────────────────────
 
@@ -26,6 +52,7 @@ sync_remote() {
     mv "$tmp" "$dst"
   else
     log "WARN: could not sync $vm:$src — leaving $dst untouched"
+    WARNINGS+=("could not sync $vm:$src")
     rm -f "$tmp"
   fi
 }
@@ -195,11 +222,15 @@ if [ -n "$LEAK" ]; then
   log "ABORT: plaintext secret detected in staged changes — not committing or pushing."
   echo "$LEAK" | sed 's/^/  /'
   $GIT reset >/dev/null
+  notify urgent "hot-config sync ABORTED: secret leak detected" \
+    "Plaintext secret found in staged changes, not committed or pushed. Run sync.sh manually to see what tripped it: $LEAK"
+  alert_if_warnings
   exit 1
 fi
 
 if $GIT diff --cached --quiet; then
   log "No changes — nothing to commit."
+  alert_if_warnings
   exit 0
 fi
 
@@ -218,9 +249,12 @@ for remote in github codeberg origin; do
     log "Pushed to $remote."
   else
     log "WARN: push to $remote failed."
+    WARNINGS+=("git push to $remote failed")
     PUSH_FAILED=1
   fi
 done
+
+alert_if_warnings
 
 if [ "$PUSH_FAILED" -eq 1 ]; then
   log "Push complete with one or more failures — see WARNs above."
