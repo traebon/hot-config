@@ -62,7 +62,7 @@ for REMOTE in hetzner-crypt; do
     log "  Pushing to ${REMOTE}..."
     for f in "${FILES[@]}"; do
         set +e
-        rclone copy "$f" "${REMOTE}:proxmox-vm-backups/" --no-traverse 2>&1 | while IFS= read -r l; do log "    rclone: $l"; done
+        rclone copy "$f" "${REMOTE}:proxmox-vm-backups/" --no-traverse --bwlimit 20M --transfers 2 --checkers 4 2>&1 | while IFS= read -r l; do log "    rclone: $l"; done
         rc=${PIPESTATUS[0]}
         set -e
         if [ "$rc" -ne 0 ]; then
