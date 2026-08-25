@@ -88,7 +88,19 @@ def parse_services(compose_text):
             in_ports = True
             continue
         if in_ports:
-            pm = re.match(r'^\s*-\s*"([^"]+)"', raw)
+            # Port list items are valid YAML either quoted ("443:5601") or bare (443:5601) --
+            # found live 2026-08-25: Wazuh's own compose file uses the bare form throughout,
+            # which the quote-only version of this regex silently skipped entirely, making
+            # every one of its ports look undeclared. Strip optional matching quotes either way.
+            #
+            # Also strip trailing inline comments before matching -- found live the same day,
+            # once tested against the wider fleet: caddy/mailserver/unbound/pdns-admin all
+            # annotate their port lines ("0.0.0.0:443:443/udp # HTTP/3 QUIC" etc.), and an
+            # end-of-line anchor without this strip silently drops every commented port line,
+            # exactly the same failure shape as the quoting gap above. Port strings never
+            # contain '#' themselves, so a naive split is safe here.
+            no_comment = raw.split("#", 1)[0]
+            pm = re.match(r"^\s*-\s*['\"]?([^'\"\s]+)['\"]?\s*$", no_comment)
             if pm:
                 services[current]["ports"].append(pm.group(1))
                 continue

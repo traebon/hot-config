@@ -160,6 +160,37 @@ for name in gateway hot-bm-nl sn-infra sn-web sn-monitor sn-security hot-pn hot-
     report_drift "$name" "stacks-inventory" "$stacks"
   fi
 
+  # --- compose-vs-live port-binding drift, every /opt/stacks/<service> on this host ---
+  # Scoped in docs/HoT_Automation_Self_Healing_Scope.md Section 9 (2026-08-20), built
+  # 2026-08-25. General-fleet counterpart to the hot-pn-only catalogue-binding-drift check
+  # below: stacks-inventory above only diffs directory *names*, so it would not catch a
+  # container's live docker inspect binding silently diverging from the docker-compose.yml
+  # sitting right next to it, on ANY host, the same blind spot Section 8 first found on
+  # hot-pn's nextcloud/notesnook. Uses /usr/local/bin/compose-drift-check.py (deployed on
+  # all STACK_HOSTS, tracked in hot-config/gateway/fleet-health-sweep/), which in turn
+  # relies on compose-service-names.py for container-name resolution -- that shared
+  # resolver had two real parsing bugs found+fixed the same day this check was built
+  # (bare/unquoted port strings, e.g. Wazuh's `- 443:5601`; and trailing inline YAML
+  # comments, e.g. caddy/mailserver/unbound/pdns-admin's `# HTTP/3 QUIC` etc.) -- both
+  # would have silently reported false drift across most of the fleet before being caught
+  # by testing against every real host, not just the motivating Wazuh case.
+  #
+  # Deliberately one-shot report_drift, not streak-based report_check like
+  # catalogue-binding-drift below -- the opposite call, and deliberately so: no formal
+  # approval flow exists for the general fleet's compose files, so a mismatch here just
+  # means "the file on disk doesn't describe reality" (ordinary drift, e.g. someone made a
+  # manual change and forgot to update the file), not a governance bypass. Escalating to
+  # urgent/SMS after 3 nights would be disproportionate for what's usually a documentation
+  # gap, not a security-relevant bypass. See Section 9 for the full reasoning, including
+  # the explicit warning that any drift this reports needs a real check of the host's
+  # Caddyfile (and anything else that might reverse-proxy to it) for actual consumers
+  # before "fixing" it by reverting -- the same mistake that caused a real ~2-5min outage
+  # investigating Section 8's findings.
+  if [[ " $STACK_HOSTS " == *" $name "* ]]; then
+    compose_drift="$(run_remote "$alias" "python3 /usr/local/bin/compose-drift-check.py 2>/dev/null")"
+    report_drift "$name" "compose-vs-live-drift" "$compose_drift"
+  fi
+
   # --- ufw rule drift (config drift, e.g. the hot-pn SSH-open-to-Anywhere case) ---
   ufw="$(run_remote "$alias" "ufw status verbose 2>/dev/null")"
   [ -n "$ufw" ] && report_drift "$name" "ufw-rules" "$ufw"
