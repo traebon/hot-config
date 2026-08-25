@@ -1,0 +1,14 @@
+[Unit]
+Description=House of Trae — weekly Open Items artifact content refresh (stages only, does not publish)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Same PATH gotcha fleet-judgment-review hit 2026-08-19: the claude CLI only resolves
+# via /root/.local/bin, which systemd's minimal default unit environment doesn't
+# include. Set explicitly here from day one rather than discovering it on the first
+# real Sunday run.
+Environment="PATH=/root/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+ExecStart=/usr/local/bin/open-items-refresh.sh
+TimeoutStartSec=600

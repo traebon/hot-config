@@ -2,3 +2,4 @@ scripts/discovery_agent_token.txt
 gateway/rclone/rclone.conf
 **/secrets/
 __pycache__/
+gateway/open-items-refresh/.previous.html

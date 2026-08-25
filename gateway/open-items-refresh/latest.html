@@ -1,0 +1,548 @@
+<title>House of Trae — Open Items</title>
+<style>
+  :root {
+    --bg: #0a0e13;
+    --surface: #121922;
+    --surface-2: #171f2a;
+    --border: #263341;
+    --border-soft: #1c2530;
+    --ink: #e8eef3;
+    --ink-dim: #b7c3cd;
+    --muted: #8496a5;
+    --accent: #45c9b8;
+    --accent-dim: #2d6b64;
+    --ok: #5fbf7a;
+    --ok-dim: #204a30;
+    --warn: #e0ac4c;
+    --warn-dim: #4a3a1c;
+    --parked: #9c8bf0;
+    --parked-dim: #33294f;
+    --deferred: #6f7d8a;
+    --deferred-dim: #232b32;
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "SF Pro Display", "Helvetica Neue", Arial, sans-serif;
+    --font-mono: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", "Fira Code", Consolas, monospace;
+  }
+  :root[data-theme="light"] {
+    --bg: #f3f5f7;
+    --surface: #ffffff;
+    --surface-2: #eef1f4;
+    --border: #d8dee4;
+    --border-soft: #e4e8ec;
+    --ink: #131a21;
+    --ink-dim: #3c4750;
+    --muted: #67747f;
+    --accent: #1f8f80;
+    --accent-dim: #d5f0ec;
+    --ok: #1f8f4f;
+    --ok-dim: #e1f3e5;
+    --warn: #a3690a;
+    --warn-dim: #fbeed9;
+    --parked: #6b4fd6;
+    --parked-dim: #ece7fb;
+    --deferred: #5b6670;
+    --deferred-dim: #e7eaed;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --bg: #f3f5f7;
+      --surface: #ffffff;
+      --surface-2: #eef1f4;
+      --border: #d8dee4;
+      --border-soft: #e4e8ec;
+      --ink: #131a21;
+      --ink-dim: #3c4750;
+      --muted: #67747f;
+      --accent: #1f8f80;
+      --accent-dim: #d5f0ec;
+      --ok: #1f8f4f;
+      --ok-dim: #e1f3e5;
+      --warn: #a3690a;
+      --warn-dim: #fbeed9;
+      --parked: #6b4fd6;
+      --parked-dim: #ece7fb;
+      --deferred: #5b6670;
+      --deferred-dim: #e7eaed;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  body { padding-bottom: 6rem; }
+
+  a { color: var(--accent); }
+  code, .mono { font-family: var(--font-mono); }
+
+  .wrap {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 0 1.5rem;
+  }
+
+  header.top {
+    border-bottom: 1px solid var(--border-soft);
+    padding: 2.75rem 0 1.75rem;
+  }
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 0.6rem;
+  }
+  h1 {
+    font-size: clamp(1.7rem, 3.4vw, 2.3rem);
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    margin: 0 0 0.5rem;
+    text-wrap: balance;
+    font-weight: 700;
+  }
+  .subtitle {
+    color: var(--muted);
+    font-size: 0.98rem;
+    max-width: 62ch;
+    line-height: 1.55;
+    margin: 0;
+  }
+
+  .stat-strip {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: var(--border-soft);
+    border: 1px solid var(--border-soft);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-top: 1.75rem;
+  }
+  .stat {
+    background: var(--surface);
+    padding: 0.9rem 1rem;
+  }
+  .stat .n {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 1.5rem;
+    font-weight: 600;
+    line-height: 1;
+  }
+  .stat .l {
+    color: var(--muted);
+    font-size: 0.74rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-top: 0.35rem;
+  }
+  .stat.fixed .n { color: var(--ok); }
+  .stat.open .n { color: var(--warn); }
+  .stat.parked .n { color: var(--parked); }
+  .stat.deferred .n { color: var(--deferred); }
+
+  nav.toc {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 0.9rem;
+    padding: 1.1rem 0;
+    border-bottom: 1px solid var(--border-soft);
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+  }
+  nav.toc a { color: var(--muted); text-decoration: none; }
+  nav.toc a:hover { color: var(--accent); }
+
+  section.group { padding: 2.25rem 0; border-bottom: 1px solid var(--border-soft); }
+  section.group:last-of-type { border-bottom: none; }
+  .group-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; margin-bottom: 1.3rem; }
+  .group-head h2 { font-size: 1.15rem; margin: 0; letter-spacing: -0.01em; }
+  .group-count { font-family: var(--font-mono); font-size: 0.76rem; color: var(--muted); white-space: nowrap; }
+  .group-note { color: var(--muted); font-size: 0.88rem; line-height: 1.55; margin: -0.6rem 0 1.2rem; max-width: 62ch; }
+
+  .item { border: 1px solid var(--border); border-radius: 10px; background: var(--surface); margin-bottom: 0.7rem; }
+  .item:last-child { margin-bottom: 0; }
+  .item summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 0.85rem 1rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.7rem;
+  }
+  .item summary::-webkit-details-marker { display: none; }
+  .item summary .caret {
+    font-family: var(--font-mono);
+    color: var(--muted);
+    font-size: 0.75rem;
+    margin-top: 0.2rem;
+    transition: transform 0.15s ease;
+    flex: none;
+  }
+  .item[open] summary .caret { transform: rotate(90deg); }
+  .item summary .title { flex: 1; font-size: 0.94rem; line-height: 1.45; color: var(--ink); }
+  .item summary .title b { font-weight: 650; }
+  .item .body {
+    padding: 0 1rem 1.05rem 2.55rem;
+    color: var(--ink-dim);
+    font-size: 0.88rem;
+    line-height: 1.65;
+    max-width: 64ch;
+  }
+  .item .body p { margin: 0 0 0.7rem; }
+  .item .body p:last-child { margin-bottom: 0; }
+  .item .body code { background: var(--surface-2); padding: 0.08em 0.35em; border-radius: 4px; font-size: 0.86em; }
+
+  .chip {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    padding: 0.2rem 0.5rem;
+    border-radius: 5px;
+    white-space: nowrap;
+    flex: none;
+    margin-top: 0.05rem;
+  }
+  .chip.fixed { color: var(--ok); background: var(--ok-dim); }
+  .chip.open { color: var(--warn); background: var(--warn-dim); }
+  .chip.progress { color: var(--accent); background: var(--accent-dim); }
+  .chip.parked { color: var(--parked); background: var(--parked-dim); }
+  .chip.deferred { color: var(--deferred); background: var(--deferred-dim); }
+
+  .flat-list { color: var(--ink-dim); font-size: 0.9rem; line-height: 1.7; }
+  .flat-list ul { margin: 0.3rem 0 1rem; padding-left: 1.2rem; }
+  .flat-list li { margin-bottom: 0.25rem; }
+  .flat-list li.flag { color: var(--accent); }
+  .flat-list li.done { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--border); }
+
+  .roadmap-tier { margin-bottom: 1.4rem; }
+  .roadmap-tier:last-child { margin-bottom: 0; }
+  .roadmap-tier h3 {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    letter-spacing: 0.02em;
+    color: var(--ink);
+    margin: 0 0 0.15rem;
+  }
+  .roadmap-tier .meta { color: var(--muted); font-size: 0.78rem; margin-bottom: 0.6rem; }
+  .roadmap-tier .meta.passed { color: var(--ok); }
+  .roadmap-tier ul { margin: 0; padding-left: 1.15rem; color: var(--ink-dim); font-size: 0.88rem; line-height: 1.6; }
+  .roadmap-tier li { margin-bottom: 0.45rem; }
+  .roadmap-tier li:last-child { margin-bottom: 0; }
+  .roadmap-tier li.flag { color: var(--accent); }
+  .roadmap-tier li.done { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--border); }
+
+  footer.note {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 1.75rem 1.5rem 0;
+    color: var(--muted);
+    font-size: 0.82rem;
+    line-height: 1.6;
+  }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <p class="eyebrow">JARVIS &middot; Gateway VPS &middot; Infrastructure Sweep</p>
+    <h1>Open Items</h1>
+    <p class="subtitle">First compiled 27 Jul 2026; refreshed 25 Aug 2026 against live state (current CLAUDE.md/claude-md split, this week's memory index, and a re-check against what's actually still open) rather than trusted from the 19 Aug snapshot.</p>
+    <div class="stat-strip">
+      <div class="stat fixed"><div class="n">14</div><div class="l">Resolved since Jul&nbsp;27</div></div>
+      <div class="stat open"><div class="n">6</div><div class="l">Open / actionable</div></div>
+      <div class="stat parked"><div class="n">6</div><div class="l">Awaiting Mr. Byrne</div></div>
+      <div class="stat deferred"><div class="n">2</div><div class="l">Deferred</div></div>
+    </div>
+  </header>
+
+  <nav class="toc">
+    <a href="#tone">Operating tone</a>
+    <a href="#actionable">Actionable</a>
+    <a href="#parked">Parked decisions</a>
+    <a href="#deferred">Deferred</a>
+    <a href="#resolved">Resolved since Jul 27</a>
+    <a href="#phase4">Phase 4</a>
+    <a href="#pn">PrivateNexus roadmap</a>
+  </nav>
+
+  <section class="group" id="tone">
+    <div class="group-head">
+      <h2>Operating tone &mdash; how JARVIS should run this project</h2>
+      <span class="group-count">standing guidance</span>
+    </div>
+    <p class="group-note">Confirmed with Mr. Byrne 19 Aug &mdash; the reference point is Iron Man's JARVIS, not just the name.</p>
+
+    <div class="flat-list">
+      <ul>
+        <li><b>Dry wit, deadpan</b> &mdash; understated, not a running joke. The humor is in restraint, not one-liners on every response.</li>
+        <li><b>Unflappable competence</b> &mdash; steady under a live incident (hot-bm-nl outage, SMS storms, backup failures) the same as any routine task. No panic, no hedging past what's actually known.</li>
+        <li><b>Proactive, not just reactive</b> &mdash; surface what's wrong before being asked. The fleet-judgment-review automation and this Open Items sweep are the mechanized version of this: catch drift on a schedule, don't wait for Mr. Byrne to notice it first.</li>
+        <li><b>Willing to push back</b> &mdash; &ldquo;Sir, I would strongly advise against that,&rdquo; not silent execution. Applies to real calls made this project: correcting the Gmail-connector choice, flagging the Vaultwarden-session key pasted in chat, pausing D2 rather than leaving a guaranteed-fail job running.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="group" id="actionable">
+    <div class="group-head">
+      <h2>Actionable now / soon</h2>
+      <span class="group-count">6 items</span>
+    </div>
+
+    <details class="item" open>
+      <summary>
+        <span class="caret">▸</span>
+        <span class="chip open">Open</span>
+        <span class="title"><b>Client websites still need real content</b> &mdash; all 6 sn-web sites</span>
+      </summary>
+      <div class="body">
+        <p>Re-checked live 19 Aug: stratus-digital.com, discreet-elite.uk, emerald-markets.net, rubyosiris.com, evilrabbitart.com, dickson-supplies.com all still return the same placeholder &ldquo;Coming soon&rdquo; page from the original rebuild. No change since the last sweep &mdash; real design/content still needed for each.</p>
+      </div>
+    </details>
+
+    <details class="item">
+      <summary>
+        <span class="caret">▸</span>
+        <span class="chip open">Open</span>
+        <span class="title">Wiki / encyclopedia for HoT and PN &mdash; still nothing behind it</span>
+      </summary>
+      <div class="body">
+        <p><code>wiki.house-of-trae.com</code> still returns a bare <code>502</code> as of the last live check &mdash; the Caddy route exists, nothing has ever been deployed behind it. No PN-side wiki route exists either. Both need building from scratch.</p>
+      </div>
+    </details>
+
+    <details class="item">
+      <summary>
+        <span class="caret">▸</span>
+        <span class="chip open">Open</span>
+        <span class="title">Gateway rebooted 14&nbsp;&amp;&nbsp;16&nbsp;Aug despite both reboot policies being off</span>
+      </summary>
+      <div class="body">
+        <p>Surfaced by <code>fleet-judgment-review</code>: journal evidence showed the Gateway rebooted overnight around 14&nbsp;Aug and again around 16&nbsp;Aug, even though its custom <code>auto_reboot</code> flag is <code>false</code> <i>and</i> stock <code>unattended-upgrades</code>' own <code>Automatic-Reboot</code> is confirmed <code>false</code> &mdash; neither known mechanism explains it.</p>
+        <p><b>Update 25&nbsp;Aug:</b> a separate investigation on 13&nbsp;Aug into &ldquo;PowerDNS flakiness&rdquo; traced the real cause to a ~22-minute full Gateway outage, and Hostkey confirmed a genuine hypervisor-node fault on their side (ticket CS-519377, now closed). Plausibly the same underlying cause as these unexplained reboots &mdash; a hypervisor-level hiccup could produce either symptom &mdash; but the dates don't line up exactly and this hasn't been explicitly confirmed as the identical event. Worth a five-minute cross-check before closing this line out.</p>
+      </div>
+    </details>
+
+    <details class="item">
+      <summary>
+        <span class="caret">▸</span>
+        <span class="chip progress">In progress</span>
+        <span class="title">Discovery-candidate queue metadata gap</span>
+      </summary>
+      <div class="body">
+        <p>From the first <code>fleet-judgment-review</code> run: every docker-sourced Discovery candidate in the pending queue (~64 items) scores <code>completeness_score: 35</code> with no health endpoint inferred, even for well-known images &mdash; a real gap in <code>fleet-discovery-push</code>'s metadata inference. Not urgent, still open.</p>
+      </div>
+    </details>
+
+    <details class="item" open>
+      <summary>
+        <span class="caret">▸</span>
+        <span class="chip open">Open</span>
+        <span class="title">Fleet-wide compose drift &mdash; only half built</span>
+      </summary>
+      <div class="body">
+        <p>Scoped 20&nbsp;Aug as the general-fleet extension of the catalogue-binding-drift check (Section 9 of <code>docs/HoT_Automation_Self_Healing_Scope.md</code>): comparing every host's live container config against its own <code>docker-compose.yml</code>/<code>compose.yml</code>/<code>compose.yaml</code>, not just hot-pn's governance-approved deploys. The container-name-resolution piece (<code>compose-service-names.py</code>, including the Wazuh unnamed-services fallback) is built and verified on all 7 stack hosts. The actual comparison logic and nightly sweep wiring are not built yet.</p>
+      </div>
+    </details>
+
+    <details class="item">
+      <summary>
+        <span class="caret">▸</span>
+        <span class="chip progress">Unconfirmed</span>
+        <span class="title">hot-bm-nl PPS throttle fix &mdash; deployed, not yet proven</span>
+      </summary>
+      <div class="body">
+        <p>Hostkey's ToS PPS warning was traced 24&nbsp;Aug to the unthrottled nightly rclone push to Hetzner. Fixed via <code>--bwlimit 20M --transfers 2 --checkers 4</code>, deployed live and committed &mdash; but not yet confirmed clean through a real scheduled nightly run. Worth checking after the next 04:30 offsite push.</p>
+      </div>
+    </details>
+  </section>
+
+  <section class="group" id="parked">
+    <div class="group-head">
+      <h2>Real decisions parked</h2>
+      <span class="group-count">6 items</span>
+    </div>
+    <p class="group-note">Need Mr. Byrne specifically &mdash; not to be decided unilaterally.</p>
+
+    <details class="item" open>
+      <summary>
+        <span class="caret">▸</span>
+        <span class="chip parked">Parked &mdash; unresolved risk</span>
+        <span class="title"><b>hot-bm-nl backup capacity crisis</b></span>
+      </summary>
+      <div class="body">
+        <p><code>local-zfs</code> down to 62.5&nbsp;GB free &mdash; VM106's snapshot retention isn't being enforced, and the offsite (Hetzner) push has no real retry, so most of VM106/102/104's large backup files never actually made it offsite. A planned prune was started and aborted mid-flight rather than risk deleting something not actually backed up elsewhere. Nothing has been deleted. Still needs Mr. Byrne's direction on approach (prune harder vs. expand storage vs. fix the retry logic first) &mdash; unchanged since 18&nbsp;Aug, still the most pressing open item on this whole list.</p>
+      </div>
+    </details>
+
+    <details class="item">
+      <summary>
+        <span class="caret">▸</span>
+        <span class="chip parked">Parked</span>
+        <span class="title">Undocumented <code>nginx-certbot</code> container on hot-bm-nl itself</span>
+      </summary>
+      <div class="body">
+        <p>Found 19&nbsp;Aug via the Discovery-review pass: a real <code>jonasal/nginx-certbot</code> container running directly on the hot-bm-nl host (not inside any of its 4 VMs), reverse-proxying HTTPS to the local Proxmox UI under <code>proxmox22272.hostkey.in</code>. Predates this project's own 2026-07-27 rebuild, and its certbot email (<code>hkadm@hostkey.com</code>) suggests it's Hostkey's own provisioning/support tooling for the oVirt VPS &mdash; not confirmed with Hostkey directly. Verified it does <i>not</i> violate the &ldquo;bare metal has zero public ports&rdquo; rule. Still left untouched pending Mr. Byrne's read on what it actually is.</p>
+      </div>
+    </details>
+
+    <details class="item">
+      <summary>
+        <span class="caret">▸</span>
+        <span class="chip parked">Narrowed, still parked</span>
+        <span class="title">hot-pn's own infra-row health check has no natural endpoint</span>
+      </summary>
+      <div class="body">
+        <p>Was two rows &mdash; <code>nextcloud-personal</code> (undocumented scratch stack, confirmed unused, <b>removed 20&nbsp;Aug</b>) and hot-pn's own infra-service row. Only the second one is still open: like the Caddy Admin API's existing exemption, there's no natural container endpoint to point a health check at. Not urgent, but Mr. Byrne's call on whether it's worth a synthetic check or a documented exemption.</p>
+      </div>
+    </details>
+
+    <details class="item">
+      <summary>
+        <span class="caret">▸</span>
+        <span class="chip parked">Stated intent, still not scoped</span>
+        <span class="title">Personal services (Nextcloud / Immich / Notesnook / Vaultwarden) &mdash; no landing spot</span>
+      </summary>
+      <div class="body">
+        <p>The old &ldquo;migrate everything to hot-pn&rdquo; intent has partly happened in practice &mdash; PN's own Catalogue deploy flow already deployed a working Nextcloud and Notesnook instance there as product-feature demos &mdash; but that's not the same as a deliberate personal-services migration. The actual consolidation vision is now folded into the unscoped <b>&ldquo;HoT Sync&rdquo;</b> Phase 4 item (see below): sn-personal (its original intended home) is retired outright, so HoT Sync needs a fresh landing spot before this can move forward, and none has been picked.</p>
+      </div>
+    </details>
+
+    <details class="item">
+      <summary>
+        <span class="caret">▸</span>
+        <span class="chip parked">Parked</span>
+        <span class="title">hot-erp hosting client companies' backend software</span>
+      </summary>
+      <div class="body">
+        <p>Stated future goal, still not started, no timeline. Don't build multi-tenant hosting unprompted.</p>
+      </div>
+    </details>
+
+    <details class="item" open>
+      <summary>
+        <span class="caret">▸</span>
+        <span class="chip parked">Parked &mdash; new, 22&nbsp;Aug</span>
+        <span class="title"><b>Proxmox Backup Server (PBS) fleet integration</b></span>
+      </summary>
+      <div class="body">
+        <p>Mr. Byrne stood up a new PBS host on his own local hardware (not a rented VPS, behind a home NAT). SSH connectivity is established over Tailscale, and real findings are in: single-disk datastore with no RAID, and a live but fragile default-route mismatch. Three scope options (hot-bm-nl VMs only / fleet-wide file-level too / PBS as primary replacing Hetzner+B2) and the transport question (a new dedicated WireGuard tunnel vs. a documented Tailscale exception, given &ldquo;Tailscale = admin only&rdquo; is a hard rule elsewhere in this project) both need Mr. Byrne's decision before anything gets built. See <code>docs/HoT_PBS_Backup_Integration_Scope.md</code>.</p>
+      </div>
+    </details>
+  </section>
+
+  <section class="group" id="deferred">
+    <div class="group-head">
+      <h2>Low-priority, deliberately deferred</h2>
+      <span class="group-count">2 items</span>
+    </div>
+    <p class="group-note">Don't raise unprompted &mdash; only worth picking up if the underlying issue actually causes a problem.</p>
+
+    <div class="flat-list">
+      <ul>
+        <li><b>Roundcube passwordless SSO</b> &mdash; current oauth2-proxy pre-auth wall works fine; real OAUTH2/XOAUTH2 is bigger scope, evaluate only if the wall proves insufficient.</li>
+        <li><b>Stalwart mail server</b> &mdash; on hold until it ships a real web client or HoT builds one in-house.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="group" id="resolved">
+    <div class="group-head">
+      <h2>Resolved since 27 Jul</h2>
+      <span class="group-count">14 items, condensed</span>
+    </div>
+    <p class="group-note">Not exhaustive &mdash; a month of real infra work happened in between. Just what was open on prior sweeps, plus the headline items that weren't.</p>
+
+    <div class="flat-list">
+      <ul>
+        <li class="done">LUKS2 + Tang encryption retrofit &mdash; complete on all 4 VMs (sn-infra/web/monitor/security).</li>
+        <li class="done">CS-506940 Hostkey refund ticket ($112.94) &mdash; closed dead, no refund ever paid out. Mr. Byrne's decision: don't re-raise.</li>
+        <li class="done">sn-personal / pn-test (VLANs 40/60) fate &mdash; both retired outright, Mr. Byrne's decision (pn-test 3&nbsp;Aug, sn-personal 9&nbsp;Aug). No rebuild, ever.</li>
+        <li class="done">hot-erp dedicated server &mdash; moved off Hostinger to its own Hostkey NL VPS (hot-erp-nl), 1&nbsp;Aug.</li>
+        <li class="done">ClamAV sidecar decoupling plan &mdash; no longer needed; the upstream CDN signature block that motivated it cleared on its own ~28&nbsp;Jul.</li>
+        <li class="flag">PN v6.0 Security Lockdown Mode &mdash; was flagged &ldquo;entirely unbuilt&rdquo; on an early sweep; actually fully built and verified 1&nbsp;Aug (tiered Alert/Soft/Hard/Full response, Wazuh + CrowdSec integration, breakglass Full tier, audit trail).</li>
+        <li class="flag">More autonomous fleet operation (&ldquo;more JARVIS&rdquo;) &mdash; scoped <i>and</i> built 19&nbsp;Aug: nightly health sweep, hourly Discovery push, weekly judgment review. See Phase&nbsp;4.</li>
+        <li class="done">Gateway 13&nbsp;Aug outage (&ldquo;PowerDNS flakiness&rdquo;) &mdash; traced to a real ~22-min full Gateway outage; Hostkey confirmed a hypervisor-node fault on their side (ticket CS-519377), now closed. See the note on the still-open 14/16&nbsp;Aug reboot item above &mdash; possibly the same root cause, not fully confirmed.</li>
+        <li class="flag">Catalogue-binding-drift check &mdash; built 20&nbsp;Aug for hot-pn's Catalogue-deployed stacks. First real run found <code>nextcloud</code>'s binding correctly excepted and 4 genuine <code>notesnook</code> mismatches, all reconciled the same day (after an investigation misstep briefly caused a real ~2&ndash;5&nbsp;min public outage on 3 endpoints, caught and fixed).</li>
+        <li class="done"><code>nextcloud-personal</code> &mdash; an undocumented scratch Nextcloud stack found on hot-pn, confirmed genuinely unused (stock demo content only), removed 20&nbsp;Aug with Mr. Byrne's confirmation.</li>
+        <li class="flag">PN v5.0 (Autonomous Operations) &mdash; formally signed off 23&nbsp;Aug on 3 of 4 gate items; the remaining predictive-degradation item was split to an indefinitely-tracked ongoing proof point rather than treated as a blocker.</li>
+        <li class="done">Fleet-wide config sync audit (<code>hot-config/scripts/sync.sh</code>) &mdash; 23&nbsp;Aug: found and fixed real tracked-copy drift (a stale pre-Twilio-fix sms-relay copy, stale Vaultwarden/Gatus docs) plus zero-coverage gaps (Dockge, Wazuh, the whole <code>claude-md/</code> split). Sync now clean and idempotent, with its own Ntfy failure alerting added the same day.</li>
+        <li class="done">Standalone UptimeRobot MCP server for JARVIS itself &mdash; built and registered 23&nbsp;Aug, verified via a real stdio handshake.</li>
+        <li class="done">External monitoring blind spot &mdash; UptimeRobot now watches Gateway, hot-pn, and hot-erp-nl from outside the fleet entirely; push notifications confirmed live, 23&nbsp;Aug.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="group" id="phase4">
+    <div class="group-head">
+      <h2>Phase 4 roadmap</h2>
+      <span class="group-count">long-term</span>
+    </div>
+    <div class="flat-list">
+      <ul>
+        <li class="flag"><b>More autonomous fleet operation</b> &mdash; scoped <i>and</i> largely built 19&nbsp;Aug: a nightly deterministic health sweep with streak-based alert escalation, an hourly Discovery-pipeline push for 7 of 8 fleet hosts, and a weekly LLM-driven judgment review (report-only, its own fail-safe) that already found several real undocumented issues on its first runs. See <code>docs/HoT_Automation_Self_Healing_Scope.md</code>.</li>
+        <li>Edge load balancing (second VPS) &mdash; scoped 17&nbsp;Aug, covers hot-pn + hot-erp-nl too; three options laid out, none chosen yet.</li>
+        <li><b>Proxmox Backup Server (PBS) fleet integration</b> &mdash; new local-hardware PBS host connected 22&nbsp;Aug (SSH over Tailscale); scope options and the transport question both await Mr. Byrne's decision. See Parked, above.</li>
+        <li>HoT Sync (Flutter) &mdash; personal-services consolidation app; needs a fresh landing spot now that sn-personal is retired, not yet scoped.</li>
+        <li>HoT Command (Flutter mobile ops dashboard) &mdash; still a candidate only.</li>
+        <li>Second bare metal node (HA) &mdash; not started.</li>
+        <li>Terraform / Ansible IaC &mdash; not started.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="group" id="pn">
+    <div class="group-head">
+      <h2>PrivateNexus roadmap</h2>
+      <span class="group-count">from Release Roadmap v1.0</span>
+    </div>
+    <p class="group-note">Full document has extensive shipped-feature history &mdash; this is only what's still open, re-checked against the doc's own gate markers.</p>
+
+    <div class="roadmap-tier">
+      <h3>v5.0 &mdash; Autonomous Operations</h3>
+      <div class="meta passed">Gate: formally signed off 23&nbsp;Aug (3 of 4 gate items)</div>
+      <ul>
+        <li class="done">30 consecutive days of autonomous low-risk execution, zero errors &mdash; confirmed clean.</li>
+        <li class="done">No incident of autonomous execution causing unintended state change &mdash; held for the full window.</li>
+        <li>Predictive-degradation proof point &mdash; split off 23&nbsp;Aug to an indefinitely-tracked ongoing item rather than a hard blocker on the gate. See <code>PrivateNexus_Release_Roadmap_v1.0.md</code> v1.9.</li>
+      </ul>
+    </div>
+
+    <div class="roadmap-tier">
+      <h3>v6.0 &mdash; Open Platform</h3>
+      <div class="meta">Gate passed (v5.0 clean run) &mdash; still-open deliverables below</div>
+      <ul>
+        <li class="done">Security lockdown mode &mdash; built and verified 1&nbsp;Aug.</li>
+        <li class="done">Catalogue becomes a real local repository (versioned, custom-repo-configurable) &mdash; shipped; the deploy flow itself went further than originally scoped, with two real templated apps (Nextcloud, Notesnook) deploying end-to-end through the UI, 10&nbsp;Aug.</li>
+        <li>Full multi-tenancy &mdash; dynamic tenant resolution, tenant CRUD/provisioning, SuperAdmin console, tenant isolation regression suite.</li>
+        <li>De-hardcode remaining HoT-specific assumptions (discovery scanner defaults, category inference, seeded workspace slugs).</li>
+        <li>Proven recovery score &mdash; automated sandbox restore runner, scheduled restore tests, ERPNext + PrivateNexus as the first validated services.</li>
+        <li>Alerting completion &mdash; maintenance-window suppression, full four-topic verification.</li>
+        <li>Community Edition ship &mdash; GitHub repo (MIT core), Docker Hub image, install guide under 30 minutes, upgrade guide.</li>
+        <li>Professional Edition foundation &mdash; licence gating, first Pro beta customer, all five commercial proof points.</li>
+        <li>No critical security issues open at release tag.</li>
+      </ul>
+    </div>
+
+    <div class="roadmap-tier">
+      <h3>v7.0 &mdash; candidates only</h3>
+      <div class="meta">Nothing committed</div>
+      <ul>
+        <li>HoT Command mobile app</li>
+        <li>In-product notifications &mdash; PN currently has zero notification path to a logged-in operator; all alerting is external</li>
+        <li>Managed Edition pilot</li>
+        <li>Billing / licence self-service portal</li>
+        <li>Multi-site federation</li>
+        <li>Formal compliance modules (ISO 27001 / CIS)</li>
+      </ul>
+    </div>
+  </section>
+
+  <footer class="note">
+    Re-run this sweep periodically rather than trusting this snapshot indefinitely &mdash; several items on earlier sweeps turned out to already be resolved by the time anyone rechecked, and the fleet-judgment-review automation is specifically designed to keep surfacing exactly this kind of drift going forward. Verify live before treating anything here as still-open in a future session.
+  </footer>
+</div>
