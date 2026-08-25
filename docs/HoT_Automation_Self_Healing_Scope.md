@@ -742,9 +742,7 @@ verbatim rather than semantically parsed, correctly deferring the actual compari
 needs to understand these formats, not just store them) to whichever check eventually consumes this
 script's output.
 
-**Still not built**: the actual drift-comparison logic (step 2/3 above) that would call this script
-and diff its output against live `docker inspect` bindings, and the `fleet-health-sweep.sh`
-wiring. Running this from the Gateway (SSH out to every host, matching every other
+Running this from the Gateway (SSH out to every host, matching every other
 `fleet-health-sweep` check) is fine as-is — checked whether shipping compose file contents over
 SSH risked exposing secrets (grepped every Gateway compose file for
 `PASSWORD`/`SECRET`/`TOKEN`/`API_KEY` outside the `*_FILE`/Docker-secrets pattern, 2026-08-20):
@@ -756,3 +754,27 @@ from `docker inspect` — it has no reason to ever touch `environment:` or `dock
 container is actually running — confirmed while building the `notesnook` restore scripts in the
 incident above). So the secrets concern doesn't actually constrain this design; noted here so a
 future implementer doesn't have to re-derive it.
+
+**Comparison logic and sweep wiring built 2026-08-25** —
+`/usr/local/bin/compose-drift-check.py` (deployed to all 7 `STACK_HOSTS`, tracked in
+`hot-config/gateway/fleet-health-sweep/`), wired into `fleet-health-sweep.sh` as a one-shot
+`report_drift` block per the reasoning above (no governance flow for the general fleet, so a
+mismatch is ordinary drift, not escalation-worthy). Consumes `compose-service-names.py`'s output
+rather than re-parsing compose files itself.
+
+**Two real parsing bugs found and fixed in `compose-service-names.py` while testing this against
+the actual fleet, not just the motivating Wazuh case**: (1) its port-line regex only matched
+quoted strings (`"443:5601"`) — Wazuh's own compose file uses the bare form (`- 443:5601`)
+throughout, so every one of its ports looked undeclared, a false-positive drift report on the
+exact stack this whole section exists to cover; (2) even after fixing that, a second false
+positive turned up on caddy/mailserver/unbound/pdns-admin — all four annotate their port lines
+with trailing inline comments (`0.0.0.0:443:443/udp # HTTP/3 QUIC`, `"0.0.0.0:25:25" # SMTP
+inbound`, etc.), which the fixed regex's end-of-line anchor didn't tolerate, silently dropping
+every commented port line. Both fixed (optional quote-stripping, then comment-stripping before
+the match) and reverified against the same 7 stacks that surfaced them. **Verified clean across
+the whole fleet after both fixes**: ran `compose-drift-check.py` on all 7 `STACK_HOSTS` directly
+(zero drift reported anywhere) before wiring it into the sweep, then ran the real sweep once via
+`systemctl start fleet-health-sweep.service` (the actual timer's trigger path, not just a manual
+script invocation) — all 7 hosts correctly captured a `BASELINE ... compose-vs-live-drift`
+snapshot with no errors. Matches this project's standing rule of testing the real trigger path
+before trusting an unattended timer, not just the script in isolation.
