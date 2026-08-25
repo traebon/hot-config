@@ -1,0 +1,48 @@
+services:
+  pn-docs-db:
+    image: postgres:16-alpine
+    container_name: pn-docs-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=wiki
+      - POSTGRES_USER=wikijs
+      - POSTGRES_PASSWORD_FILE=/run/secrets/db_password
+    secrets:
+      - db_password
+    volumes:
+      - pn_docs_db:/var/lib/postgresql/data
+    networks:
+      - pn-docs-internal
+
+  pn-docs:
+    image: requarks/wiki:2
+    container_name: pn-docs
+    restart: unless-stopped
+    depends_on:
+      - pn-docs-db
+    entrypoint: /entrypoint.sh
+    environment:
+      - DB_TYPE=postgres
+      - DB_HOST=pn-docs-db
+      - DB_PORT=5432
+      - DB_USER=wikijs
+      - DB_NAME=wiki
+    secrets:
+      - db_password
+    volumes:
+      - ./entrypoint.sh:/entrypoint.sh:ro
+    ports:
+      - "10.10.2.2:3080:3000"
+    networks:
+      - pn-docs-internal
+
+networks:
+  pn-docs-internal:
+    driver: bridge
+
+volumes:
+  pn_docs_db:
+
+secrets:
+  db_password:
+    file: ./secrets/db_password.txt

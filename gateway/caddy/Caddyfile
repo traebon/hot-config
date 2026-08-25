@@ -157,6 +157,20 @@ privatenexus.net {
     reverse_proxy 10.10.2.2:5173
     header Strict-Transport-Security "max-age=31536000; includeSubDomains"
 }
+docs.privatenexus.net {
+    log
+    import crowdsec
+    import compress
+    # PrivateNexus product documentation (Wiki.js), deployed 2026-08-25 -- lives on hot-pn over
+    # wg3, same reverse-proxy-to-tunnel-IP pattern as privatenexus.net above. No `import sso`
+    # deliberately -- this is customer-facing product documentation, meant to be publicly
+    # readable without any HoT/PN staff login (same documented exception as cloud.house-of-trae.com
+    # below, New Service Deployment Checklist item 13). Editor/admin access is gated separately,
+    # inside Wiki.js itself, via native OIDC against the privatenexus Keycloak realm -- public
+    # read, authenticated write, not a site-wide login wall.
+    reverse_proxy 10.10.2.2:3080
+    header Strict-Transport-Security "max-age=31536000; includeSubDomains"
+}
 cloud.house-of-trae.com {
     log
     import crowdsec
