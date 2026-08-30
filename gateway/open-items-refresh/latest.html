@@ -251,11 +251,11 @@
   <header class="top">
     <p class="eyebrow">JARVIS &middot; Gateway VPS &middot; Infrastructure Sweep</p>
     <h1>Open Items</h1>
-    <p class="subtitle">First compiled 27 Jul 2026; refreshed 25 Aug 2026 against live state (current CLAUDE.md/claude-md split, this week's memory index, and a re-check against what's actually still open) rather than trusted from the 19 Aug snapshot.</p>
+    <p class="subtitle">First compiled 27 Jul 2026; refreshed 30 Aug 2026 against current CLAUDE.md/claude-md and the memory index &mdash; this run has no SSH/Bash access, so nothing below is live-verified, only grounded in what those sources record. Neither source has any entry dated after 25 Aug, so most items are carried forward unchanged from the 25 Aug snapshot; three real updates that source now shows (below) hadn't yet been folded into that snapshot.</p>
     <div class="stat-strip">
-      <div class="stat fixed"><div class="n">14</div><div class="l">Resolved since Jul&nbsp;27</div></div>
-      <div class="stat open"><div class="n">6</div><div class="l">Open / actionable</div></div>
-      <div class="stat parked"><div class="n">6</div><div class="l">Awaiting Mr. Byrne</div></div>
+      <div class="stat fixed"><div class="n">18</div><div class="l">Resolved since Jul&nbsp;27</div></div>
+      <div class="stat open"><div class="n">5</div><div class="l">Open / actionable</div></div>
+      <div class="stat parked"><div class="n">5</div><div class="l">Awaiting Mr. Byrne</div></div>
       <div class="stat deferred"><div class="n">2</div><div class="l">Deferred</div></div>
     </div>
   </header>
@@ -290,7 +290,7 @@
   <section class="group" id="actionable">
     <div class="group-head">
       <h2>Actionable now / soon</h2>
-      <span class="group-count">6 items</span>
+      <span class="group-count">5 items</span>
     </div>
 
     <details class="item" open>
@@ -300,7 +300,7 @@
         <span class="title"><b>Client websites still need real content</b> &mdash; all 6 sn-web sites</span>
       </summary>
       <div class="body">
-        <p>Re-checked live 19 Aug: stratus-digital.com, discreet-elite.uk, emerald-markets.net, rubyosiris.com, evilrabbitart.com, dickson-supplies.com all still return the same placeholder &ldquo;Coming soon&rdquo; page from the original rebuild. No change since the last sweep &mdash; real design/content still needed for each.</p>
+        <p>Re-checked live 19 Aug: stratus-digital.com, discreet-elite.uk, emerald-markets.net, rubyosiris.com, evilrabbitart.com, dickson-supplies.com all still return the same placeholder &ldquo;Coming soon&rdquo; page from the original rebuild. No newer information in CLAUDE.md or memory since then &mdash; carried forward unchanged, not re-verified live this run.</p>
       </div>
     </details>
 
@@ -308,10 +308,11 @@
       <summary>
         <span class="caret">▸</span>
         <span class="chip open">Open</span>
-        <span class="title">Wiki / encyclopedia for HoT and PN &mdash; still nothing behind it</span>
+        <span class="title">Wiki / encyclopedia for HoT &mdash; still nothing behind it</span>
       </summary>
       <div class="body">
-        <p><code>wiki.house-of-trae.com</code> still returns a bare <code>502</code> as of the last live check &mdash; the Caddy route exists, nothing has ever been deployed behind it. No PN-side wiki route exists either. Both need building from scratch.</p>
+        <p><code>wiki.house-of-trae.com</code> still returns a bare <code>502</code> as of the last live check &mdash; the Caddy route exists, nothing has ever been deployed behind it. No change recorded since the last sweep.</p>
+        <p>The PN-side half of this item is resolved separately, not a duplicate gap anymore: PrivateNexus's own product documentation (<code>docs.privatenexus.net</code>, Wiki.js) was deployed and went fully live 25&nbsp;Aug &mdash; see Resolved, below.</p>
       </div>
     </details>
 
@@ -323,7 +324,7 @@
       </summary>
       <div class="body">
         <p>Surfaced by <code>fleet-judgment-review</code>: journal evidence showed the Gateway rebooted overnight around 14&nbsp;Aug and again around 16&nbsp;Aug, even though its custom <code>auto_reboot</code> flag is <code>false</code> <i>and</i> stock <code>unattended-upgrades</code>' own <code>Automatic-Reboot</code> is confirmed <code>false</code> &mdash; neither known mechanism explains it.</p>
-        <p><b>Update 25&nbsp;Aug:</b> a separate investigation on 13&nbsp;Aug into &ldquo;PowerDNS flakiness&rdquo; traced the real cause to a ~22-minute full Gateway outage, and Hostkey confirmed a genuine hypervisor-node fault on their side (ticket CS-519377, now closed). Plausibly the same underlying cause as these unexplained reboots &mdash; a hypervisor-level hiccup could produce either symptom &mdash; but the dates don't line up exactly and this hasn't been explicitly confirmed as the identical event. Worth a five-minute cross-check before closing this line out.</p>
+        <p><b>Update 25&nbsp;Aug (unchanged this run):</b> a separate investigation on 13&nbsp;Aug into &ldquo;PowerDNS flakiness&rdquo; traced the real cause to a ~22-minute full Gateway outage, and Hostkey confirmed a genuine hypervisor-node fault on their side (ticket CS-519377, now closed). Plausibly the same underlying cause as these unexplained reboots &mdash; a hypervisor-level hiccup could produce either symptom &mdash; but the dates don't line up exactly and this hasn't been explicitly confirmed as the identical event. Neither CLAUDE.md nor memory records any further work on this since 25&nbsp;Aug, so it stays open rather than being guessed closed. Worth a five-minute cross-check before closing this line out.</p>
       </div>
     </details>
 
@@ -334,18 +335,7 @@
         <span class="title">Discovery-candidate queue metadata gap</span>
       </summary>
       <div class="body">
-        <p>From the first <code>fleet-judgment-review</code> run: every docker-sourced Discovery candidate in the pending queue (~64 items) scores <code>completeness_score: 35</code> with no health endpoint inferred, even for well-known images &mdash; a real gap in <code>fleet-discovery-push</code>'s metadata inference. Not urgent, still open.</p>
-      </div>
-    </details>
-
-    <details class="item" open>
-      <summary>
-        <span class="caret">▸</span>
-        <span class="chip open">Open</span>
-        <span class="title">Fleet-wide compose drift &mdash; only half built</span>
-      </summary>
-      <div class="body">
-        <p>Scoped 20&nbsp;Aug as the general-fleet extension of the catalogue-binding-drift check (Section 9 of <code>docs/HoT_Automation_Self_Healing_Scope.md</code>): comparing every host's live container config against its own <code>docker-compose.yml</code>/<code>compose.yml</code>/<code>compose.yaml</code>, not just hot-pn's governance-approved deploys. The container-name-resolution piece (<code>compose-service-names.py</code>, including the Wazuh unnamed-services fallback) is built and verified on all 7 stack hosts. The actual comparison logic and nightly sweep wiring are not built yet.</p>
+        <p>From the first <code>fleet-judgment-review</code> run: every docker-sourced Discovery candidate in the pending queue (~64 items) scores <code>completeness_score: 35</code> with no health endpoint inferred, even for well-known images &mdash; a real gap in <code>fleet-discovery-push</code>'s metadata inference. Not urgent, still open, no newer information found.</p>
       </div>
     </details>
 
@@ -353,10 +343,10 @@
       <summary>
         <span class="caret">▸</span>
         <span class="chip progress">Unconfirmed</span>
-        <span class="title">hot-bm-nl PPS throttle fix &mdash; deployed, not yet proven</span>
+        <span class="title">hot-bm-nl PPS throttle fix &mdash; deployed, still not proven by a real run</span>
       </summary>
       <div class="body">
-        <p>Hostkey's ToS PPS warning was traced 24&nbsp;Aug to the unthrottled nightly rclone push to Hetzner. Fixed via <code>--bwlimit 20M --transfers 2 --checkers 4</code>, deployed live and committed &mdash; but not yet confirmed clean through a real scheduled nightly run. Worth checking after the next 04:30 offsite push.</p>
+        <p>Hostkey's ToS PPS warning was traced 24&nbsp;Aug to the unthrottled nightly rclone push to Hetzner. Fixed via <code>--bwlimit 20M --transfers 2 --checkers 4</code>, deployed live and committed &mdash; but as of this refresh (30&nbsp;Aug) neither CLAUDE.md nor memory records a confirmed-clean scheduled 04:30 run since the fix. Still worth checking directly rather than assuming it's proven.</p>
       </div>
     </details>
   </section>
@@ -364,7 +354,7 @@
   <section class="group" id="parked">
     <div class="group-head">
       <h2>Real decisions parked</h2>
-      <span class="group-count">6 items</span>
+      <span class="group-count">5 items</span>
     </div>
     <p class="group-note">Need Mr. Byrne specifically &mdash; not to be decided unilaterally.</p>
 
@@ -375,18 +365,7 @@
         <span class="title"><b>hot-bm-nl backup capacity crisis</b></span>
       </summary>
       <div class="body">
-        <p><code>local-zfs</code> down to 62.5&nbsp;GB free &mdash; VM106's snapshot retention isn't being enforced, and the offsite (Hetzner) push has no real retry, so most of VM106/102/104's large backup files never actually made it offsite. A planned prune was started and aborted mid-flight rather than risk deleting something not actually backed up elsewhere. Nothing has been deleted. Still needs Mr. Byrne's direction on approach (prune harder vs. expand storage vs. fix the retry logic first) &mdash; unchanged since 18&nbsp;Aug, still the most pressing open item on this whole list.</p>
-      </div>
-    </details>
-
-    <details class="item">
-      <summary>
-        <span class="caret">▸</span>
-        <span class="chip parked">Parked</span>
-        <span class="title">Undocumented <code>nginx-certbot</code> container on hot-bm-nl itself</span>
-      </summary>
-      <div class="body">
-        <p>Found 19&nbsp;Aug via the Discovery-review pass: a real <code>jonasal/nginx-certbot</code> container running directly on the hot-bm-nl host (not inside any of its 4 VMs), reverse-proxying HTTPS to the local Proxmox UI under <code>proxmox22272.hostkey.in</code>. Predates this project's own 2026-07-27 rebuild, and its certbot email (<code>hkadm@hostkey.com</code>) suggests it's Hostkey's own provisioning/support tooling for the oVirt VPS &mdash; not confirmed with Hostkey directly. Verified it does <i>not</i> violate the &ldquo;bare metal has zero public ports&rdquo; rule. Still left untouched pending Mr. Byrne's read on what it actually is.</p>
+        <p><code>local-zfs</code> down to 62.5&nbsp;GB free &mdash; VM106's snapshot retention isn't being enforced, and the offsite (Hetzner) push has no real retry, so most of VM106/102/104's large backup files never actually made it offsite. A planned prune was started and aborted mid-flight rather than risk deleting something not actually backed up elsewhere. Nothing has been deleted. Still needs Mr. Byrne's direction on approach (prune harder vs. expand storage vs. fix the retry logic first) &mdash; unchanged since 18&nbsp;Aug, no newer information in CLAUDE.md or memory, still the most pressing open item on this whole list.</p>
       </div>
     </details>
 
@@ -397,7 +376,7 @@
         <span class="title">hot-pn's own infra-row health check has no natural endpoint</span>
       </summary>
       <div class="body">
-        <p>Was two rows &mdash; <code>nextcloud-personal</code> (undocumented scratch stack, confirmed unused, <b>removed 20&nbsp;Aug</b>) and hot-pn's own infra-service row. Only the second one is still open: like the Caddy Admin API's existing exemption, there's no natural container endpoint to point a health check at. Not urgent, but Mr. Byrne's call on whether it's worth a synthetic check or a documented exemption.</p>
+        <p>Was two rows &mdash; <code>nextcloud-personal</code> (undocumented scratch stack, confirmed unused, removed 20&nbsp;Aug) and hot-pn's own infra-service row. Only the second one is still open: like the Caddy Admin API's existing exemption, there's no natural container endpoint to point a health check at. Not urgent, but Mr. Byrne's call on whether it's worth a synthetic check or a documented exemption. No change recorded since the last sweep.</p>
       </div>
     </details>
 
@@ -408,7 +387,7 @@
         <span class="title">Personal services (Nextcloud / Immich / Notesnook / Vaultwarden) &mdash; no landing spot</span>
       </summary>
       <div class="body">
-        <p>The old &ldquo;migrate everything to hot-pn&rdquo; intent has partly happened in practice &mdash; PN's own Catalogue deploy flow already deployed a working Nextcloud and Notesnook instance there as product-feature demos &mdash; but that's not the same as a deliberate personal-services migration. The actual consolidation vision is now folded into the unscoped <b>&ldquo;HoT Sync&rdquo;</b> Phase 4 item (see below): sn-personal (its original intended home) is retired outright, so HoT Sync needs a fresh landing spot before this can move forward, and none has been picked.</p>
+        <p>The old &ldquo;migrate everything to hot-pn&rdquo; intent has partly happened in practice &mdash; PN's own Catalogue deploy flow already deployed a working Nextcloud and Notesnook instance there as product-feature demos &mdash; but that's not the same as a deliberate personal-services migration. The actual consolidation vision is now folded into the unscoped <b>&ldquo;HoT Sync&rdquo;</b> Phase 4 item (see below): sn-personal (its original intended home) is retired outright, so HoT Sync needs a fresh landing spot before this can move forward, and none has been picked. No change recorded since the last sweep.</p>
       </div>
     </details>
 
@@ -426,11 +405,11 @@
     <details class="item" open>
       <summary>
         <span class="caret">▸</span>
-        <span class="chip parked">Parked &mdash; new, 22&nbsp;Aug</span>
+        <span class="chip parked">Parked</span>
         <span class="title"><b>Proxmox Backup Server (PBS) fleet integration</b></span>
       </summary>
       <div class="body">
-        <p>Mr. Byrne stood up a new PBS host on his own local hardware (not a rented VPS, behind a home NAT). SSH connectivity is established over Tailscale, and real findings are in: single-disk datastore with no RAID, and a live but fragile default-route mismatch. Three scope options (hot-bm-nl VMs only / fleet-wide file-level too / PBS as primary replacing Hetzner+B2) and the transport question (a new dedicated WireGuard tunnel vs. a documented Tailscale exception, given &ldquo;Tailscale = admin only&rdquo; is a hard rule elsewhere in this project) both need Mr. Byrne's decision before anything gets built. See <code>docs/HoT_PBS_Backup_Integration_Scope.md</code>.</p>
+        <p>Mr. Byrne stood up a new PBS host on his own local hardware (not a rented VPS, behind a home NAT). SSH connectivity is established over Tailscale, and real findings are in: single-disk datastore with no RAID, and a live but fragile default-route mismatch. Three scope options (hot-bm-nl VMs only / fleet-wide file-level too / PBS as primary replacing Hetzner+B2) and the transport question (a new dedicated WireGuard tunnel vs. a documented Tailscale exception, given &ldquo;Tailscale = admin only&rdquo; is a hard rule elsewhere in this project) both need Mr. Byrne's decision before anything gets built. No newer information found. See <code>docs/HoT_PBS_Backup_Integration_Scope.md</code>.</p>
       </div>
     </details>
   </section>
@@ -453,9 +432,9 @@
   <section class="group" id="resolved">
     <div class="group-head">
       <h2>Resolved since 27 Jul</h2>
-      <span class="group-count">14 items, condensed</span>
+      <span class="group-count">18 items, condensed</span>
     </div>
-    <p class="group-note">Not exhaustive &mdash; a month of real infra work happened in between. Just what was open on prior sweeps, plus the headline items that weren't.</p>
+    <p class="group-note">Not exhaustive &mdash; a month of real infra work happened in between. Just what was open on prior sweeps, plus the headline items that weren't. Four new entries this run (below), all dated 25&nbsp;Aug &mdash; the most recent activity either source records.</p>
 
     <div class="flat-list">
       <ul>
@@ -473,6 +452,10 @@
         <li class="done">Fleet-wide config sync audit (<code>hot-config/scripts/sync.sh</code>) &mdash; 23&nbsp;Aug: found and fixed real tracked-copy drift (a stale pre-Twilio-fix sms-relay copy, stale Vaultwarden/Gatus docs) plus zero-coverage gaps (Dockge, Wazuh, the whole <code>claude-md/</code> split). Sync now clean and idempotent, with its own Ntfy failure alerting added the same day.</li>
         <li class="done">Standalone UptimeRobot MCP server for JARVIS itself &mdash; built and registered 23&nbsp;Aug, verified via a real stdio handshake.</li>
         <li class="done">External monitoring blind spot &mdash; UptimeRobot now watches Gateway, hot-pn, and hot-erp-nl from outside the fleet entirely; push notifications confirmed live, 23&nbsp;Aug.</li>
+        <li class="done"><b>Fleet-wide compose drift</b> &mdash; the general-fleet extension of the catalogue-binding-drift check (Section 9 of <code>docs/HoT_Automation_Self_Healing_Scope.md</code>) is now fully built, not just half: the comparison logic and nightly sweep wiring landed 25&nbsp;Aug on top of the container-name-resolution piece already verified 20&nbsp;Aug, live across all 7 stack hosts. Two real parsing bugs in <code>compose-service-names.py</code> (bare-form ports, trailing YAML comments) found and fixed while wiring it in, verified via a real <code>systemctl start</code> run.</li>
+        <li class="done"><b>Undocumented <code>nginx-certbot</code> container on hot-bm-nl itself</b> &mdash; resolved 25&nbsp;Aug, Mr. Byrne's call: leave it running, document as permanent, don't contact Hostkey. Assessed (not directly confirmed) as Hostkey's own provisioning tooling from real converging evidence (predates this project's own rebuild by 4 days, certbot email registered on Hostkey's own domain); confirmed not a security exposure (UFW correctly blocks port 443 from the public internet). One loose end left deliberately untouched: an unrecognized standing SSH key in <code>authorized_keys</code>, not something to revisit unprompted.</li>
+        <li class="done"><b>PrivateNexus product docs</b> (<code>docs.privatenexus.net</code>, Wiki.js) &mdash; deployed and fully live 25&nbsp;Aug, prioritized ahead of the still-open HoT-internal wiki item above given the upcoming PN release. Mr. Byrne completed the first-run setup wizard himself; Keycloak OIDC login wired and verified end-to-end the same day after tracing a real silent-500 bug (a new OIDC identity had no matching local account and Self-Registration was off).</li>
+        <li class="done">This Open Items page's own refresh mechanism &mdash; a weekly <code>open-items-refresh</code> job (built 25&nbsp;Aug) now stages this page's content automatically against current CLAUDE.md/claude-md and memory, closing the drift gap that let the 19&rarr;25&nbsp;Aug snapshot go stale unnoticed. It stages only: the Artifact tool needed to actually publish isn't reachable from a headless invocation, so a live session (like this one) still has to review the staged diff and republish.</li>
       </ul>
     </div>
   </section>
