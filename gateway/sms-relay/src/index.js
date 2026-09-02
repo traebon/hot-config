@@ -23,6 +23,19 @@ const SMS_PRIORITY_THRESHOLD = 5;
 const RATE_LIMIT_MS = 5 * 60 * 1000;
 const lastSentByGroup = new Map();
 
+// Real bug found 2026-09-02: reboot-recovery-watchdog's re-alert titles embed the elapsed
+// duration ("CRITICAL: sn-web still down 45min after hard power-cycle", then "60min", "75min",
+// ...), so every 15-minute re-alert for the same host/condition looked like a brand-new group to
+// the rate limiter above - it never recognized them as repeats, and none of the 1,557 SMS this
+// produced during a real 4-day outage were ever throttled (separately, virtually all of them also
+// failed to send - see the Twilio-account-Trial finding, a different bug). Strip embedded numbers
+// before using a title as the rate-limit key so a recurring "same host, same condition, changing
+// duration/count" alert is correctly recognized as the same group. Deliberately not applied to
+// Grafana's groupKey (parseGrafanaPayload, below) - that's already a stable, purpose-built key.
+function normalizeGroup(title) {
+  return title.replace(/\d+/g, "#");
+}
+
 function readSecret(path) {
   if (!path) return null;
   try {
@@ -104,7 +117,7 @@ async function handleMessage(msg) {
   if ((msg.priority ?? 3) < SMS_PRIORITY_THRESHOLD) return;
 
   const grafana = parseGrafanaPayload(msg.message ?? "");
-  const group = grafana?.group ?? msg.title ?? "untitled";
+  const group = grafana?.group ?? normalizeGroup(msg.title ?? "untitled");
   if (shouldRateLimit(group)) {
     console.log(`[sms-relay] Rate-limited, skipping: ${group}`);
     return;
