@@ -31,6 +31,24 @@ All VMs run as root.
 | Forgejo        | /opt/stacks/forgejo/    | git.securenexus.net           | 3000 |
 | PowerDNS-Admin | /opt/stacks/pdns-admin/ | dns-admin.house-of-trae.com   | 9191 |
 | Namevault      | /opt/stacks/namevault/  | namevault.co.uk               | 8010 |
+| hot-wiki       | /opt/stacks/wiki/       | wiki.house-of-trae.com        | 3030 |
+
+**hot-wiki — found undocumented 2026-09-02, real build confirmed live 25&nbsp;Aug.** `requarks/wiki:2`
+(Wiki.js) + its own Postgres 16 container (`hot-wiki-db`), created 2026-08-25 — the actual answer
+to the long-standing "wiki.house-of-trae.com still a bare 502" open item, which was wrong: the
+Caddy route (`import crowdsec`/`compress`/`secure_headers`, no `import sso` — same public-docs
+exception as `docs.privatenexus.net`) and the backend were both real and correctly wired the whole
+time; the backend was just down. Bound to `10.10.10.100:3030`, tunnel-internal, matching every
+other sn-infra service. 21 authentication strategies loaded including Keycloak — not yet confirmed
+whether OIDC login is actually wired to a realm client the way `docs.privatenexus.net`'s was, or
+whether Keycloak's just present as an available-but-unconfigured strategy; worth checking before
+telling Mr. Byrne it's ready to use. No Uptime Kuma/Gatus/UptimeRobot monitor exists for it either —
+same class of gap as `docs.privatenexus.net`. **Taken down 2026-09-02 by the same qm hard-cycle bug
+that stopped this VM for 4 days** (see `reboot_watchdog_proxmox_failure_outage_2026_09_02` memory) —
+found+fixed the same session, see the note under Hardware/Operational Rules on stale `docker-proxy`
+processes surviving a VM hard-cycle. Currently reachable and serving `200` both locally and via the
+public URL — confirmed live, but nothing in it (content, users, first-run setup) has been checked or
+documented yet.
 
 **Ntfy moved to the Gateway VPS 2026-08-03** (see Gateway VPS service table below) — no longer
 here. Was documented as living here, but during the 2026-08-03 hot-bm-nl outage, discovered its
