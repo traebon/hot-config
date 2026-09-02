@@ -75,7 +75,7 @@ do_soft_reboot() {
       log "$host: hostkey eq/reboot(id=$id) issued"
       ;;
     proxmox)
-      ssh -o ConnectTimeout=10 -o BatchMode=yes hot-bm-nl "qm reboot $id" > /dev/null 2>&1
+      ssh -o ConnectTimeout=10 -o BatchMode=yes hot-bm-nl "qm reboot $id" > /dev/null 2>&1 || { log "$host: qm reboot $id FAILED (ssh/qm error, or hot-bm-nl itself unreachable)"; return 1; }
       log "$host: qm reboot $id issued on hot-bm-nl"
       ;;
   esac
@@ -93,9 +93,9 @@ do_hard_cycle() {
       log "$host: hostkey eq/hard_off + eq/on (id=$id) issued"
       ;;
     proxmox)
-      ssh -o ConnectTimeout=10 -o BatchMode=yes hot-bm-nl "qm stop $id --skiplock" > /dev/null 2>&1
+      ssh -o ConnectTimeout=10 -o BatchMode=yes hot-bm-nl "qm stop $id --skiplock" > /dev/null 2>&1 || { log "$host: qm stop --skiplock $id FAILED (ssh/qm error, or hot-bm-nl itself unreachable)"; return 1; }
       sleep 5
-      ssh -o ConnectTimeout=10 -o BatchMode=yes hot-bm-nl "qm start $id" > /dev/null 2>&1
+      ssh -o ConnectTimeout=10 -o BatchMode=yes hot-bm-nl "qm start $id" > /dev/null 2>&1 || { log "$host: qm start $id FAILED after stop (ssh/qm error, or hot-bm-nl itself unreachable) — host may now be left stopped, needs manual qm start"; return 1; }
       log "$host: qm stop --skiplock $id + qm start $id issued on hot-bm-nl"
       ;;
   esac
