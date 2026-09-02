@@ -19,6 +19,38 @@ def slugify(s):
     return re.sub(r"^-|-$", "", re.sub(r"[^a-z0-9]+", "-", s.lower()))
 
 
+def parse_labels(labels_str):
+    """docker ps --format json's Labels field is a flat "k=v,k2=v2" string, not
+    a real object — a value containing a literal comma will split wrong, a known
+    limitation of this format, not worth a real Docker API call just to avoid.
+    """
+    labels = {}
+    for pair in (labels_str or "").split(","):
+        if "=" in pair:
+            k, _, v = pair.partition("=")
+            if k:
+                labels[k] = v
+    return labels
+
+
+def describe(labels, image):
+    """Best-effort suggested_description from what docker ps actually exposes —
+    was previously always None (completeness_score's -15 for missing description,
+    on top of -10 for the labels that were being collected into raw_data but never
+    parsed). Honors PN's own pn.description label convention first, matching
+    scanLocalDocker's own inference for hot-pn's local containers, so a service
+    that already self-describes gets the same result whether it's discovered
+    locally or pushed here from another host.
+    """
+    if labels.get("pn.description"):
+        return labels["pn.description"]
+    project = labels.get("com.docker.compose.project")
+    service = labels.get("com.docker.compose.service")
+    if project and service:
+        return f"Compose service '{service}' in project '{project}' ({image})"
+    return f"Docker container running {image}" if image else None
+
+
 def main():
     facts = {}
     for line in sys.stdin:
@@ -79,23 +111,35 @@ def main():
         image = c.get("Image", "")
         if image.startswith(EPHEMERAL_PROBE_IMAGE_PREFIXES):
             continue
+        labels = parse_labels(c.get("Labels"))
         candidates.append({
             "source": "docker",
             "host": host,
             "raw_name": name,
             "raw_image": image,
             "suggested_slug": f"{host}-{slugify(name)}",
-            "suggested_name": f"{name} ({host})",
-            "suggested_description": None,
-            "suggested_category": "app",
+            "suggested_name": labels.get("pn.name") or f"{name} ({host})",
+            "suggested_description": describe(labels, image),
+            "suggested_category": labels.get("pn.category") or "app",
             "suggested_access_mode": "internal",
             "suggested_runtime": "external",  # never "docker" — see script header
+            # Deliberately still None, not inferred from Ports here even though the
+            # data exists — unlike scanLocalDocker's own inferHealthEndpoint (which
+            # this mirrors for description/category above), a URL built from this
+            # container's own network/port has no guarantee PN's backend on hot-pn
+            # can actually route to it; every real cross-host reach in this project
+            # is a narrowly UFW-scoped exception, not a blanket allow. Synthesizing
+            # an endpoint PN can't reach would be actively misleading for a human
+            # reviewer, not just incomplete. Real fix here is a routing decision,
+            # not a metadata one — matching "external" runtime's whole point (PN
+            # can see this, not act on it).
             "suggested_health_ep": None,
             "raw_data": {
                 "status": c.get("Status"),
                 "ports": c.get("Ports"),
                 "created_at": c.get("CreatedAt"),
                 "source_host": host,
+                "labels": labels,
             },
         })
 
