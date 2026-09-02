@@ -73,7 +73,34 @@ async function sendSms(body) {
     console.error(`[sms-relay] Twilio send failed: ${res.status} ${text}`);
     return;
   }
-  console.log(`[sms-relay] SMS sent: ${body}`);
+
+  // Real bug found 2026-09-02: an HTTP 2xx here only means Twilio accepted and created the
+  // message resource - it does NOT mean the message actually sent. Twilio can (and, for
+  // Trial-account restrictions specifically, reliably does) return 201 Created with the
+  // resource's own `status` already "failed" and `error_code` set in the same response, all
+  // three timestamps identical - a synchronous rejection wearing a success HTTP code. During
+  // the real 2026-08-29 to 2026-09-02 outage this meant every one of ~1,560 failed sends
+  // (Trial daily-cap / message-length errors, codes 63038/30044) was logged as "SMS sent"
+  // here, with nothing anywhere recording that delivery had actually failed. Must check the
+  // resource's own `status`/`error_code`, not just the HTTP status code.
+  let resource;
+  try {
+    resource = await res.json();
+  } catch (e) {
+    console.error(`[sms-relay] Twilio response wasn't valid JSON despite HTTP ${res.status}: ${e.message}`);
+    return;
+  }
+
+  const FAILURE_STATUSES = new Set(["failed", "undelivered"]);
+  if (FAILURE_STATUSES.has(resource.status)) {
+    console.error(
+      `[sms-relay] Twilio DELIVERY FAILED (sid=${resource.sid}, status=${resource.status}, ` +
+      `error=${resource.error_code ?? "?"} ${resource.error_message ?? ""}): ${body}`
+    );
+    return;
+  }
+
+  console.log(`[sms-relay] SMS sent (sid=${resource.sid}, status=${resource.status}): ${body}`);
 }
 
 function shouldRateLimit(group) {
