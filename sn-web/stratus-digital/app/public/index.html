@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stratus Digital — Web design & development</title>
+<meta name="description" content="Stratus Digital designs and builds fast, considered websites and products for growing businesses.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --sky: #EDEFF2;
+    --sky-2: #E1E5EA;
+    --slate: #2B3440;
+    --slate-2: #1D242D;
+    --ink: #14181D;
+    --ink-soft: #4B5563;
+    --paper: #F7F8F9;
+    --line: #C9D0D8;
+    --line-on-slate: #3E4A59;
+    --break: #3E7CB1;
+    --break-soft: #DCE7F0;
+    --sun: #E8A34C;
+    --sun-ink: #2A1D0A;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    background: var(--sky);
+    color: var(--ink);
+    font-family: 'Inter', -apple-system, sans-serif;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, h3, .brand {
+    font-family: 'Manrope', 'Inter', sans-serif;
+    letter-spacing: -0.01em;
+    margin: 0;
+  }
+
+  a { color: inherit; }
+
+  .wrap {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 0 32px;
+  }
+
+  @media (max-width: 640px) {
+    .wrap { padding: 0 20px; }
+  }
+
+  /* ---------- Nav ---------- */
+  header {
+    position: relative;
+    z-index: 10;
+    padding: 28px 0;
+  }
+  header .wrap {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .brand {
+    font-size: 18px;
+    font-weight: 800;
+  }
+  nav { display: flex; gap: 36px; }
+  nav a {
+    text-decoration: none;
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--ink-soft);
+    transition: color 0.15s ease;
+  }
+  nav a:hover, nav a:focus-visible { color: var(--ink); }
+  .nav-cta {
+    color: var(--ink) !important;
+    font-weight: 600 !important;
+  }
+
+  /* ---------- Hero ---------- */
+  .hero {
+    position: relative;
+    padding: 88px 0 180px;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(180deg, transparent 0%, transparent 55%, var(--sky-2) 100%),
+      radial-gradient(ellipse 900px 420px at 78% 8%, rgba(62,124,177,0.14), transparent 65%);
+    pointer-events: none;
+  }
+  .hero-inner {
+    position: relative;
+    max-width: 760px;
+  }
+  .hero h1 {
+    font-size: clamp(40px, 6vw, 66px);
+    font-weight: 800;
+    line-height: 1.06;
+    color: var(--ink);
+  }
+  .hero p.lede {
+    margin: 28px 0 0;
+    font-size: 19px;
+    line-height: 1.65;
+    color: var(--ink-soft);
+    max-width: 46ch;
+  }
+  .hero-actions {
+    margin-top: 40px;
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    padding: 13px 26px;
+    border-radius: 999px;
+    font-size: 15px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .btn-primary {
+    background: var(--ink);
+    color: var(--sky);
+  }
+  .btn-primary:hover { transform: translateY(-1px); }
+  .btn-ghost {
+    color: var(--ink);
+    border: 1px solid var(--line);
+  }
+  .btn-ghost:hover { border-color: var(--ink); }
+
+  /* horizon seam between hero and work */
+  .seam {
+    position: relative;
+    height: 120px;
+    margin-top: -120px;
+  }
+  .seam svg { display: block; width: 100%; height: 100%; }
+
+  /* ---------- Work (slate band, alternating rows) ---------- */
+  .work {
+    background: var(--slate);
+    color: var(--sky);
+    padding: 8px 0 96px;
+  }
+  .work .section-head {
+    padding-top: 8px;
+    margin-bottom: 56px;
+  }
+  .work h2 {
+    font-size: clamp(28px, 3.6vw, 36px);
+    font-weight: 700;
+    color: var(--sky);
+  }
+  .work .section-head p {
+    margin: 14px 0 0;
+    color: #A7B2BF;
+    max-width: 52ch;
+    font-size: 16px;
+  }
+
+  .project {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 56px;
+    align-items: center;
+    padding: 44px 0;
+    border-top: 1px solid var(--line-on-slate);
+  }
+  .project:last-child { border-bottom: 1px solid var(--line-on-slate); }
+  .project.reverse .project-media { order: 2; }
+  .project.reverse .project-body { order: 1; }
+
+  .project-media {
+    aspect-ratio: 4 / 3;
+    border-radius: 18px;
+    background: linear-gradient(155deg, #35414F, #1F2731 70%);
+    border: 1px solid var(--line-on-slate);
+    position: relative;
+    overflow: hidden;
+  }
+  .project-media::after {
+    content: attr(data-placeholder);
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #6B7686;
+    font-size: 13px;
+    font-weight: 500;
+    text-align: center;
+    padding: 0 24px;
+  }
+
+  .project-kind {
+    font-size: 14px;
+    color: var(--break);
+    font-weight: 600;
+  }
+  .project h3 {
+    margin-top: 10px;
+    font-size: 25px;
+    font-weight: 700;
+    color: var(--sky);
+  }
+  .project p {
+    margin: 14px 0 0;
+    color: #B7C0CB;
+    max-width: 42ch;
+    font-size: 15.5px;
+  }
+
+  @media (max-width: 760px) {
+    .project, .project.reverse {
+      grid-template-columns: 1fr;
+      gap: 24px;
+    }
+    .project.reverse .project-media,
+    .project.reverse .project-body { order: initial; }
+  }
+
+  /* ---------- Process ---------- */
+  .process {
+    padding: 100px 0;
+  }
+  .process .section-head { max-width: 60ch; margin-bottom: 56px; }
+  .process h2 {
+    font-size: clamp(28px, 3.6vw, 36px);
+    font-weight: 700;
+  }
+  .process .section-head p {
+    margin: 14px 0 0;
+    color: var(--ink-soft);
+    font-size: 16px;
+  }
+  .steps {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 40px;
+  }
+  @media (max-width: 760px) {
+    .steps { grid-template-columns: 1fr; gap: 36px; }
+  }
+  .step-num {
+    font-family: 'Manrope', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--break);
+    background: var(--break-soft);
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .step h3 {
+    margin-top: 20px;
+    font-size: 19px;
+    font-weight: 700;
+  }
+  .step p {
+    margin: 10px 0 0;
+    color: var(--ink-soft);
+    font-size: 15px;
+    max-width: 34ch;
+  }
+
+  /* ---------- Contact ---------- */
+  .contact {
+    position: relative;
+    background: var(--sun);
+    color: var(--sun-ink);
+    padding: 96px 0;
+    overflow: hidden;
+  }
+  .contact::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse 700px 400px at 12% 120%, rgba(255,255,255,0.35), transparent 60%);
+    pointer-events: none;
+  }
+  .contact-inner {
+    position: relative;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 40px;
+    flex-wrap: wrap;
+  }
+  .contact h2 {
+    font-size: clamp(30px, 4.4vw, 46px);
+    font-weight: 800;
+    max-width: 14ch;
+    line-height: 1.1;
+  }
+  .contact-links {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: flex-start;
+  }
+  .contact-links a {
+    text-decoration: none;
+    font-size: 17px;
+    font-weight: 600;
+    border-bottom: 2px solid rgba(42,29,10,0.35);
+    padding-bottom: 2px;
+  }
+  .contact-links a:hover { border-color: var(--sun-ink); }
+  .contact .btn-primary {
+    background: var(--sun-ink);
+    color: var(--sun);
+  }
+
+  /* ---------- Footer ---------- */
+  footer {
+    padding: 32px 0;
+    background: var(--paper);
+    border-top: 1px solid var(--line);
+  }
+  footer .wrap {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    font-size: 13.5px;
+    color: var(--ink-soft);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--break);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    * { transition: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="brand">Stratus Digital</div>
+    <nav>
+      <a href="#work">Work</a>
+      <a href="#process">Process</a>
+      <a href="/portal">Client Login</a>
+      <a href="#contact" class="nav-cta">Contact</a>
+    </nav>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="wrap">
+    <div class="hero-inner">
+      <h1>Websites and products, built with care.</h1>
+      <p class="lede">Stratus Digital designs and builds for businesses that want their site to actually work — for the people using it, and for the people running the business behind it.</p>
+      <div class="hero-actions">
+        <a href="#contact" class="btn btn-primary">Start a project</a>
+        <a href="#work" class="btn btn-ghost">See our work</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="seam">
+  <svg viewBox="0 0 1440 120" preserveAspectRatio="none" aria-hidden="true">
+    <path d="M0,60 C280,110 480,10 760,45 C1040,80 1200,30 1440,55 L1440,120 L0,120 Z" fill="#2B3440"></path>
+  </svg>
+</div>
+
+<section class="work" id="work">
+  <div class="wrap">
+    <div class="section-head">
+      <h2>Selected work</h2>
+      <p>A few of the projects we've shaped — from first sketch through to a site the client can actually run day to day.</p>
+    </div>
+
+    <div class="project">
+      <div class="project-media" data-placeholder="Project image — to be added"></div>
+      <div class="project-body">
+        <div class="project-kind">Rebuild</div>
+        <h3>A storefront that finally matched the shop</h3>
+        <p>A full front-end rebuild for a retailer whose old site hadn't kept pace with the business — clearer product pages, a faster checkout, and a back end their own team could update.</p>
+      </div>
+    </div>
+
+    <div class="project reverse">
+      <div class="project-media" data-placeholder="Project image — to be added"></div>
+      <div class="project-body">
+        <div class="project-kind">Launch</div>
+        <h3>A product site built ahead of a real deadline</h3>
+        <p>Design and build for a product launch on a fixed date — from first concept to a live, working site, with the client's own team able to edit copy and images after handover.</p>
+      </div>
+    </div>
+
+    <div class="project">
+      <div class="project-media" data-placeholder="Project image — to be added"></div>
+      <div class="project-body">
+        <div class="project-kind">Internal tool</div>
+        <h3>A dashboard the team actually opens every day</h3>
+        <p>A internal tool replacing a spreadsheet three people were fighting over — built around how the team actually works, not a generic admin template.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="process" id="process">
+  <div class="wrap">
+    <div class="section-head">
+      <h2>How a project runs</h2>
+      <p>Three stages, in this order, every time — so you always know what's happening next.</p>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <h3>Discover</h3>
+        <p>We work out what the site actually needs to do, for your visitors and for you, before any design starts.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <h3>Build</h3>
+        <p>Design and development happen together, not in sequence — so what you see is what actually ships.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <h3>Ship</h3>
+        <p>You get a live site and the means to run it — content you can edit, and a handover that isn't rushed.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="contact" id="contact">
+  <div class="wrap contact-inner">
+    <h2>Have a project in mind?</h2>
+    <div class="contact-links">
+      <a href="mailto:hello@stratus-digital.com">hello@stratus-digital.com</a>
+      <a href="#" class="btn btn-primary" style="margin-top: 8px;">Start a project</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span>© 2026 Stratus Digital</span>
+    <span>Web design & development</span>
+  </div>
+</footer>
+
+</body>
+</html>

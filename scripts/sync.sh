@@ -183,6 +183,14 @@ sync_remote sn-infra /opt/stacks/forgejo/docker-compose.yml     "$REPO/sn-infra/
 
 log "Syncing sn-web configs..."
 sync_remote sn-web /opt/stacks/stratus-digital/docker-compose.yml "$REPO/sn-web/stratus-digital/docker-compose.yml"
+# stratus-digital moved from a bare static nginx site to a real Express app (2026-09-03/04, the
+# client portal build) — its source is real application logic now, not just content, so it's
+# tracked here unlike the other 5 sn-web sites' still-untracked html/ (a pre-existing gap, not
+# introduced by this change).
+sync_remote sn-web /opt/stacks/stratus-digital/app/Dockerfile      "$REPO/sn-web/stratus-digital/app/Dockerfile"
+sync_remote sn-web /opt/stacks/stratus-digital/app/package.json    "$REPO/sn-web/stratus-digital/app/package.json"
+sync_remote sn-web /opt/stacks/stratus-digital/app/server.js       "$REPO/sn-web/stratus-digital/app/server.js"
+sync_remote sn-web /opt/stacks/stratus-digital/app/public/index.html "$REPO/sn-web/stratus-digital/app/public/index.html"
 sync_remote sn-web /opt/stacks/discreet-elite/docker-compose.yml  "$REPO/sn-web/discreet-elite/docker-compose.yml"
 sync_remote sn-web /opt/stacks/emerald-markets/docker-compose.yml "$REPO/sn-web/emerald-markets/docker-compose.yml"
 sync_remote sn-web /opt/stacks/ruby/docker-compose.yml            "$REPO/sn-web/ruby/docker-compose.yml"
