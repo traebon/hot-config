@@ -36,7 +36,6 @@ Run locally on each STACK_HOST (invoked over SSH by the Gateway's fleet-health-s
 """
 import json
 import subprocess
-import sys
 from pathlib import Path
 
 STACKS_ROOT = Path("/opt/stacks")
@@ -114,11 +113,11 @@ def check_stack(stack_dir: Path):
         live = live_bindings(container)
         for key in set(declared) | set(live):
             d = declared.get(key)
-            l = live.get(key)
-            if d != l:
+            live_binding = live.get(key)
+            if d != live_binding:
                 cport, proto = key
                 d_str = f"{d[0]}:{d[1]}" if d else "NONE"
-                l_str = f"{l[0]}:{l[1]}" if l else "NONE"
+                l_str = f"{live_binding[0]}:{live_binding[1]}" if live_binding else "NONE"
                 print(f"{stack_dir.name}|{svc['service']}|{container}|{cport}/{proto}|{d_str}|{l_str}")
 
 

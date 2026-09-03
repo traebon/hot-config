@@ -105,7 +105,7 @@ else
                 "$BACKUP_DIR/tor/tor-hidden-service-$DATE.tar.gz" \
                 "$BACKUP_DIR/powerdns/powerdns-db-$DATE.sql.gz" \
                 "$BACKUP_DIR/mailserver/mailserver-$DATE.tar.gz"; do
-                subdir=$(basename $(dirname "$f"))
+                subdir=$(basename "$(dirname "$f")")
                 set +e
                 rclone copy "$f" "${REMOTE}:gateway-vps-backups/${subdir}/" \
                     --no-traverse 2>&1 | while IFS= read -r l; do log "    rclone: $l"; done

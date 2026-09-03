@@ -32,13 +32,20 @@ def to_slug(name: str) -> str:
 
 def infer_category(image: str) -> str:
     img = image.lower()
-    if re.search(r"postgres|mariadb|mysql|redis|mongo", img):   return "database"
-    if re.search(r"nginx|caddy|traefik|apache|haproxy", img):   return "proxy"
-    if re.search(r"grafana|prometheus|loki|uptime", img):       return "monitoring"
-    if re.search(r"keycloak|vault|authelia|wazuh", img):        return "security"
-    if re.search(r"forgejo|gitea|gitlab", img):                 return "vcs"
-    if re.search(r"nextcloud|immich|vaultwarden", img):         return "personal"
-    if re.search(r"erpnext|frappe", img):                       return "business"
+    if re.search(r"postgres|mariadb|mysql|redis|mongo", img):
+        return "database"
+    if re.search(r"nginx|caddy|traefik|apache|haproxy", img):
+        return "proxy"
+    if re.search(r"grafana|prometheus|loki|uptime", img):
+        return "monitoring"
+    if re.search(r"keycloak|vault|authelia|wazuh", img):
+        return "security"
+    if re.search(r"forgejo|gitea|gitlab", img):
+        return "vcs"
+    if re.search(r"nextcloud|immich|vaultwarden", img):
+        return "personal"
+    if re.search(r"erpnext|frappe", img):
+        return "business"
     return "app"
 
 def get_containers() -> list[dict]:

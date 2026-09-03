@@ -3,7 +3,9 @@
 seed_dependencies.py — seeds HoT estate service dependency graph into PrivateNexus.
 Run on pn-test as root.  Idempotent (POST uses ON CONFLICT DO UPDATE).
 """
-import json, urllib.request, urllib.error, ssl, sys
+import json
+import urllib.request
+import urllib.error
 
 API_BASE = "http://127.0.0.1:3001"
 SLUG_TO_ID = {
@@ -117,7 +119,6 @@ def main():
             print(f"  ERROR {upstream_slug} → {downstream_slug}: {error}")
             err += 1
         else:
-            dep = result.get("dependency", {})
             print(f"  OK    {upstream_slug:25} → {downstream_slug:25} [{dep_type}]")
             ok += 1
     print(f"\nDone — {ok} created/updated, {err} errors")
