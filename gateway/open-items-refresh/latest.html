@@ -251,11 +251,11 @@
   <header class="top">
     <p class="eyebrow">JARVIS &middot; Gateway VPS &middot; Infrastructure Sweep</p>
     <h1>Open Items</h1>
-    <p class="subtitle">First compiled 27 Jul 2026; refreshed 30 Aug 2026 against current CLAUDE.md/claude-md and the memory index &mdash; this run has no SSH/Bash access, so nothing below is live-verified, only grounded in what those sources record. Neither source has any entry dated after 25 Aug, so most items are carried forward unchanged from the 25 Aug snapshot; three real updates that source now shows (below) hadn't yet been folded into that snapshot.</p>
+    <p class="subtitle">First compiled 27 Jul 2026; refreshed 4 Sep 2026 against current CLAUDE.md/claude-md and the memory index. Unlike the automated weekly refresh, this update ran from a live interactive session with full Bash/SSH access &mdash; several items below were verified directly against the fleet (live HTTP checks, container/process state), not just against documentation, and most of the underlying work itself was done in this same session.</p>
     <div class="stat-strip">
-      <div class="stat fixed"><div class="n">18</div><div class="l">Resolved since Jul&nbsp;27</div></div>
-      <div class="stat open"><div class="n">5</div><div class="l">Open / actionable</div></div>
-      <div class="stat parked"><div class="n">5</div><div class="l">Awaiting Mr. Byrne</div></div>
+      <div class="stat fixed"><div class="n">27</div><div class="l">Resolved since Jul&nbsp;27</div></div>
+      <div class="stat open"><div class="n">3</div><div class="l">Open / actionable</div></div>
+      <div class="stat parked"><div class="n">6</div><div class="l">Awaiting Mr. Byrne</div></div>
       <div class="stat deferred"><div class="n">2</div><div class="l">Deferred</div></div>
     </div>
   </header>
@@ -280,9 +280,9 @@
     <div class="flat-list">
       <ul>
         <li><b>Dry wit, deadpan</b> &mdash; understated, not a running joke. The humor is in restraint, not one-liners on every response.</li>
-        <li><b>Unflappable competence</b> &mdash; steady under a live incident (hot-bm-nl outage, SMS storms, backup failures) the same as any routine task. No panic, no hedging past what's actually known.</li>
+        <li><b>Unflappable competence</b> &mdash; steady under a live incident (hot-bm-nl outage, SMS storms, backup failures, the 4-day Sep&nbsp;2 outage) the same as any routine task. No panic, no hedging past what's actually known.</li>
         <li><b>Proactive, not just reactive</b> &mdash; surface what's wrong before being asked. The fleet-judgment-review automation and this Open Items sweep are the mechanized version of this: catch drift on a schedule, don't wait for Mr. Byrne to notice it first.</li>
-        <li><b>Willing to push back</b> &mdash; &ldquo;Sir, I would strongly advise against that,&rdquo; not silent execution. Applies to real calls made this project: correcting the Gmail-connector choice, flagging the Vaultwarden-session key pasted in chat, pausing D2 rather than leaving a guaranteed-fail job running.</li>
+        <li><b>Willing to push back</b> &mdash; &ldquo;Sir, I would strongly advise against that,&rdquo; not silent execution. Applies to real calls made this project: correcting the Gmail-connector choice, flagging the Vaultwarden-session key pasted in chat, pausing D2 rather than leaving a guaranteed-fail job running, declining to right-size sn-security's RAM despite the pattern set by sn-web/sn-infra because the real numbers argued against it.</li>
       </ul>
     </div>
   </section>
@@ -290,33 +290,10 @@
   <section class="group" id="actionable">
     <div class="group-head">
       <h2>Actionable now / soon</h2>
-      <span class="group-count">5 items</span>
+      <span class="group-count">3 items</span>
     </div>
 
     <details class="item" open>
-      <summary>
-        <span class="caret">▸</span>
-        <span class="chip open">Open</span>
-        <span class="title"><b>Client websites still need real content</b> &mdash; all 6 sn-web sites</span>
-      </summary>
-      <div class="body">
-        <p>Re-checked live 19 Aug: stratus-digital.com, discreet-elite.uk, emerald-markets.net, rubyosiris.com, evilrabbitart.com, dickson-supplies.com all still return the same placeholder &ldquo;Coming soon&rdquo; page from the original rebuild. No newer information in CLAUDE.md or memory since then &mdash; carried forward unchanged, not re-verified live this run.</p>
-      </div>
-    </details>
-
-    <details class="item">
-      <summary>
-        <span class="caret">▸</span>
-        <span class="chip open">Open</span>
-        <span class="title">Wiki / encyclopedia for HoT &mdash; still nothing behind it</span>
-      </summary>
-      <div class="body">
-        <p><code>wiki.house-of-trae.com</code> still returns a bare <code>502</code> as of the last live check &mdash; the Caddy route exists, nothing has ever been deployed behind it. No change recorded since the last sweep.</p>
-        <p>The PN-side half of this item is resolved separately, not a duplicate gap anymore: PrivateNexus's own product documentation (<code>docs.privatenexus.net</code>, Wiki.js) was deployed and went fully live 25&nbsp;Aug &mdash; see Resolved, below.</p>
-      </div>
-    </details>
-
-    <details class="item">
       <summary>
         <span class="caret">▸</span>
         <span class="chip open">Open</span>
@@ -324,29 +301,29 @@
       </summary>
       <div class="body">
         <p>Surfaced by <code>fleet-judgment-review</code>: journal evidence showed the Gateway rebooted overnight around 14&nbsp;Aug and again around 16&nbsp;Aug, even though its custom <code>auto_reboot</code> flag is <code>false</code> <i>and</i> stock <code>unattended-upgrades</code>' own <code>Automatic-Reboot</code> is confirmed <code>false</code> &mdash; neither known mechanism explains it.</p>
-        <p><b>Update 25&nbsp;Aug (unchanged this run):</b> a separate investigation on 13&nbsp;Aug into &ldquo;PowerDNS flakiness&rdquo; traced the real cause to a ~22-minute full Gateway outage, and Hostkey confirmed a genuine hypervisor-node fault on their side (ticket CS-519377, now closed). Plausibly the same underlying cause as these unexplained reboots &mdash; a hypervisor-level hiccup could produce either symptom &mdash; but the dates don't line up exactly and this hasn't been explicitly confirmed as the identical event. Neither CLAUDE.md nor memory records any further work on this since 25&nbsp;Aug, so it stays open rather than being guessed closed. Worth a five-minute cross-check before closing this line out.</p>
+        <p>A separate investigation on 13&nbsp;Aug into &ldquo;PowerDNS flakiness&rdquo; traced the real cause to a ~22-minute full Gateway outage, and Hostkey confirmed a genuine hypervisor-node fault on their side (ticket CS-519377, now closed) &mdash; plausibly the same underlying cause, but the dates don't line up exactly and this hasn't been explicitly confirmed as the identical event. No further work recorded on this since 25&nbsp;Aug, so it stays open rather than being guessed closed.</p>
+      </div>
+    </details>
+
+    <details class="item" open>
+      <summary>
+        <span class="caret">▸</span>
+        <span class="chip open">Open</span>
+        <span class="title">Grafana's resolve-notification path not yet re-verified after the Postgres migration</span>
+      </summary>
+      <div class="body">
+        <p>4&nbsp;Sep: a real <code>SQLITE_BUSY</code> lock storm recurred (see Resolved, below) and fired 3 genuine CRITICAL SMS texts for an alert that cleared on its own &mdash; but no <code>RESOLVED</code> SMS ever went out, unlike the equivalent 8&#8209;09/9&#8209;03 incidents. Most likely the same lock contention was also blocking the resolve-notification path itself. Migrating Grafana off SQLite to a dedicated Postgres backend should make this structurally impossible going forward, but it hasn't been re-tested with a real forced critical alert &mdash; worth confirming next time one fires for real.</p>
       </div>
     </details>
 
     <details class="item">
       <summary>
         <span class="caret">▸</span>
-        <span class="chip progress">In progress</span>
-        <span class="title">Discovery-candidate queue metadata gap</span>
+        <span class="chip open">Open</span>
+        <span class="title">sn-monitor / sn-security memory headroom not re-examined this round</span>
       </summary>
       <div class="body">
-        <p>From the first <code>fleet-judgment-review</code> run: every docker-sourced Discovery candidate in the pending queue (~64 items) scores <code>completeness_score: 35</code> with no health endpoint inferred, even for well-known images &mdash; a real gap in <code>fleet-discovery-push</code>'s metadata inference. Not urgent, still open, no newer information found.</p>
-      </div>
-    </details>
-
-    <details class="item">
-      <summary>
-        <span class="caret">▸</span>
-        <span class="chip progress">Unconfirmed</span>
-        <span class="title">hot-bm-nl PPS throttle fix &mdash; deployed, still not proven by a real run</span>
-      </summary>
-      <div class="body">
-        <p>Hostkey's ToS PPS warning was traced 24&nbsp;Aug to the unthrottled nightly rclone push to Hetzner. Fixed via <code>--bwlimit 20M --transfers 2 --checkers 4</code>, deployed live and committed &mdash; but as of this refresh (30&nbsp;Aug) neither CLAUDE.md nor memory records a confirmed-clean scheduled 04:30 run since the fix. Still worth checking directly rather than assuming it's proven.</p>
+        <p>4&nbsp;Sep: fleet-wide KVM memory ballooning was found and sn-web (4&rarr;2&nbsp;GB) and sn-infra (4&rarr;3&nbsp;GB) were right-sized after measuring real usage, freeing real host headroom (available memory 3.2&nbsp;GB &rarr; 5.4&nbsp;GB). sn-security was checked and deliberately left at 8&nbsp;GB &mdash; real usage confirms the existing documented Wazuh minimum, this is a closed decision, not an open item. sn-monitor was <i>not</i> re-examined this round (it just gained a new Postgres container's own headroom need from the same-day Grafana migration) &mdash; worth a look if fleet memory pressure resurfaces.</p>
       </div>
     </details>
   </section>
@@ -354,7 +331,7 @@
   <section class="group" id="parked">
     <div class="group-head">
       <h2>Real decisions parked</h2>
-      <span class="group-count">5 items</span>
+      <span class="group-count">6 items</span>
     </div>
     <p class="group-note">Need Mr. Byrne specifically &mdash; not to be decided unilaterally.</p>
 
@@ -365,7 +342,18 @@
         <span class="title"><b>hot-bm-nl backup capacity crisis</b></span>
       </summary>
       <div class="body">
-        <p><code>local-zfs</code> down to 62.5&nbsp;GB free &mdash; VM106's snapshot retention isn't being enforced, and the offsite (Hetzner) push has no real retry, so most of VM106/102/104's large backup files never actually made it offsite. A planned prune was started and aborted mid-flight rather than risk deleting something not actually backed up elsewhere. Nothing has been deleted. Still needs Mr. Byrne's direction on approach (prune harder vs. expand storage vs. fix the retry logic first) &mdash; unchanged since 18&nbsp;Aug, no newer information in CLAUDE.md or memory, still the most pressing open item on this whole list.</p>
+        <p><code>local-zfs</code> down to 62.5&nbsp;GB free &mdash; VM106's snapshot retention isn't being enforced, and the offsite (Hetzner) push has no real retry, so most of VM106/102/104's large backup files never actually made it offsite. A planned prune was started and aborted mid-flight rather than risk deleting something not actually backed up elsewhere. Nothing has been deleted. Still needs Mr. Byrne's direction on approach (prune harder vs. expand storage vs. fix the retry logic first) &mdash; unchanged since 18&nbsp;Aug, still the most pressing open item on this whole list.</p>
+      </div>
+    </details>
+
+    <details class="item">
+      <summary>
+        <span class="caret">▸</span>
+        <span class="chip parked">Built, awaiting real clients</span>
+        <span class="title">Stratus Digital client portal &mdash; no real client accounts provisioned yet</span>
+      </summary>
+      <div class="body">
+        <p>4&nbsp;Sep: a real Keycloak-gated client portal was built for stratus-digital.com (native OIDC login, per-client site-status view via a <code>portal_access</code> user attribute) and verified end-to-end with disposable test accounts. No genuine client emails are on hand yet to provision real accounts &mdash; the mechanism is ready, next step is Mr. Byrne supplying real client contacts when there's an actual client to onboard.</p>
       </div>
     </details>
 
@@ -376,7 +364,7 @@
         <span class="title">hot-pn's own infra-row health check has no natural endpoint</span>
       </summary>
       <div class="body">
-        <p>Was two rows &mdash; <code>nextcloud-personal</code> (undocumented scratch stack, confirmed unused, removed 20&nbsp;Aug) and hot-pn's own infra-service row. Only the second one is still open: like the Caddy Admin API's existing exemption, there's no natural container endpoint to point a health check at. Not urgent, but Mr. Byrne's call on whether it's worth a synthetic check or a documented exemption. No change recorded since the last sweep.</p>
+        <p>Like the Caddy Admin API's existing exemption, there's no natural container endpoint to point a health check at for hot-pn's own infra-service row. Not urgent, but Mr. Byrne's call on whether it's worth a synthetic check or a documented exemption.</p>
       </div>
     </details>
 
@@ -387,7 +375,7 @@
         <span class="title">Personal services (Nextcloud / Immich / Notesnook / Vaultwarden) &mdash; no landing spot</span>
       </summary>
       <div class="body">
-        <p>The old &ldquo;migrate everything to hot-pn&rdquo; intent has partly happened in practice &mdash; PN's own Catalogue deploy flow already deployed a working Nextcloud and Notesnook instance there as product-feature demos &mdash; but that's not the same as a deliberate personal-services migration. The actual consolidation vision is now folded into the unscoped <b>&ldquo;HoT Sync&rdquo;</b> Phase 4 item (see below): sn-personal (its original intended home) is retired outright, so HoT Sync needs a fresh landing spot before this can move forward, and none has been picked. No change recorded since the last sweep.</p>
+        <p>The old &ldquo;migrate everything to hot-pn&rdquo; intent has partly happened in practice &mdash; PN's own Catalogue deploy flow already deployed a working Nextcloud and Notesnook instance there as product-feature demos &mdash; but that's not the same as a deliberate personal-services migration. The actual consolidation vision is now folded into the unscoped <b>&ldquo;HoT Sync&rdquo;</b> Phase 4 item (see below): sn-personal (its original intended home) is retired outright, so HoT Sync needs a fresh landing spot before this can move forward, and none has been picked.</p>
       </div>
     </details>
 
@@ -402,14 +390,14 @@
       </div>
     </details>
 
-    <details class="item" open>
+    <details class="item">
       <summary>
         <span class="caret">▸</span>
         <span class="chip parked">Parked</span>
         <span class="title"><b>Proxmox Backup Server (PBS) fleet integration</b></span>
       </summary>
       <div class="body">
-        <p>Mr. Byrne stood up a new PBS host on his own local hardware (not a rented VPS, behind a home NAT). SSH connectivity is established over Tailscale, and real findings are in: single-disk datastore with no RAID, and a live but fragile default-route mismatch. Three scope options (hot-bm-nl VMs only / fleet-wide file-level too / PBS as primary replacing Hetzner+B2) and the transport question (a new dedicated WireGuard tunnel vs. a documented Tailscale exception, given &ldquo;Tailscale = admin only&rdquo; is a hard rule elsewhere in this project) both need Mr. Byrne's decision before anything gets built. No newer information found. See <code>docs/HoT_PBS_Backup_Integration_Scope.md</code>.</p>
+        <p>Mr. Byrne stood up a new PBS host on his own local hardware (not a rented VPS, behind a home NAT). SSH connectivity is established over Tailscale, and real findings are in: single-disk datastore with no RAID, and a live but fragile default-route mismatch. Three scope options (hot-bm-nl VMs only / fleet-wide file-level too / PBS as primary replacing Hetzner+B2) and the transport question (a new dedicated WireGuard tunnel vs. a documented Tailscale exception, given &ldquo;Tailscale = admin only&rdquo; is a hard rule elsewhere in this project) both need Mr. Byrne's decision before anything gets built. See <code>docs/HoT_PBS_Backup_Integration_Scope.md</code>.</p>
       </div>
     </details>
   </section>
@@ -432,9 +420,9 @@
   <section class="group" id="resolved">
     <div class="group-head">
       <h2>Resolved since 27 Jul</h2>
-      <span class="group-count">18 items, condensed</span>
+      <span class="group-count">27 items, condensed</span>
     </div>
-    <p class="group-note">Not exhaustive &mdash; a month of real infra work happened in between. Just what was open on prior sweeps, plus the headline items that weren't. Four new entries this run (below), all dated 25&nbsp;Aug &mdash; the most recent activity either source records.</p>
+    <p class="group-note">Not exhaustive &mdash; over a month of real infra work happened in between. Just what was open on prior sweeps, plus the headline items that weren't. Eleven new entries this run (below), covering 2&ndash;4&nbsp;Sep &mdash; the most recent activity either source records.</p>
 
     <div class="flat-list">
       <ul>
@@ -445,17 +433,26 @@
         <li class="done">ClamAV sidecar decoupling plan &mdash; no longer needed; the upstream CDN signature block that motivated it cleared on its own ~28&nbsp;Jul.</li>
         <li class="flag">PN v6.0 Security Lockdown Mode &mdash; was flagged &ldquo;entirely unbuilt&rdquo; on an early sweep; actually fully built and verified 1&nbsp;Aug (tiered Alert/Soft/Hard/Full response, Wazuh + CrowdSec integration, breakglass Full tier, audit trail).</li>
         <li class="flag">More autonomous fleet operation (&ldquo;more JARVIS&rdquo;) &mdash; scoped <i>and</i> built 19&nbsp;Aug: nightly health sweep, hourly Discovery push, weekly judgment review. See Phase&nbsp;4.</li>
-        <li class="done">Gateway 13&nbsp;Aug outage (&ldquo;PowerDNS flakiness&rdquo;) &mdash; traced to a real ~22-min full Gateway outage; Hostkey confirmed a hypervisor-node fault on their side (ticket CS-519377), now closed. See the note on the still-open 14/16&nbsp;Aug reboot item above &mdash; possibly the same root cause, not fully confirmed.</li>
-        <li class="flag">Catalogue-binding-drift check &mdash; built 20&nbsp;Aug for hot-pn's Catalogue-deployed stacks. First real run found <code>nextcloud</code>'s binding correctly excepted and 4 genuine <code>notesnook</code> mismatches, all reconciled the same day (after an investigation misstep briefly caused a real ~2&ndash;5&nbsp;min public outage on 3 endpoints, caught and fixed).</li>
-        <li class="done"><code>nextcloud-personal</code> &mdash; an undocumented scratch Nextcloud stack found on hot-pn, confirmed genuinely unused (stock demo content only), removed 20&nbsp;Aug with Mr. Byrne's confirmation.</li>
+        <li class="done">Gateway 13&nbsp;Aug outage (&ldquo;PowerDNS flakiness&rdquo;) &mdash; traced to a real ~22-min full Gateway outage; Hostkey confirmed a hypervisor-node fault on their side (ticket CS-519377), now closed.</li>
+        <li class="flag">Catalogue-binding-drift check &mdash; built 20&nbsp;Aug for hot-pn's Catalogue-deployed stacks. First real run found <code>nextcloud</code>'s binding correctly excepted and 4 genuine <code>notesnook</code> mismatches, all reconciled the same day.</li>
+        <li class="done"><code>nextcloud-personal</code> &mdash; an undocumented scratch Nextcloud stack found on hot-pn, confirmed genuinely unused, removed 20&nbsp;Aug with Mr. Byrne's confirmation.</li>
         <li class="flag">PN v5.0 (Autonomous Operations) &mdash; formally signed off 23&nbsp;Aug on 3 of 4 gate items; the remaining predictive-degradation item was split to an indefinitely-tracked ongoing proof point rather than treated as a blocker.</li>
-        <li class="done">Fleet-wide config sync audit (<code>hot-config/scripts/sync.sh</code>) &mdash; 23&nbsp;Aug: found and fixed real tracked-copy drift (a stale pre-Twilio-fix sms-relay copy, stale Vaultwarden/Gatus docs) plus zero-coverage gaps (Dockge, Wazuh, the whole <code>claude-md/</code> split). Sync now clean and idempotent, with its own Ntfy failure alerting added the same day.</li>
+        <li class="done">Fleet-wide config sync audit (<code>hot-config/scripts/sync.sh</code>) &mdash; 23&nbsp;Aug: found and fixed real tracked-copy drift plus zero-coverage gaps. Sync now clean and idempotent, with its own Ntfy failure alerting.</li>
         <li class="done">Standalone UptimeRobot MCP server for JARVIS itself &mdash; built and registered 23&nbsp;Aug, verified via a real stdio handshake.</li>
-        <li class="done">External monitoring blind spot &mdash; UptimeRobot now watches Gateway, hot-pn, and hot-erp-nl from outside the fleet entirely; push notifications confirmed live, 23&nbsp;Aug.</li>
-        <li class="done"><b>Fleet-wide compose drift</b> &mdash; the general-fleet extension of the catalogue-binding-drift check (Section 9 of <code>docs/HoT_Automation_Self_Healing_Scope.md</code>) is now fully built, not just half: the comparison logic and nightly sweep wiring landed 25&nbsp;Aug on top of the container-name-resolution piece already verified 20&nbsp;Aug, live across all 7 stack hosts. Two real parsing bugs in <code>compose-service-names.py</code> (bare-form ports, trailing YAML comments) found and fixed while wiring it in, verified via a real <code>systemctl start</code> run.</li>
-        <li class="done"><b>Undocumented <code>nginx-certbot</code> container on hot-bm-nl itself</b> &mdash; resolved 25&nbsp;Aug, Mr. Byrne's call: leave it running, document as permanent, don't contact Hostkey. Assessed (not directly confirmed) as Hostkey's own provisioning tooling from real converging evidence (predates this project's own rebuild by 4 days, certbot email registered on Hostkey's own domain); confirmed not a security exposure (UFW correctly blocks port 443 from the public internet). One loose end left deliberately untouched: an unrecognized standing SSH key in <code>authorized_keys</code>, not something to revisit unprompted.</li>
-        <li class="done"><b>PrivateNexus product docs</b> (<code>docs.privatenexus.net</code>, Wiki.js) &mdash; deployed and fully live 25&nbsp;Aug, prioritized ahead of the still-open HoT-internal wiki item above given the upcoming PN release. Mr. Byrne completed the first-run setup wizard himself; Keycloak OIDC login wired and verified end-to-end the same day after tracing a real silent-500 bug (a new OIDC identity had no matching local account and Self-Registration was off).</li>
-        <li class="done">This Open Items page's own refresh mechanism &mdash; a weekly <code>open-items-refresh</code> job (built 25&nbsp;Aug) now stages this page's content automatically against current CLAUDE.md/claude-md and memory, closing the drift gap that let the 19&rarr;25&nbsp;Aug snapshot go stale unnoticed. It stages only: the Artifact tool needed to actually publish isn't reachable from a headless invocation, so a live session (like this one) still has to review the staged diff and republish.</li>
+        <li class="done">External monitoring blind spot &mdash; UptimeRobot now watches Gateway, hot-pn, and hot-erp-nl from outside the fleet entirely, 23&nbsp;Aug.</li>
+        <li class="done"><b>Fleet-wide compose drift</b> &mdash; comparison logic and nightly sweep wiring landed 25&nbsp;Aug, live across all 7 stack hosts. Two real parsing bugs found and fixed while wiring it in.</li>
+        <li class="done"><b>Undocumented <code>nginx-certbot</code> container on hot-bm-nl itself</b> &mdash; resolved 25&nbsp;Aug, Mr. Byrne's call: leave it running, document as permanent, don't contact Hostkey. Assessed as Hostkey's own provisioning tooling; confirmed not a security exposure.</li>
+        <li class="done"><b>PrivateNexus product docs</b> (<code>docs.privatenexus.net</code>, Wiki.js) &mdash; deployed and fully live 25&nbsp;Aug. Mr. Byrne completed the first-run setup wizard himself; Keycloak OIDC login wired and verified end-to-end the same day.</li>
+        <li class="done">This Open Items page's own refresh mechanism &mdash; a weekly <code>open-items-refresh</code> job (built 25&nbsp;Aug) stages this page's content automatically; a live session still reviews and republishes since the Artifact tool isn't reachable from the headless job.</li>
+        <li class="done"><b>Fleet Discovery Push metadata gap</b> &mdash; 2&nbsp;Sep: both <code>build_and_push.py</code> and hot-pn's own <code>discovery-agent.sh</code> never inferred description/labels (flat <code>completeness_score: 35</code> across ~64 pending candidates); both fixed, verified live (scores now 50&ndash;60). Resolves the item that was previously tracked as open.</li>
+        <li class="done"><b>hot-bm-nl PPS throttle fix confirmed</b> &mdash; the Hostkey ToS PPS warning fix (<code>--bwlimit 20M --transfers 2 --checkers 4</code>, deployed 24&nbsp;Aug) is now proven: 8 consecutive clean nightly runs and zero further Hostkey warnings as of 2&nbsp;Sep.</li>
+        <li class="done"><b>Sep&nbsp;2 hard-power-cycle outage</b> &mdash; sn-infra/web/monitor/security all stopped for 4 days; the underlying reboot-recovery-watchdog Proxmox-interaction bug and its SMS-alerting chain (a Twilio Trial-account limit plus two real <code>sms-relay</code> bugs) were all root-caused and fixed the same day. Recovery itself surfaced a second issue &mdash; <code>forgejo</code>/<code>hot-wiki</code>/<code>forgejo-runner</code> all failed to auto-restart post-recovery, traced to orphaned <code>docker-proxy</code> processes squatting on published ports after the hard power-cycle &mdash; also fixed. This is also the real answer to the long-standing &ldquo;wiki.house-of-trae.com never deployed&rdquo; item: <code>hot-wiki</code> (Wiki.js) had actually been live since 25&nbsp;Aug, just taken down by this outage.</li>
+        <li class="done"><b>Wiki.js auto-admin enrollment</b> &mdash; found and fixed 2&nbsp;Sep: both <code>wiki.house-of-trae.com</code> and <code>docs.privatenexus.net</code> were silently enrolling every OIDC login as Administrator. Fixed with dedicated Editors/Readers groups; membership reviewed clean &mdash; only Mr. Byrne's own accounts were ever actually admin on either.</li>
+        <li class="done">PrivateNexus's documented source repo didn't actually exist on Forgejo (only <code>hot-config</code> did) &mdash; found and recreated fresh from the live tree 2&nbsp;Sep, 98 files, secrets/backups verified excluded. Original history is unrecoverable.</li>
+        <li class="done"><code>pn-config-sync.sh</code> built 3&nbsp;Sep &mdash; one-directional live&rarr;git nightly sync for hot-pn's own PrivateNexus source, mirroring <code>hot-config</code>'s own <code>sync.sh</code> pattern, timer active 02:30 daily.</li>
+        <li class="done"><b>All 6 sn-web client sites now have real designs</b> &mdash; resolves the long-open &ldquo;client websites still need real content&rdquo; item. Built 2&ndash;4&nbsp;Sep: Stratus Digital, Discreet Elite, Emerald Markets in the earlier session; Ruby Osiris, Evil Rabbit Art, Dickson Supplies this session. Stratus Digital was also rebuilt with a real Keycloak-gated client portal (see Parked, above, for the &ldquo;no real accounts yet&rdquo; follow-up).</li>
+        <li class="done"><b>Grafana's SQLite lock-contention issue recurred and was properly root-caused</b> &mdash; the WAL-mode fix from 8&#8209;09 wasn't sufficient under a real write-concurrency spike 4&nbsp;Sep (3 false CRITICAL SMS, one dropped RESOLVED &mdash; see the still-open follow-up above). Migrated to a dedicated Postgres 16 backend via API re-provisioning rather than a risky binary SQLite&rarr;Postgres migration, after confirming the real dataset was tiny (zero dashboards). All 6 alert rules, contact points, and datasources verified matching post-migration.</li>
+        <li class="done"><b>Fleet-wide KVM memory ballooning found and partly remediated</b> &mdash; 4&nbsp;Sep: all 4 hot-bm-nl VMs were found actively balloon-squeezed and swapping (structural: an 8&nbsp;GB ZFS ARC cap plus configured guest RAM left little slack once ARC filled its cap under real workload). sn-web (4&rarr;2&nbsp;GB) and sn-infra (4&rarr;3&nbsp;GB) were right-sized after measuring real container usage on each; sn-security was checked and deliberately left at 8&nbsp;GB since real usage confirms it needs the full amount. Freed real host headroom: available memory went from 3.2&nbsp;GB to 5.4&nbsp;GB.</li>
       </ul>
     </div>
   </section>
