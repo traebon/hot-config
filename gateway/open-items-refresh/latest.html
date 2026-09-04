@@ -281,8 +281,8 @@
     <h1>Open Items</h1>
     <p class="subtitle">First compiled 27 Jul 2026; refreshed 4 Sep 2026 against live state (current CLAUDE.md/claude-md split, this week's memory index, and <code>hot-config</code>'s real git log) rather than trusted from the 25 Aug snapshot &mdash; several items below moved since then without ever being reflected here.</p>
     <div class="stat-strip">
-      <div class="stat fixed"><div class="n">28</div><div class="l">Resolved since Jul&nbsp;27</div></div>
-      <div class="stat open"><div class="n">2</div><div class="l">Open / actionable</div></div>
+      <div class="stat fixed"><div class="n">29</div><div class="l">Resolved since Jul&nbsp;27</div></div>
+      <div class="stat open"><div class="n">1</div><div class="l">Open / actionable</div></div>
       <div class="stat parked"><div class="n">6</div><div class="l">Awaiting Mr. Byrne</div></div>
       <div class="stat deferred"><div class="n">2</div><div class="l">Deferred</div></div>
     </div>
@@ -306,9 +306,9 @@
   </section>
 
   <div class="tabbar" role="tablist">
-    <button class="tab active" data-tab="actionable" role="tab" aria-selected="true">Actionable <span class="tab-count">2</span></button>
+    <button class="tab active" data-tab="actionable" role="tab" aria-selected="true">Actionable <span class="tab-count">1</span></button>
     <button class="tab" data-tab="parked" role="tab" aria-selected="false">Parked <span class="tab-count">8</span></button>
-    <button class="tab" data-tab="resolved" role="tab" aria-selected="false">Resolved <span class="tab-count">28</span></button>
+    <button class="tab" data-tab="resolved" role="tab" aria-selected="false">Resolved <span class="tab-count">29</span></button>
     <button class="tab" data-tab="roadmaps" role="tab" aria-selected="false">Roadmaps</button>
   </div>
 
@@ -316,21 +316,10 @@
   <section class="group" id="actionable">
     <div class="group-head">
       <h2>Actionable now / soon</h2>
-      <span class="group-count">2 items</span>
+      <span class="group-count">1 item</span>
     </div>
 
     <details class="item" open>
-      <summary>
-        <span class="caret">▸</span>
-        <span class="chip open">Open</span>
-        <span class="title">Grafana's resolve-notification path not yet re-verified after the Postgres migration</span>
-      </summary>
-      <div class="body">
-        <p>4&nbsp;Sep: a real <code>SQLITE_BUSY</code> lock storm recurred on Grafana (see Resolved, below) and fired 3 genuine CRITICAL SMS texts for an alert that cleared on its own &mdash; but no <code>RESOLVED</code> SMS ever went out, unlike the equivalent 8&#8209;09/9&#8209;03 incidents. Most likely the same lock contention was also blocking the resolve-notification path itself. Migrating Grafana off SQLite to a dedicated Postgres backend the same day should make this structurally impossible going forward, but it hasn't been re-tested with a real forced critical alert &mdash; worth confirming next time one fires for real.</p>
-      </div>
-    </details>
-
-    <details class="item">
       <summary>
         <span class="caret">▸</span>
         <span class="chip open">Open</span>
@@ -439,12 +428,13 @@
   <section class="group" id="resolved">
     <div class="group-head">
       <h2>Resolved since 27 Jul</h2>
-      <span class="group-count">28 items, condensed</span>
+      <span class="group-count">29 items, condensed</span>
     </div>
     <p class="group-note">Not exhaustive &mdash; five-plus weeks of real infra work happened in between. Just what was open on prior sweeps, plus the headline items that weren't.</p>
 
     <div class="flat-list">
       <ul>
+        <li class="done"><b>sms-relay could silently drop a genuine RESOLVED text on a quick flap</b> &mdash; found within hours of being flagged as an open follow-up (above/Actionable, now removed): checking real SMS history after the sn-web/sn-infra memory-right-sizing reboots showed sn-infra's <code>Node Down</code> FIRING&rarr;RESOLVED pair delivered cleanly (proof the same-day Grafana Postgres migration fixed its own resolve pipeline), but sn-web's matching RESOLVED never arrived. Root cause was <i>not</i> Grafana at all &mdash; confirmed via a real <code>[sms-relay] Rate-limited, skipping:</code> log line: the per-group 5-minute rate limiter didn't distinguish FIRING from RESOLVED, so a RESOLVED landing within its own group's throttle window (a quick flap, e.g. a VM reboot clearing fast) was silently swallowed by the same mechanism that exists to stop repeated FIRING spam. Fixed: RESOLVED messages now bypass the rate limit entirely and don't reset it, so a real subsequent FIRING on the same group still throttles normally. Verified via code review, not a forced real test alert &mdash; no reason to text Mr. Byrne unnecessarily just to prove it.</li>
         <li class="done"><b>All 6 sn-web client sites now have real designs, plus a real client portal</b> &mdash; resolves the &ldquo;client websites still need real content&rdquo; item tracked as open on every prior sweep since the rebuild. Built 2&ndash;4&nbsp;Sep: Stratus Digital, Discreet Elite, and Emerald Markets in one session (distinct design directions per Mr. Byrne's briefs &mdash; layered-cloud portfolio look, OnlyFans/cam-management platform, Irish eBay-style marketplace); Ruby Osiris (Egyptian-revival crimson/gold dropship jewellery), Evil Rabbit Art (dark punk-gallery palette &mdash; built from the brand name alone since Instagram 429'd the fetch and TikTok returned only its JS app shell, flagged to Mr. Byrne to redirect if it doesn't match the real account), and Dickson Supplies (clinical blue/teal medical B2B distribution) in the next. Stratus Digital was also rebuilt from bare nginx to a real Express app with a Keycloak-gated client portal &mdash; see the still-open &ldquo;no real accounts yet&rdquo; follow-up in Parked, above.</li>
         <li class="done"><b>Grafana's SQLite lock-contention issue recurred and was properly root-caused</b> &mdash; the WAL-mode fix from 8&#8209;09 (below) wasn't sufficient under a real write-concurrency spike on 4&nbsp;Sep (1,280 lock errors, a genuine 7.5s <code>500</code> on the login page, 3 false CRITICAL SMS &mdash; see the still-open resolve-notification follow-up in Actionable, above). Migrated to a dedicated Postgres&nbsp;16 backend via API re-provisioning rather than a risky binary SQLite&rarr;Postgres migration, after confirming the real dataset was tiny (zero dashboards, just 6 alert rules and 2 datasources). All 6 alert rules (with the 8&#8209;08 <code>execErrState: Error</code> fix intact), both contact points, the notification policy, and both datasources verified matching exactly post-migration via preserved UIDs.</li>
         <li class="done"><b>Fleet-wide KVM memory ballooning found and partly remediated</b> &mdash; 4&nbsp;Sep: all 4 hot-bm-nl VMs were found actively balloon-squeezed and swapping (structural: an 8&nbsp;GB ZFS ARC cap plus configured guest RAM left little slack once ARC filled its cap under real workload, likely a real contributing factor to the same-night Grafana lock storm above). sn-web (4&rarr;2&nbsp;GB) and sn-infra (4&rarr;3&nbsp;GB) were right-sized after measuring real container usage on each &mdash; deliberately different target sizes since sn-infra's real workload (Forgejo/PowerDNS-Admin/hot-wiki) is meaningfully heavier than sn-web's trivial static sites; sn-security was checked and deliberately left at 8&nbsp;GB since real usage confirms it needs the full amount, already swap-pressured at its documented Wazuh minimum. A real, self-resolving gotcha hit on both reboots: Forgejo, hot-wiki, and one Node/Express app all looked hung for 1&ndash;4 minutes after <code>docker ps</code> showed &ldquo;Up&rdquo;, confirmed via <code>wchan</code>/CPU time to be genuinely I/O-bound resolving many small dependency files against a cold post-reboot disk cache, not crashed. Freed real host headroom: available memory went from 3.2&nbsp;GB to 5.4&nbsp;GB.</li>
