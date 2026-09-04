@@ -135,6 +135,7 @@ function parseGrafanaPayload(message) {
   const status = (payload.status ?? "unknown").toUpperCase();
   return {
     group: payload.groupKey,
+    resolved: (payload.status ?? "").toLowerCase() === "resolved",
     text: `${status}: ${labels.alertname ?? "alert"} (${labels.severity ?? "?"})${summary ? " - " + summary : ""}`,
   };
 }
@@ -145,7 +146,16 @@ async function handleMessage(msg) {
 
   const grafana = parseGrafanaPayload(msg.message ?? "");
   const group = grafana?.group ?? normalizeGroup(msg.title ?? "untitled");
-  if (shouldRateLimit(group)) {
+
+  // Real bug found 2026-09-04: a RESOLVED landing within RATE_LIMIT_MS of its own group's FIRING
+  // (a quick flap - e.g. a VM reboot clearing before the throttle window closes) was silently
+  // dropped by the same per-group limiter that exists to stop repeated FIRING spam. That's the
+  // wrong failure mode for a "your phone said something's down" message - a RESOLVED is a single
+  // terminal bookend per incident, not spam, and dropping it silently leaves the operator thinking
+  // something might still be down when it's actually fine. RESOLVED always sends, unthrottled, and
+  // deliberately doesn't touch lastSentByGroup - it shouldn't reset the throttle window for a
+  // subsequent real FIRING on the same group.
+  if (!grafana?.resolved && shouldRateLimit(group)) {
     console.log(`[sms-relay] Rate-limited, skipping: ${group}`);
     return;
   }
