@@ -345,22 +345,22 @@
     <details class="item">
       <summary>
         <span class="caret">▸</span>
-        <span class="chip parked">Narrowed, still parked</span>
-        <span class="title">hot-pn's own infra-row health check has no natural endpoint</span>
+        <span class="chip parked">Root cause found &mdash; trivial fix, needs UI access</span>
+        <span class="title">hot-pn's own infra-row health check &mdash; not actually a missing-endpoint problem</span>
       </summary>
       <div class="body">
-        <p>Was two rows &mdash; <code>nextcloud-personal</code> (undocumented scratch stack, confirmed unused, <b>removed 20&nbsp;Aug</b>) and hot-pn's own infra-service row. Only the second one is still open: like the Caddy Admin API's existing exemption, there's no natural container endpoint to point a health check at. Not urgent, but Mr. Byrne's call on whether it's worth a synthetic check or a documented exemption.</p>
+        <p>4&nbsp;Sep: re-checked live rather than trusting this framing &mdash; it's not &ldquo;no natural endpoint exists&rdquo; at all. There are <i>two</i> rows in PN's services table with the identical description (&ldquo;Hostkey CH VPS &mdash; temporary PrivateNexus dev+test stand-in&rdquo;): <code>4683-example-ch</code> already has a working <code>tcp://10.10.2.2:22</code> health check, the correctly-named <code>hot-pn</code> row just never got the same one copied over. A genuine duplicate, not a missing mechanism. Tried to fix it directly &mdash; PN's services-update API requires a real logged-in admin session (Keycloak OIDC-backed, no service-account/bearer-token path), and a direct SQL update was correctly blocked as bypassing the app's own validation/audit logging. Left as a 30-second fix for Mr. Byrne in the PN admin UI (Services &rarr; <code>hot-pn</code> &rarr; health endpoint &rarr; <code>tcp://10.10.2.2:22</code>) rather than building a full login flow for one field.</p>
       </div>
     </details>
 
     <details class="item">
       <summary>
         <span class="caret">▸</span>
-        <span class="chip parked">Stated intent, still not scoped</span>
-        <span class="title">Personal services (Nextcloud / Immich / Notesnook / Vaultwarden) &mdash; no landing spot</span>
+        <span class="chip parked">Narrowed to one real question</span>
+        <span class="title">Personal services (Nextcloud / Immich / Notesnook / Vaultwarden) &mdash; not as open as it looked</span>
       </summary>
       <div class="body">
-        <p>The old &ldquo;migrate everything to hot-pn&rdquo; intent has partly happened in practice &mdash; PN's own Catalogue deploy flow already deployed a working Nextcloud and Notesnook instance there as product-feature demos &mdash; but that's not the same as a deliberate personal-services migration. The actual consolidation vision is now folded into the unscoped <b>&ldquo;HoT Sync&rdquo;</b> Phase 4 item (see below): sn-personal (its original intended home) is retired outright, so HoT Sync needs a fresh landing spot before this can move forward, and none has been picked.</p>
+        <p>4&nbsp;Sep: checked each of the 4 target apps directly rather than treating this as one big open question. Vaultwarden already has its own deliberate home (the Gateway, unrelated to this item). Nextcloud on hot-pn is genuinely personally used already &mdash; one real account (<code>tristian</code>), 12&nbsp;GB of real data, not a demo. Notesnook is deployed there too but has zero real users yet (an adoption question, not an infrastructure one). <b>Immich is the only piece with no home anywhere in the fleet</b> &mdash; checked all 8 hosts directly. hot-pn has real headroom to take it (12&nbsp;GB RAM / 100&nbsp;GB disk free, checked live) via the same Catalogue deploy pattern already proven twice there. The real open question is now just &ldquo;does Immich join hot-pn too, or does Mr.&nbsp;Byrne want personal services on a genuinely separate host&rdquo; &mdash; much narrower than the original framing.</p>
       </div>
     </details>
 
