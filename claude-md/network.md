@@ -112,6 +112,16 @@ Other WireGuard interfaces on the Gateway VPS (separate from the wg0 bare-metal 
           and an unexplained pre-existing protected `vm/100` backup from 2026-02-18 still flagged
           for Mr. Byrne, not yet resolved).
 
+          **⚠ Found dead 2026-09-04: last real handshake was 9 days, 14 hours earlier — 100%
+          packet loss, entirely PBS-side** (Gateway's own wg6 interface/service confirmed healthy
+          throughout, up since 22 Aug with zero errors). Real production impact: sn-web/sn-monitor/
+          sn-security's nightly backups (routed to PBS since 25 Aug) all failed silently for the
+          full outage — see `alerting-backups.md`'s Backup Architecture section and
+          `docs/HoT_PBS_Backup_Integration_Scope.md` Section 6 for the full incident, the interim
+          fix (reverted those 3 VMs' backups to `local-zfs`), and the separate mail-relay bug found
+          alongside it. PBS reachability needs Mr. Byrne to check the box itself — nothing on the
+          Gateway/hot-bm-nl side of this tunnel can diagnose a dead peer.
+
 **Key rule:** Production traffic never routes through Tailscale. Tailscale = admin SSH only.
 **Key rule:** Bare metal has zero public-facing ports. All public traffic enters via the Gateway VPS.
 **Key rule:** Before creating a new WireGuard interface on the Gateway VPS, run `wg show` first — wg1 (personal VPN) is easy to collide with by guessing sequential names.

@@ -42,9 +42,9 @@ they're historical.
 |-----|-------------|-------|------|--------|------------------------|-------------------------------------------|
 | 100 | sn-infra    | 1     | 3 GB | 250 GB | VLAN 10 / 10.10.10.100 | Forgejo, PowerDNS-Admin, Namevault, hot-wiki (Ntfy moved to Gateway VPS 2026-08-03) |
 | 102 | sn-web      | 2     | 2 GB | 250 GB | VLAN 30 / 10.10.30.102 | Client sites (6 sites)                    |
-| 104 | sn-monitor  | 1     | 4 GB | 250 GB | VLAN 50 / 10.10.50.104 | Prometheus, Grafana (+Postgres), Loki, Uptime Kuma |
+| 104 | sn-monitor  | 1     | 3 GB | 250 GB | VLAN 50 / 10.10.50.104 | Prometheus, Grafana (+Postgres), Loki, Uptime Kuma |
 | 106 | sn-security | 2     | 8 GB | 250 GB | VLAN 70 / 10.10.70.106 | Wazuh SIEM 4.14.5 (single-node) — deliberately NOT right-sized, see note below |
-|     | **TOTAL**   | **6** |**17 GB**|**1 TB nominal (thin-provisioned)**| | sn-web right-sized 4→2GB and sn-infra 4→3GB, both 2026-09-04 (see Hard Limits note below) — real container footprints there were ~150MB and ~864MB respectively, both leave real headroom. sn-monitor/sn-security deliberately left untouched (sn-monitor just gained Postgres's own headroom need; sn-security's real usage confirms it needs its full 8GB, see below). Historical 2026-07-30 baseline: `local-zfs` pool 3.58 TB, 393 GB allocated, 3.19 TB free — figures below are more current. |
+|     | **TOTAL**   | **6** |**16 GB**|**1 TB nominal (thin-provisioned)**| | sn-web (4→2GB), sn-infra (4→3GB), and sn-monitor (4→3GB) all right-sized 2026-09-04 (see Hard Limits note below) — real container footprints were ~150MB/~864MB/~957MB respectively, all leave real headroom. sn-monitor's cut was verified against its already-observed balloon floor (Proxmox had already been squeezing it to exactly 3072MB), not just an estimate. sn-security deliberately left untouched — real usage confirms it needs its full 8GB, see below. Historical 2026-07-30 baseline: `local-zfs` pool 3.58 TB, 393 GB allocated, 3.19 TB free — figures below are more current. |
 
 ### ⚠️ Hard Limits — Do Not Exceed Without Approval
 - **RAM:** 20 GB allocated vs 32 GB physical. Host observed at 25/31 GB used (guest RSS + overhead) with 6.3 GB available and only 1.1 GB swap in use as of 2026-07-30 — comfortable but check headroom before adding another RAM-heavy VM. **⚠ By 2026-08-08 this had degraded to 29/31 GB used, 1.6 GB available, 4.7 GB swap** — root cause was an uncapped ZFS ARC (`zfs_arc_max=0`, i.e. unbounded up to `c_max`≈32.5 GB) that had grown to 13.7 GB, directly competing with guest RAM. **Fixed same day: `zfs_arc_max` capped at 8 GB**, both live (`echo 8589934592 > /sys/module/zfs/parameters/zfs_arc_max`, took effect immediately — ARC dropped 13.7 GB → 8.0 GB with no restart) and persisted via `/etc/modprobe.d/zfs.conf` (`options zfs zfs_arc_max=8589934592`) + `update-initramfs -u -k all` so it survives a reboot too. Available memory recovered to 6.4 GB immediately after. Not tracked in git (host-level modprobe config, not an app/compose file) — this note is the record. If host memory pressure resurfaces, check `grep -E '^size|^c_max' /proc/spl/kstat/zfs/arcstats` before assuming it's guest growth — ARC is a recurring, easy-to-miss culprit on ZFS hosts. **Same root cause also explains a second symptom found the same day: all 4 guest VMs showed recurring `node_memory_MemTotal_bytes` oscillation (Proxmox's KVM balloon driver squeezing each VM's visible RAM as the host ran low on free memory) — confirmed via Prometheus history, and confirmed stopped (flat `MemTotal` for 3+ hours) immediately after the ARC cap. If any single VM's memory graph on Grafana looks erratic, check `node_memory_MemTotal_bytes` for that instance before assuming an app-level leak — ballooning silently moves the denominator on any "% used" calculation. Full trace: `sms_alert_storm_investigation_2026_08_08` memory.
@@ -57,7 +57,28 @@ they're historical.
 
 **sn-security deliberately NOT right-sized** — checked first, and the numbers argue against it: real container usage is already ~3.9 GB steady-state (Wazuh manager 2.17 GB + indexer 1.42 GB + dashboard 205 MB), it's already the most swap-pressured VM in the fleet (42% of its swap in use) despite having several GB "available," and the existing hard limit two sections up ("Wazuh needs 8 GB RAM... reducing below 6 GB causes OOM and indexer crash-loops") is a real, previously-hit failure mode, not theoretical. Its current `balloon: 7168` floor is already close to that minimum — cutting further risks reproducing the exact crash-loop this note already warns about. Left at 8 GB.
 
-See `fleet_memory_ballooning_2026_09_04` memory for the full trace of all three.
+**sn-monitor right-sized the same day too, 4 GB → 3 GB, closing out the last flagged VM.** Real
+container usage there was ~957 MB (Grafana itself the heaviest single consumer at ~397 MB after
+its Postgres migration, followed by Uptime Kuma/Loki/Prometheus/`grafana-db`) — but unlike
+sn-infra's cut, this one had direct empirical evidence backing it: Proxmox's own balloon manager
+had *already* been squeezing this VM down to exactly 3072 MB before the change (`balloon: 3072`),
+meaning the fleet had already been running stably at that level, not just estimated as safe from
+container totals. Same `qm set --memory` + `qm reboot` pattern; all 9 containers came back clean,
+Grafana included — briefly showed the same false-alarm "stuck" pattern as previous reboots
+(SQL-poller errors from the *old* container's shutdown mixed into the new one's boot log, real
+progress confirmed via advancing plugin-load/status-registration lines, not actually hung) before
+serving `200` within about a minute. **Real confirmation this survives a reboot cleanly**: all 6
+alert rules, both contact points, and both datasources were still present and correct after the
+restart — first live proof the Postgres backend (not SQLite) persists Grafana's state across a
+guest reboot the way it's supposed to. Loki's `/ready` briefly 503'd immediately after boot
+(`"Ingester not ready: waiting for 15s after being ready"`) — confirmed cosmetic via its own logs
+(real WAL recovery, real log flushing from Forgejo/Caddy) and the labels API returning real data,
+not a functional problem. Confirmed benefit: sn-monitor's own swap use dropped to 0; host-wide
+available memory improved further, 5.4 GB → 6.0 GB — a **3.2 GB → 6.0 GB** total recovery across
+sn-web + sn-infra + sn-monitor from where this investigation started.
+
+See `fleet_memory_ballooning_2026_09_04` memory for the full trace of all four VMs (three cuts, one
+deliberate no-op).
 - **vCPU:** 6 vCPUs across 8 physical threads (sn-security pinned at cores=2 permanently — see sn-security section below) — 2 threads of headroom, flag further additions.
 - **Disk:** `local-zfs` ZFS pool — 3.58 TB total, 393 GB actually allocated (thin-provisioned; each VM's 250 GB disk is a nominal size cap, not pre-reserved space), 3.19 TB free as of 2026-07-30 — snapshots + backups consume this too.
 - With only 4 VMs now on hot-bm-nl (vs. the original 7-VM plan), there's substantially more RAM/vCPU/disk headroom than the historical figures above imply — worth factoring in before assuming a new workload needs to go elsewhere.

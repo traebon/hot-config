@@ -33,8 +33,9 @@ the Gateway's live crontab (`crontab -l`) and each script's actual logic while i
 
 | Tier           | Tool                  | Schedule    | Destination             | Encryption                         |
 |----------------|-----------------------|-------------|-------------------------|------------------------------------|
-| VM snapshots   | vzdump (Proxmox)      | 02:00 daily | /var/lib/vz/dump (ZFS)  | zstd compressed                    |
+| VM snapshots   | vzdump (Proxmox) — **two separate jobs**, see note below | 02:00 daily | sn-infra (100): `local-zfs` (`local-backup-zfs` storage). sn-web/sn-monitor/sn-security (102/104/106): **interim on `local-zfs` as of 2026-09-04** — job normally targets `pbs-hot` (PBS, see below), reverted after a real 9-day outage, see note | zstd compressed |
 | VM snapshots offsite (hot-bm-nl) | rclone crypt (`vzdump-offsite-push.sh`, systemd timer) | 04:30 daily (after the 02:00 vzdump job) | **Hetzner Storage Box only** | rclone crypt (hetzner-crypt remote) |
+| VM snapshots, PBS (sn-web/sn-monitor/sn-security, normally) | Proxmox → PBS (`pbs-hot` storage, datastore `houseoftrae-backups`, over the `wg6` tunnel) | 02:00 daily, part of the same job as above | PBS — Mr. Byrne's own local hardware, single disk, no RAID | PBS-native |
 | Config sync    | git + cron            | 01:00 daily | Forgejo → Codeberg + GH | Forgejo auth                       |
 | Keycloak DB (Gateway) | `backup-keycloak.sh`, cron | 01:30 daily | Primary: hot-bm-nl. **Hetzner+B2 only as a fallback** when hot-bm-nl is unreachable that night — not a nightly B2 write | rclone crypt (same two remotes) |
 | hot-pn PrivateNexus DB (formerly pn-vps) | pg_dump (hot-pn, own timer ~03:00) + Gateway rsync pull + rclone crypt | 03:30 daily | Local (hot-pn, 14d) → Gateway (30d) → **Hetzner + B2, both attempted every night unconditionally** — this is the one reliable nightly B2 write, useful as the canary for whether B2 pushes are currently healthy | rclone crypt (hetzner-crypt/b2-hot-crypt) |
@@ -48,6 +49,26 @@ vzdump→Hetzner push → 05:30 Gateway VPS backup (Tor/PowerDNS/Mailserver, pri
 (VM 102/sn-web alone is ~268GB/backup), so full-image offsite retention (14d) is a ~5.8TB
 steady-state footprint. This is why B2 is deliberately scoped to DB/config-only above — B2's account
 cap was sized for that small scale, not full VM images (Hetzner absorbs those instead).
+
+**⚠ Real incident found+fixed 2026-09-04: sn-web/sn-monitor/sn-security had zero real backups
+anywhere for 9+ days, and the one alerting path for it was silently broken too.** On 2026-08-25,
+these 3 VMs' vzdump job was repointed from `local-zfs` to the new `pbs-hot` (PBS) storage target,
+with no fallback, to fix the original local-zfs capacity crisis (see
+`hot_bm_nl_backup_crisis_2026_08_18` memory) — but this was never reflected back into this doc or
+`docs/HoT_PBS_Backup_Integration_Scope.md`'s open decision. Found 2026-09-04 doing a routine
+"scope the next parked item" pass: the `wg6` tunnel to PBS had gone completely dark (`9 days, 14
+hours` since its last handshake, PBS-side — the Gateway's own wg6 was healthy throughout), so every
+scheduled backup for these 3 VMs failed outright at storage activation, and Proxmox's own
+`mailnotification failure` emails had been silently rejected as spam (rspamd score 13-20 vs. an
+11-point threshold — hot-bm-nl's local Postfix had no relay configured, sent unauthenticated
+direct-to-MX) on *every* attempt since 25 Aug, so nobody was ever told. **Fixed same day**: hot-bm-nl's
+Postfix now relays through the authenticated Universal SMTP (verified with a real delivered test
+email — this fixes the alerting gap for any future Proxmox notification, not just this one); the
+job was interim-reverted to `local-zfs` (Mr. Byrne confirmed); 2.44TB of stale pre-15-Aug backups
+for these 3 VMs were deleted (Mr. Byrne confirmed, one safety-net copy kept per VM), recovering
+642GB → 2.38TB free. PBS itself needs Mr. Byrne to check directly (his own home hardware) before
+anything reverts back to it. Full trace: `docs/HoT_PBS_Backup_Integration_Scope.md` Section 6 and
+`pbs_backup_crisis_and_wg6_outage_2026_09_04` memory.
 
 **Real bug found+fixed 2026-08-08: `backup-gateway-vps.sh`'s mailserver `tar` step could silently
 kill the entire nightly run with zero alerting.** The script runs under `set -e`; `tar` returns exit

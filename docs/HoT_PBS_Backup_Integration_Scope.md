@@ -143,3 +143,91 @@ target on hot-bm-nl, run one real backup + one real restore test for e.g. `sn-mo
 lowest-risk VM), and confirm actual dedup/storage-per-backup numbers before committing the rest of
 the fleet to it. That also answers the "will 3.6TB actually hold what we need" question with real
 data instead of a guess.
+
+---
+
+## 6. What actually happened since, and a real incident found investigating it (2026-09-04)
+
+**Section 4's open questions were never formally answered in writing, but something closer to
+Option A got built anyway, quietly, sometime between 22 Aug and 25 Aug** — this section exists
+because re-checking this item live for a routine "scope the next parked job" pass turned up a
+production incident, not just stale documentation. Found and fixed the same day; full trace in
+`pbs_backup_crisis_and_wg6_outage_2026_09_04` memory.
+
+**What's real, confirmed live:**
+- The dedicated WireGuard tunnel (`wg6`, Section 3's first option) was built — Gateway
+  `10.10.5.1` ↔ PBS `10.10.5.2`, port 51826, PBS dialing out road-warrior style. See
+  `network.md`'s wg6 entry.
+- `/etc/pve/storage.cfg` on hot-bm-nl has a real `pbs-hot` storage target (datastore
+  `houseoftrae-backups`, `prune-backups keep-daily=3,keep-weekly=1`) — Option A's core mechanism.
+- On **2026-08-25**, the `daily-fleet-backup` vzdump job was split in two: VM 100 (sn-infra) stayed
+  on `local-zfs`; VM 102/104/106 (sn-web/sn-monitor/sn-security) were repointed to `pbs-hot`
+  **with no fallback**. The job's own comment records why: *"local-zfs was out of space for 10 days
+  straight"* — i.e. this was the reactive fix for the original capacity crisis this doc's Section 1
+  never anticipated, done without ever updating this scope doc or Section 4's open questions.
+
+**What was silently broken, found 2026-09-04:**
+- `wg6`'s last successful handshake was **9 days, 14 hours** before it was checked — PBS had gone
+  completely dark, 100% packet loss from the Gateway. `pvesm status` on hot-bm-nl confirmed
+  `pbs-hot: inactive — Connection timed out`. The Gateway's own wg6 interface and service were
+  healthy throughout (up since 22 Aug, zero errors) — this is entirely PBS-side (the home hardware
+  itself, or its home network), not fixable remotely.
+- **Net effect: sn-web, sn-monitor, and sn-security had zero real backups anywhere for 9+ days.**
+  Every scheduled `daily-fleet-backup-pbs` run failed outright at storage activation before even
+  starting a backup (`could not activate storage 'pbs-hot': ... Connection timed out`) — not a
+  degraded backup, no backup attempt at all.
+- **Nobody was told, because the one alerting path for this was also broken.** The job is
+  configured `mailnotification failure` → `tristian@securenexus.net` via `legacy-sendmail`, but
+  hot-bm-nl's local Postfix had no relay configured — it attempted direct-to-MX delivery,
+  unauthenticated (no SPF/DKIM, no PTR/rDNS for its IP), and the house's own mail server correctly
+  rejected every single attempt as spam (rspamd score 13–20 against an 11-point reject threshold,
+  `554 5.7.1 Spam message rejected`) — confirmed via rspamd's own history, not guessed. This had
+  been failing on *every* job run since 25 Aug, so this wasn't specific to the PBS outage — any
+  Proxmox notification email from this host would have been silently dropped the same way.
+- **A separate, smaller bug**: VM 100's own nightly prune step (still correctly targeting
+  `local-zfs`) has been intermittently failing with `unable to activate storage 'local-backup-zfs'
+  — directory ... does not exist or is unreachable`, right after a successful backup completes —
+  the mount is confirmed genuinely healthy when checked directly, so this looks like a storage-
+  activation timeout racing right after the backup's own heavy I/O, not a real misconfiguration.
+  Left as a known follow-up, not chased further — lower urgency now that the pool has real headroom
+  again (below), and it may simply need less I/O contention to stop happening.
+
+**Fixed same day, Mr. Byrne confirmed each step:**
+1. hot-bm-nl's Postfix reconfigured to relay through the house's own authenticated Universal SMTP
+   (`mail.house-of-trae.com:587`, SASL, same `notifications@house-of-trae.com` credential used
+   fleet-wide) instead of unauthenticated direct-send. Verified with a real test email, confirmed
+   delivered to the mailbox via Dovecot LMTP (`... status=sent ... "Saved"`), not just accepted.
+   **This fixes the alerting gap for any future Proxmox notification from this host, independent of
+   the PBS issue itself.**
+2. `daily-fleet-backup-pbs`'s storage interim-reverted to `local-backup-zfs` (same target VM 100
+   already uses) via `pvesh set /cluster/backup/daily-fleet-backup-pbs --storage local-backup-zfs`,
+   with the job comment updated to record why and that it should revert to `pbs-hot` once PBS/wg6
+   is confirmed healthy again. Restores real backup coverage for all 3 VMs starting the next
+   scheduled run.
+3. **Real capacity risk in that interim fix, caught before it bit**: 2.44TB of stale VM 102/104/106
+   backups (all dated before 15 Aug, i.e. before the PBS switch, never pruned since) were still
+   sitting on `local-zfs`, and with only 642GB free at the time plus VM 100's own prune bug above,
+   the pool would likely have filled again within a day or two — recreating the exact original
+   crisis. Deleted the 16 stale files older than each VM's most-recent (15 Aug) copy, keeping one
+   real fallback per VM rather than wiping everything. Freed **642GB → 2.38TB free** (pool
+   82% → 33% full). Every deletion and the interim storage repoint were confirmed with Mr. Byrne
+   before being applied, not done unilaterally, given the precedent in
+   `hot_bm_nl_backup_crisis_2026_08_18` of deliberately not deleting backups without being certain.
+
+**Real open questions now, sharper than Section 4's original framing:**
+1. **Is PBS itself actually reachable right now?** This needs Mr. Byrne to check the box directly
+   (power, home network, whether its own WireGuard client/service is still running) — nothing on
+   the Gateway or hot-bm-nl side can diagnose or fix this.
+2. **Once PBS is confirmed healthy again, does the fleet actually want to revert VM 102/104/106
+   back to `pbs-hot`?** The original Option A/B/C decision in Section 4 was never formally made —
+   what got built was a partial, unmonitored version of Option A. Worth deciding for real now,
+   informed by what just happened: a single-disk, no-RAID, home-network backup target went
+   completely dark for over a week with zero visibility, and the interim local-zfs fallback (which
+   worked fine once space was reclaimed) may honestly be simpler and more reliable for these 3 VMs
+   than PBS turned out to be in practice.
+3. **Whatever the fleet lands on, it needs monitoring it doesn't have today.** Neither `wg6`'s
+   handshake staleness nor `pbs-hot`'s storage-activation state are watched by `fleet-health-sweep`,
+   Gatus, or anything else — this is exactly the kind of silent, week-plus-long gap that automation
+   layer exists to catch, and it didn't, because nothing was ever pointed at this specific failure
+   mode. If PBS stays in the picture at all, this needs a real check (e.g. `wg show wg6` handshake
+   age, or `pvesm status` for `pbs-hot`) added to the nightly sweep.

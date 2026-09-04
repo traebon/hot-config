@@ -25,8 +25,18 @@ when either landed.
   snapshot, this list drifts (e.g. Security Lockdown Mode was listed unbuilt as of 2026-07-27 but
   was actually finished 2026-08-01 — see `PrivateNexus_Security_Lockdown_Mode_Design.md`)
 - HoT Sync (Flutter) — Immich + Nextcloud + Notesnook + Vaultwarden; no longer tied to sn-personal
-  (VLAN 40 retired outright 2026-08-09, see the sn-personal section above) — needs a fresh landing
-  spot if this is ever scoped, not yet scoped either way
+  (VLAN 40 retired outright 2026-08-09, see the sn-personal section above). **Narrower than
+  previously framed, checked live 2026-09-04**: 3 of the 4 target apps already have a real landing
+  spot, just never formally recognized as answering this item — Vaultwarden is deliberately on the
+  Gateway (its own documented reason, unrelated to this question); Nextcloud on hot-pn is genuinely
+  personally used already (one real account, `tristian`, 12GB of real data, not a demo); Notesnook
+  is deployed on hot-pn too but has zero real usage yet (an adoption question, not an
+  infrastructure one). **Immich is the one piece with no home anywhere in the fleet** — hot-pn has
+  real headroom to take it (12GB RAM / 100GB disk free, checked live), following the same Catalogue
+  deploy flow pattern already proven twice there. The actual open question is now just "does Immich
+  go on hot-pn too, or does Mr. Byrne want personal services on a genuinely separate host" — not
+  the open-ended "where does this whole thing live" the item previously implied. See
+  `hot_sync_landing_spot_rescoped_2026_09_04` memory.
 - HoT Command (Flutter) — Mobile ops dashboard (also listed as a v7.0 PN roadmap candidate)
 - Second bare metal node (HA)
 - Edge load balancing (second VPS) — scoped 2026-08-17, expanded at Mr. Byrne's direction to cover
