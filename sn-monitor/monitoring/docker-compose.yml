@@ -5,7 +5,12 @@
 #
 # Services:
 #   Prometheus        — metrics collection (port 9090)
-#   Grafana           — dashboards (port 3000)
+#   Grafana           — dashboards + alerting (port 3000)
+#   grafana-db        — Postgres 16 backend for Grafana (internal only, no published port).
+#                        Migrated off bundled SQLite 2026-09-04 after recurring SQLITE_BUSY lock
+#                        storms under concurrent alert-rule writes (WAL mode alone wasn't enough)
+#                        caused real alert-state flapping and a dropped RESOLVED notification —
+#                        see claude-md/alerting-backups.md's Grafana Alerting section.
 #   Loki              — log aggregation (port 3100)
 #   Uptime Kuma       — status page (port 3001)
 #   Blackbox Exporter — HTTP/TLS probes (port 9115)
@@ -30,6 +35,26 @@ services:
     networks:
       - monitoring
 
+  grafana-db:
+    image: postgres:16-alpine
+    container_name: grafana-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: grafana
+      POSTGRES_USER: grafana
+      POSTGRES_PASSWORD_FILE: /run/secrets/grafana_db_password
+    secrets:
+      - grafana_db_password
+    volumes:
+      - /opt/monitoring/grafana-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U grafana"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - monitoring
+
   grafana:
     image: grafana/grafana:latest
     container_name: grafana
@@ -39,7 +64,12 @@ services:
     volumes:
       - /opt/monitoring/grafana/data:/var/lib/grafana
     environment:
-      GF_DATABASE_WAL: "true"
+      GF_DATABASE_TYPE: postgres
+      GF_DATABASE_HOST: "grafana-db:5432"
+      GF_DATABASE_NAME: grafana
+      GF_DATABASE_USER: grafana
+      GF_DATABASE_PASSWORD__FILE: "/run/secrets/grafana_db_password"
+      GF_DATABASE_SSL_MODE: disable
       GF_SERVER_ROOT_URL: "https://grafana.house-of-trae.com"
       GF_SERVER_DOMAIN: "grafana.house-of-trae.com"
       GF_AUTH_GENERIC_OAUTH_ENABLED: "true"
@@ -69,8 +99,12 @@ services:
       - admin_password
       - smtp_password
       - oauth_client_secret
+      - grafana_db_password
     depends_on:
-      - prometheus
+      prometheus:
+        condition: service_started
+      grafana-db:
+        condition: service_healthy
     networks:
       - monitoring
 
@@ -122,3 +156,5 @@ secrets:
     file: /opt/stacks/monitoring/secrets/smtp_password
   oauth_client_secret:
     file: /opt/stacks/monitoring/secrets/oauth_client_secret
+  grafana_db_password:
+    file: /opt/stacks/monitoring/secrets/grafana_db_password

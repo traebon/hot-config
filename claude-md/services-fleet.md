@@ -79,7 +79,67 @@ Stack: custom image (`/opt/stacks/dickson/docker/Dockerfile`) — `frappe/erpnex
 | Evil Rabbit Art  | /opt/stacks/evilrabbit/     | evilrabbitart.com    | 8005 |
 | Dickson Supplies | /opt/stacks/dicksonweb/     | dickson-supplies.com | 8006 |
 
-All 6 are nginx:alpine + static "Coming Soon" pages, reverse-proxied via Caddy (root + www).
+**Real client sites, 2026-09-02/04, replacing the original 6 identical "Coming Soon" placeholders**
+one design brief at a time (`stratus-digital`/`discreet-elite`/`emerald-markets` in the prior
+session, `ruby`/`evilrabbit`/`dicksonweb` here) — all 6 are still `nginx:alpine` + static
+`index.html`, ports/Caddy routing unchanged, except Stratus Digital itself (below). Ruby Osiris
+(dropship jewellery, Egyptian-revival crimson/gold, Marcellus display serif), Evil Rabbit Art
+(gallery + shop for `@evilrabbitart`, dark punk-gallery palette — **built from the brand name only,
+not real reference**: Instagram 429-rate-limited the fetch and TikTok returned only the JS app
+shell, no post content was actually reachable, flag to Mr. Byrne to redirect if it doesn't match
+the real account), Dickson Supplies (medical/clinical B2B distribution, clinical blue/teal, no
+specific certification claimed as fact — copy deliberately says "reviewed for CE marking," not "CE
+certified"). All 5 non-Stratus sites (discreet-elite/emerald-markets/ruby/evilrabbit/dicksonweb)
+now carry a "Site by Stratus Digital → stratus-digital.com" footer credit link, styled to match each
+site's own accent color.
+
+**Stratus Digital rebuilt from bare nginx to a real Express app, 2026-09-03/04** — the only sn-web
+site with actual application logic now, not just static content (source tracked in `hot-config`,
+`sync.sh`, unlike the other 5 sites' still-untracked `html/`, a pre-existing gap). Added at Mr.
+Byrne's request: client sites need a real authenticated portal (not just a links page or a footer
+credit — both of which were considered and are also implemented, see above) where each client logs
+in to see their own site's live status. `/opt/stacks/stratus-digital/app/` (Dockerfile, `server.js`,
+`package.json`, `public/index.html` — the marketing homepage, now served by Express's static
+middleware rather than nginx, unchanged content plus a new "Client Login" nav link to `/portal`).
+Container now listens on :3000 internally (compose maps `10.10.30.102:8001:3000`, same external
+port as before — no Caddy change needed).
+
+Auth: native Keycloak OIDC (manual authorization-code flow, `jose` for JWKS-verified ID token
+validation — no `openid-client`/framework dependency) against a new confidential client
+`stratus-portal` registered directly in the existing `stratus-digital` realm (redirect URI
+`https://stratus-digital.com/portal/callback`). Per-user site access is carried via two custom
+Keycloak User Profile attributes on this realm, `portal_access` (comma-separated site slugs, or
+`all` for House of Trae staff) and `portal_label` (display name), surfaced into the ID token via
+two dedicated protocol mappers on the client. Dashboard (`/portal`, session-gated via
+`express-session`) shows only the sites a user's `portal_access` grants, each with a real live
+status check (a direct `fetch` against the site's own public URL, 5s timeout, HTTP status +
+latency) — not a stub.
+
+**Two real Keycloak gotchas hit building this, both realm-wide fixes, not app workarounds:** (1)
+this realm's browser flow auto-redirects through the `house-of-trae` staff broker by default (the
+documented identity-provider-redirector pattern, see the Keycloak SSO section below) — real
+external clients would never reach a local login form at all. Fixed by adding `kc_idp_hint=`
+(empty) to the authorization request, which bypasses the redirector and lands on the realm's own
+local username/password form; staff can still use the broker separately if that's ever wired back
+in. (2) Admin-API-created users kept getting redirected to Keycloak's own `VERIFY_PROFILE`
+required-action page mid-login despite `requiredActions: []` on the user record — root cause was
+that `portal_access`/`portal_label` weren't declared in the realm's User Profile schema yet
+(`unmanagedAttributePolicy: None` here, so undeclared custom attributes are silently dropped even
+though the admin API accepts them with 201) — fixed by declaring both as admin-only User Profile
+attributes. `VERIFY_PROFILE` still fired after that fix for unclear reasons and was disabled
+realm-wide (`enabled: false`) as the pragmatic fix — this realm had zero local users before this
+build, so the change has no other blast radius, and a client portal shouldn't dead-end an
+admin-provisioned account behind Keycloak's own profile-review UI anyway.
+
+**Verified end-to-end via a real curl-driven OIDC flow** (same pattern as the `AUTH-07` MFA
+verification — disposable test accounts, deleted after): a full-access "staff" test account
+correctly saw all 6 sites live; a scoped test account (`portal_access: rubyosiris`) correctly saw
+only Ruby Osiris. Both test accounts removed after verification. **No real client accounts exist
+yet** — Mr. Byrne doesn't have client login emails on hand; the mechanism is built and proven, next
+step is provisioning real accounts (create a local user in the `stratus-digital` realm, set
+`portal_access`/`portal_label`) once there's a real client to onboard. `stratus-portal`'s client
+secret is in Vaultwarden ("stratus-digital.com Client Portal (Keycloak stratus-portal client)",
+House of Trae — Gateway VPS folder) with the full onboarding steps in the note.
 
 ### sn-personal — ⚠️ RETIRED (Mr. Byrne's decision, 2026-08-09), this VM does not currently exist
 **Not rebuilt on hot-bm-nl** (VLAN 40 excluded — see Network Topology above) and its SSH alias

@@ -8,7 +8,7 @@ Backend: Gateway VPS — PostgreSQL backend
 | securenexus     | Grafana, Forgejo, PowerDNS-Admin, HoT staff                  |
 | personal        | Vaultwarden, Nextcloud, Immich, Notesnook (tresemme.space)   |
 | byrne-accounts  | Byrne Accounts staff                                         |
-| stratus-digital | Stratus Digital staff                                        |
+| stratus-digital | Stratus Digital staff (broker via house-of-trae) + real client-portal accounts as of 2026-09-04 (local users, `stratus-portal` client — see the sn-web/Stratus Digital section) |
 | discreet-elite  | Discreet Elite users                                         |
 | emerald-markets | Emerald Markets users                                        |
 | clients         | Client portal users                                          |
