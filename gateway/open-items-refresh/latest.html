@@ -1,3 +1,4 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1"><style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found]){display:none!important}</style></head><body>
 <title>House of Trae — Open Items</title>
 <style>
   :root {
@@ -281,9 +282,9 @@
     <h1>Open Items</h1>
     <p class="subtitle">First compiled 27 Jul 2026; refreshed 4 Sep 2026 against live state (current CLAUDE.md/claude-md split, this week's memory index, and <code>hot-config</code>'s real git log) rather than trusted from the 25 Aug snapshot &mdash; several items below moved since then without ever being reflected here.</p>
     <div class="stat-strip">
-      <div class="stat fixed"><div class="n">31</div><div class="l">Resolved since Jul&nbsp;27</div></div>
+      <div class="stat fixed"><div class="n">32</div><div class="l">Resolved since Jul&nbsp;27</div></div>
       <div class="stat open"><div class="n">0</div><div class="l">Open / actionable</div></div>
-      <div class="stat parked"><div class="n">5</div><div class="l">Awaiting Mr. Byrne</div></div>
+      <div class="stat parked"><div class="n">4</div><div class="l">Awaiting Mr. Byrne</div></div>
       <div class="stat deferred"><div class="n">2</div><div class="l">Deferred</div></div>
     </div>
   </header>
@@ -307,8 +308,8 @@
 
   <div class="tabbar" role="tablist">
     <button class="tab" data-tab="actionable" role="tab" aria-selected="false">Actionable <span class="tab-count">0</span></button>
-    <button class="tab active" data-tab="parked" role="tab" aria-selected="true">Parked <span class="tab-count">7</span></button>
-    <button class="tab" data-tab="resolved" role="tab" aria-selected="false">Resolved <span class="tab-count">31</span></button>
+    <button class="tab active" data-tab="parked" role="tab" aria-selected="true">Parked <span class="tab-count">6</span></button>
+    <button class="tab" data-tab="resolved" role="tab" aria-selected="false">Resolved <span class="tab-count">32</span></button>
     <button class="tab" data-tab="roadmaps" role="tab" aria-selected="false">Roadmaps</button>
   </div>
 
@@ -326,7 +327,7 @@
   <section class="group" id="parked">
     <div class="group-head">
       <h2>Real decisions parked</h2>
-      <span class="group-count">5 items</span>
+      <span class="group-count">4 items</span>
     </div>
     <p class="group-note">Need Mr. Byrne specifically &mdash; not to be decided unilaterally.</p>
 
@@ -339,17 +340,6 @@
       </summary>
       <div class="body">
         <p>4&nbsp;Sep: a real Keycloak-gated client portal was built for stratus-digital.com (native OIDC login, per-client site-status view via a <code>portal_access</code> user attribute) and verified end-to-end with disposable test accounts, deleted after. No genuine client emails are on hand yet to provision real accounts &mdash; the mechanism is ready, next step is Mr. Byrne supplying real client contacts when there's an actual client to onboard. Resolves the underlying &ldquo;client websites still need real content&rdquo; item &mdash; see Resolved, below.</p>
-      </div>
-    </details>
-
-    <details class="item">
-      <summary>
-        <span class="caret">▸</span>
-        <span class="chip parked">Root cause found &mdash; trivial fix, needs UI access</span>
-        <span class="title">hot-pn's own infra-row health check &mdash; not actually a missing-endpoint problem</span>
-      </summary>
-      <div class="body">
-        <p>4&nbsp;Sep: re-checked live rather than trusting this framing &mdash; it's not &ldquo;no natural endpoint exists&rdquo; at all. There are <i>two</i> rows in PN's services table with the identical description (&ldquo;Hostkey CH VPS &mdash; temporary PrivateNexus dev+test stand-in&rdquo;): <code>4683-example-ch</code> already has a working <code>tcp://10.10.2.2:22</code> health check, the correctly-named <code>hot-pn</code> row just never got the same one copied over. A genuine duplicate, not a missing mechanism. Tried to fix it directly &mdash; PN's services-update API requires a real logged-in admin session (Keycloak OIDC-backed, no service-account/bearer-token path), and a direct SQL update was correctly blocked as bypassing the app's own validation/audit logging. Left as a 30-second fix for Mr. Byrne in the PN admin UI (Services &rarr; <code>hot-pn</code> &rarr; health endpoint &rarr; <code>tcp://10.10.2.2:22</code>) rather than building a full login flow for one field.</p>
       </div>
     </details>
 
@@ -407,12 +397,13 @@
   <section class="group" id="resolved">
     <div class="group-head">
       <h2>Resolved since 27 Jul</h2>
-      <span class="group-count">31 items, condensed</span>
+      <span class="group-count">32 items, condensed</span>
     </div>
     <p class="group-note">Not exhaustive &mdash; five-plus weeks of real infra work happened in between. Just what was open on prior sweeps, plus the headline items that weren't.</p>
 
     <div class="flat-list">
       <ul>
+        <li class="flag"><b>hot-pn's own infra-row health check &mdash; the "duplicate row" diagnosis was wrong; real cause was stale evidence, not a missing copy</b> &mdash; the recommended fix from earlier the same day (<code>tcp://10.10.2.2:22</code>, copied from the sibling <code>4683-example-ch</code> row) turned out not to work: hot-pn's UFW only allows port&nbsp;22 from the Gateway (<code>10.10.2.1</code>) and Tailscale, not from hot-pn's own local Docker network, so a self-probe from inside a container on that host times out every time &mdash; confirmed directly via a live TCP test from <code>privatenexus-backend</code>. The sibling row's &ldquo;healthy&rdquo; status that justified the original fix was itself stale, last probed 15&nbsp;Jul, seven weeks before the 18&nbsp;Aug SSH hardening that closed this path. <b>Corrected same day</b>: <code>runtime_type</code> kept as <code>vm</code> (a genuine improvement), health endpoint cleared back to blank &mdash; Mr.&nbsp;Byrne applied both via the PN admin UI after two legitimate blocks on doing it directly (no browser tool connected this session; a raw SQL write and an env-var credential probe were both correctly stopped by the auto-mode classifier as bypassing the app's own session-based auth). Verified via read-only query: stored as a real <code>NULL</code> (not an empty string), matching the existing Caddy Admin API exemption exactly &mdash; the scheduler's <code>WHERE health_endpoint IS NOT NULL</code> query now skips this row permanently, same as that one. One cosmetic loose end left for Mr. Byrne, not functional: the row is frozen showing its last real reading (<code>down</code>) rather than <code>unknown</code> like Caddy Admin API, since nothing probes it again to correct the label.</li>
         <li class="flag"><b>hot-bm-nl backup capacity crisis &mdash; the "most pressing item on this list" turned out to have been silently made worse, not better, since it was last checked</b> &mdash; scoping this same item 4&nbsp;Sep found a different session had already reacted on 25&nbsp;Aug (repointing sn-web/sn-monitor/sn-security's backups to the new PBS host with no fallback) without ever updating this page or the PBS scope doc. That PBS tunnel (<code>wg6</code>) turned out to have been dead for 9&nbsp;days, 14&nbsp;hours &mdash; those 3 VMs had zero real backups anywhere the whole time, and the one alerting path for it (Proxmox's failure-notification email) had also been silently bouncing as spam on every attempt since 25&nbsp;Aug (hot-bm-nl's Postfix sent unauthenticated, no SPF/DKIM/rDNS &mdash; confirmed via the mail server's own rspamd scan history). <b>Fixed same day, both confirmed with Mr. Byrne first</b>: hot-bm-nl's Postfix now relays through the house's authenticated Universal SMTP (verified with a real delivered test email &mdash; fixes alerting for any future Proxmox notification, not just this one); those 3 VMs' backups reverted to <code>local-zfs</code> as an interim fallback; 2.44&nbsp;TB of stale pre-crisis backups deleted (one safety-net copy kept per VM), recovering 642&nbsp;GB&nbsp;&rarr;&nbsp;2.38&nbsp;TB free (pool 82%&nbsp;&rarr;&nbsp;33% full). PBS itself is still down &mdash; see the new Parked item, above. Full trace: <code>docs/HoT_PBS_Backup_Integration_Scope.md</code> Section 6.</li>
         <li class="done"><b>sn-monitor right-sized 4&rarr;3&nbsp;GB, closing out the last open item on this page</b> &mdash; real container usage was ~957&nbsp;MB (Grafana itself the heaviest at ~397&nbsp;MB post-Postgres-migration, plus Uptime&nbsp;Kuma/Loki/Prometheus/<code>grafana-db</code>). Stronger evidence than sn-infra's cut: Proxmox's own balloon manager had <i>already</i> been squeezing this VM to exactly 3072&nbsp;MB before the change &mdash; direct proof 3&nbsp;GB was already sufficient, not just an estimate. Same reboot pattern as the other two: Grafana briefly looked stuck (old container's shutdown errors mixed into the new one's boot log), resolved to a clean <code>200</code> within about a minute, confirmed via advancing log lines not guessed. <b>Real bonus confirmation</b>: all 6 alert rules, both contact points, and both datasources survived the reboot intact &mdash; first live proof the Postgres backend actually persists Grafana's state across a guest reboot, not just a container recreate. Total recovery across all three right-sized VMs this session: available host memory 3.2&nbsp;GB &rarr; 6.0&nbsp;GB.</li>
         <li class="done"><b>sms-relay could silently drop a genuine RESOLVED text on a quick flap</b> &mdash; found within hours of being flagged as an open follow-up (above/Actionable, now removed): checking real SMS history after the sn-web/sn-infra memory-right-sizing reboots showed sn-infra's <code>Node Down</code> FIRING&rarr;RESOLVED pair delivered cleanly (proof the same-day Grafana Postgres migration fixed its own resolve pipeline), but sn-web's matching RESOLVED never arrived. Root cause was <i>not</i> Grafana at all &mdash; confirmed via a real <code>[sms-relay] Rate-limited, skipping:</code> log line: the per-group 5-minute rate limiter didn't distinguish FIRING from RESOLVED, so a RESOLVED landing within its own group's throttle window (a quick flap, e.g. a VM reboot clearing fast) was silently swallowed by the same mechanism that exists to stop repeated FIRING spam. Fixed: RESOLVED messages now bypass the rate limit entirely and don't reset it, so a real subsequent FIRING on the same group still throttles normally. Verified via code review, not a forced real test alert &mdash; no reason to text Mr. Byrne unnecessarily just to prove it.</li>
@@ -544,3 +535,5 @@
     if (saved && document.querySelector('.tab[data-tab="' + saved + '"]')) activate(saved);
   })();
 </script>
+
+</body></html>
