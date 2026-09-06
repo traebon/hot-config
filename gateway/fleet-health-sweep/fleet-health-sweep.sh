@@ -141,6 +141,39 @@ for name in gateway hot-bm-nl sn-infra sn-web sn-monitor sn-security hot-pn hot-
     report_check "$name" "dpkg-audit" fail "$audit"
   fi
 
+  # --- wg6 (PBS tunnel) handshake staleness ---
+  # Added 2026-09-06 after wg6 was found dead 9+ days (2026-08-25 -> 09-04) with nothing
+  # watching it -- see pbs_backup_crisis_and_wg6_outage_2026_09_04 memory and Sections 6-7
+  # of docs/HoT_PBS_Backup_Integration_Scope.md. PBS is home hardware behind a NAT with a
+  # dynamic WAN IP, not one of the fleet's normal SSH-alias hosts -- checked here as a
+  # plain local `wg show` during the gateway iteration (wg6 terminates on the Gateway).
+  if [ "$name" = "gateway" ]; then
+    hs="$(wg show wg6 latest-handshakes 2>/dev/null | awk '{print $2}')"
+    if [ -n "$hs" ] && [ "$hs" != "0" ]; then
+      age=$(( $(date +%s) - hs ))
+      if [ "$age" -lt 3600 ]; then
+        report_check "pbs" "wg6-handshake" ok ""
+      else
+        report_check "pbs" "wg6-handshake" fail "wg6 last handshake ${age}s ago (>1h) -- PBS may be unreachable; check the pbs host directly (home hardware/network), nothing on the Gateway side can fix a dead peer."
+      fi
+    else
+      report_check "pbs" "wg6-handshake" fail "wg6 has no recorded handshake at all"
+    fi
+  fi
+
+  # --- pbs-hot storage reachability (PBS backup target on hot-bm-nl) ---
+  # Same motivation/date as the wg6 check above -- pvesm reported 'pbs-hot: inactive -
+  # Connection timed out' for 9+ days with nothing watching it. Silently skipped if
+  # pbs-hot isn't registered at all (matches the wazuh-agent check's skip pattern below).
+  if [ "$name" = "hot-bm-nl" ]; then
+    pbs_status="$(run_remote "$alias" "pvesm status 2>/dev/null | awk '\$1==\"pbs-hot\"{print \$3}'")"
+    if [ "$pbs_status" = "active" ]; then
+      report_check "hot-bm-nl" "pbs-hot-storage" ok ""
+    elif [ -n "$pbs_status" ]; then
+      report_check "hot-bm-nl" "pbs-hot-storage" fail "pvesm reports pbs-hot storage as '$pbs_status', not active"
+    fi
+  fi
+
   # --- wazuh agent liveness (process-vs-systemd-state, the sn-infra bug class) ---
   wazuh_check="$(run_remote "$alias" '
     if [ -x /var/ossec/bin/wazuh-control ]; then
