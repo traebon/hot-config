@@ -408,3 +408,75 @@ Byrne's call on: (1) which option (or hybrid — e.g., Option C now as a quick f
 the real answer), and (2) independent of that choice, whether to close the "no backup-content
 encryption key exists at all" gap regardless, since it currently applies to every backup PBS is
 holding today, not just the offsite question.
+
+## 9. Resolution, 2026-09-06 — none of A/B/C were built; the real problem was reframed instead
+
+Testing Option C's mechanism (proven correct — a streamed `restore` piped through zstd into
+`rclone`, verified via an exact hash round-trip) surfaced the real blocker: **measured throughput
+was ~1.5-2 MiB/s**, both via `map`+`dd` and via the real sequential `restore` stream — consistent
+convergence, not a fluke. At that rate a full 250GB VM image takes **~47 hours**. Compared against
+the pilot backup's write-direction speed (42GB in 45 minutes, ~16MB/s), this confirms PBS's home
+link is asymmetric — fast download (into PBS), slow upload (out of PBS) — which rules out *any*
+mechanism needing to move full-image volume off PBS regularly, Option A's initial full sync
+included.
+
+**Mr. Byrne's question that actually resolved this**: does a nightly offsite copy need to be a
+byte-identical VM image at all, or just enough to rebuild? Checked live, per VM:
+
+| VM | Genuinely irreplaceable state | Size |
+|---|---|---|
+| sn-web | 6 sites' content + Stratus app source | <200KB |
+| sn-monitor | Grafana Postgres DB (dashboards/alerts) + Uptime Kuma SQLite | ~130MB |
+| sn-security | Wazuh rules/config (indexer/security-event history not yet covered — see below) | ~3MB config, 228MB indexer (deferred) |
+
+Against a 250GB nominal disk each — the rest is OS, Docker image layers, and empty space, all
+rebuildable via the New VM Clone Checklist + `docker compose up`, not data that needs preserving
+byte-for-byte. This reframes the whole problem: **PBS's job becomes fast local recovery only**
+(already proven — 45 minutes for a full VM), and offsite protection comes from a separate, much
+smaller "rebuild recipe" pipeline that never touches PBS's slow link at all.
+
+**Built and verified same day, real facts checked before each step:**
+- **Config coverage audit, fleet-wide** (not just these 3 VMs) — found real gaps: `hot-wiki`
+  (sn-infra) was live since 25 Aug with zero tracking; Wazuh's actual config tree (sn-security) was
+  only ever synced as `docker-compose.yml`, the `config/` subdirectory in `hot-config` was a stale
+  one-time copy; 5 of sn-web's 6 sites' `html/` content was untracked; hot-pn's Catalogue-deployed
+  stacks (`nextcloud`, `notesnook`) had **zero** config tracking anywhere. All fixed in
+  `scripts/sync.sh` (extending the existing daily 01:00 git sync, not a new mechanism) and verified
+  via a real run. **One real secret-leak caught by the existing guard, not by inspection**:
+  `wazuh_dashboard/wazuh.yml` embeds the real wazuh-wui API password inline (no Docker-secret
+  indirection exists for that file — matches the standing `operational-rules.md` note) — excluded
+  before the second, clean run.
+- **`fleet-state-backup.sh`** (new, `hot-config/scripts/` + a systemd timer, `03:10` daily,
+  `OnCalendar` per this project's own rule) — pg_dumps Grafana's Postgres DB and takes a proper
+  SQLite online backup of Uptime Kuma's DB (via `sqlite3 .backup`, not a raw copy — `kuma.db` runs
+  in WAL mode under active writes), pushes both directly to `hetzner-crypt`/`b2-hot-crypt`, same
+  pipeline Keycloak/PrivateNexus's DB backups already use. **Verified restorable, not just
+  pushed**: Grafana's dump has 91 valid `CREATE TABLE` statements; Uptime Kuma's copy passes
+  `PRAGMA integrity_check` with all 26 monitors intact. **A real bug caught before trusting it**:
+  the first version's `push()` checked the logging `while` loop's exit code instead of `rclone`'s
+  own (via `PIPESTATUS`) — would have silently reported success on a real failure. Fixed, redeployed,
+  and re-verified via the actual `systemctl start` path before being left running.
+
+**Still open, deliberately not done in this pass**: Wazuh's indexer data (~228MB of real
+security-event history) needs a proper OpenSearch snapshot/export, not a raw live-volume copy —
+more involved than the Postgres/SQLite cases above, scoped as a follow-up. Practical effect: the
+"rebuild recipe" for sn-security today covers its config (rules/decoders/manager.conf, via the
+sync.sh fix) but not yet its alert history. sn-web and sn-monitor are fully covered.
+
+**What this changes**: the original blocker on reverting VM 102/104/106 to `pbs-hot` — "no offsite
+copy exists for PBS-format backups" — no longer applies the way it did. Offsite protection for
+these 3 VMs now comes from `fleet-state-backup.sh` + `sync.sh`, independent of whichever storage
+`daily-fleet-backup-pbs` targets. Whether to actually revert is still Mr. Byrne's call, not decided
+here — but the reason to keep waiting is gone for sn-web/sn-monitor, and mostly gone for
+sn-security (config only, pending the indexer-data follow-up).
+
+**Widened fleet-wide the same day, at Mr. Byrne's explicit direction** ("all key databases...
+email... I mean everything"), after he asked why this shouldn't cover the whole fleet, not just
+the 3 VMs this item started with. Auditing every host for the same class of gap found something
+far more severe than anything this scope doc was originally about: **Vaultwarden — the system
+holding every credential in this entire project — had zero backup coverage anywhere.** Full detail
+in `fleet_state_backup_fleet_wide_2026_09_07` memory and the `fleet-state-backup` row in
+`services-fleet.md`; not duplicated here since it's no longer really a PBS question. Short version:
+`fleet-state-backup.sh` now also covers Forgejo, PowerDNS-Admin, hot-wiki, Namevault (sn-infra),
+ERPNext (hot-erp-nl), and Nextcloud (hot-pn) — 12 pieces total, ~13GB, first full run 2026-09-07
+succeeded with zero failures and was spot-verified restorable, not just pushed.
