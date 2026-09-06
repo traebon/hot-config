@@ -1,27 +1,338 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Ruby Osiris</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ruby Osiris — Fine Jewellery</title>
+<meta name="description" content="Ruby Osiris — jewellery drawn from the Nile. Rings, necklaces, and earrings in gold and crimson stone.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Marcellus&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-  :root { color-scheme: light dark; }
-  html, body { height: 100%; margin: 0; }
-  body {
-    display: flex; align-items: center; justify-content: center;
-    font-family: system-ui, -apple-system, sans-serif;
-    background: #0b0c0f; color: #e8e8ea;
-    text-align: center;
+  :root {
+    --crimson: #6E0F1D;
+    --crimson-2: #4C0A14;
+    --obsidian: #140A08;
+    --ink: #1C0F0A;
+    --gold: #C9A227;
+    --gold-bright: #E7C56B;
+    --gold-dim: #8A6E2C;
+    --papyrus: #F4E9CE;
+    --papyrus-2: #EADEC0;
+    --ink-soft: #6B5A47;
   }
-  main { padding: 2rem; }
-  h1 { font-size: 1.6rem; font-weight: 600; margin: 0 0 0.5rem; letter-spacing: 0.01em; }
-  p { font-size: 0.95rem; color: #9a9aa2; margin: 0; }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    background: var(--papyrus);
+    color: var(--ink);
+    font-family: 'Inter', -apple-system, sans-serif;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, h3, .brand { font-family: 'Marcellus', serif; margin: 0; letter-spacing: 0.01em; }
+  a { color: inherit; text-decoration: none; }
+
+  .wrap { max-width: 1160px; margin: 0 auto; padding: 0 32px; }
+  @media (max-width: 640px) { .wrap { padding: 0 20px; } }
+
+  .ankh { display: inline-block; width: 1em; height: 1.3em; vertical-align: -0.15em; }
+
+  /* ---------- Nav ---------- */
+  header {
+    background: var(--obsidian);
+    border-bottom: 1px solid #2A1712;
+    position: sticky; top: 0; z-index: 20;
+  }
+  nav.wrap { display: flex; align-items: center; justify-content: space-between; height: 82px; }
+  .brand { color: var(--papyrus); font-size: 24px; display: flex; align-items: center; gap: 10px; }
+  .brand .ankh svg { stroke: var(--gold-bright); }
+  .brand span.sub { display: block; font-family: 'Inter'; font-size: 10px; letter-spacing: 0.24em; text-transform: uppercase; color: var(--gold-dim); margin-top: 2px; }
+  .navlinks { display: flex; gap: 36px; font-size: 14px; letter-spacing: 0.03em; }
+  .navlinks a { color: #D9C9A8; transition: color .15s; }
+  .navlinks a:hover { color: var(--gold-bright); }
+  .navlinks { display: none; }
+  @media (min-width: 860px) { .navlinks { display: flex; } }
+  .cta-small {
+    border: 1px solid var(--gold-dim); color: var(--gold-bright);
+    padding: 9px 20px; border-radius: 2px; font-size: 13px; letter-spacing: 0.05em;
+    transition: background .15s, color .15s;
+  }
+  .cta-small:hover { background: var(--gold-bright); color: var(--obsidian); }
+
+  /* ---------- Hero ---------- */
+  .hero {
+    background:
+      radial-gradient(ellipse at 20% -10%, #7A1626 0%, transparent 55%),
+      linear-gradient(160deg, var(--crimson) 0%, var(--crimson-2) 55%, var(--obsidian) 100%);
+    color: var(--papyrus);
+    padding: 110px 0 96px;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::after {
+    content: '';
+    position: absolute; inset: 0;
+    background-image: repeating-linear-gradient(90deg, rgba(201,162,39,0.06) 0 1px, transparent 1px 64px);
+    pointer-events: none;
+  }
+  .hero-inner { position: relative; display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 48px; align-items: center; }
+  @media (max-width: 860px) { .hero-inner { grid-template-columns: 1fr; } }
+  .eyebrow { font-size: 12px; letter-spacing: 0.3em; text-transform: uppercase; color: var(--gold-bright); margin-bottom: 18px; }
+  .hero h1 { font-size: 52px; line-height: 1.12; color: #FBF3DF; }
+  @media (max-width: 640px) { .hero h1 { font-size: 36px; } }
+  .hero p.lead { font-family: 'Inter'; font-size: 17px; color: #D9C4A6; max-width: 46ch; margin: 22px 0 32px; }
+  .hero-ctas { display: flex; gap: 16px; flex-wrap: wrap; }
+  .btn-gold {
+    background: var(--gold-bright); color: var(--obsidian); padding: 15px 30px;
+    font-family: 'Inter'; font-weight: 600; font-size: 14px; letter-spacing: 0.03em;
+    border-radius: 2px; transition: transform .15s, box-shadow .15s;
+  }
+  .btn-gold:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(231,197,107,0.25); }
+  .btn-ghost {
+    border: 1px solid rgba(244,233,206,0.35); color: #F4E9CE; padding: 15px 30px;
+    font-size: 14px; letter-spacing: 0.03em; border-radius: 2px;
+  }
+
+  .hero-emblem {
+    aspect-ratio: 1; border: 1px solid rgba(231,197,107,0.35); border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    background: radial-gradient(circle at 50% 40%, rgba(231,197,107,0.10), transparent 70%);
+  }
+  .hero-emblem svg { width: 46%; stroke: var(--gold-bright); }
+
+  /* ---------- Trust strip ---------- */
+  .strip { background: var(--obsidian); color: var(--gold-dim); padding: 16px 0; font-size: 12.5px; letter-spacing: 0.08em; }
+  .strip .wrap { display: flex; gap: 40px; justify-content: center; flex-wrap: wrap; text-align: center; text-transform: uppercase; }
+
+  /* ---------- Collections ---------- */
+  section { padding: 96px 0; }
+  .section-head { text-align: center; max-width: 640px; margin: 0 auto 56px; }
+  .section-head .eyebrow { color: var(--crimson); }
+  .section-head h2 { font-size: 34px; }
+  .section-head p { color: var(--ink-soft); margin-top: 14px; font-size: 15px; }
+
+  .collections { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; }
+  @media (max-width: 860px) { .collections { grid-template-columns: 1fr; } }
+  .coll-card {
+    position: relative; aspect-ratio: 4/5; border-radius: 3px; overflow: hidden;
+    display: flex; align-items: flex-end; padding: 28px;
+    border: 1px solid var(--papyrus-2);
+  }
+  .coll-card.necklaces { background: linear-gradient(150deg, #7A1626, #3C0A11); }
+  .coll-card.rings { background: linear-gradient(150deg, #8A6E2C, #4C3B15); }
+  .coll-card.earrings { background: linear-gradient(150deg, #591019, #120A08); }
+  .coll-card::before {
+    content: ''; position: absolute; inset: 0;
+    background-image: repeating-linear-gradient(45deg, rgba(231,197,107,0.05) 0 2px, transparent 2px 18px);
+  }
+  .coll-card h3 { position: relative; color: #FBF3DF; font-size: 22px; }
+  .coll-card span { position: relative; display: block; color: var(--gold-bright); font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; margin-top: 6px; }
+
+  /* ---------- Product grid ---------- */
+  .products { background: #EFE2C1; }
+  .grid6 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+  @media (max-width: 760px) { .grid6 { grid-template-columns: repeat(2, 1fr); } }
+  .prod {
+    background: var(--papyrus); border: 1px solid var(--papyrus-2); border-radius: 3px; overflow: hidden;
+  }
+  .prod .swatch { aspect-ratio: 1; background: linear-gradient(150deg, var(--crimson), var(--obsidian)); display: flex; align-items: center; justify-content: center; }
+  .prod .swatch svg { width: 32%; stroke: var(--gold-bright); opacity: 0.85; }
+  .prod .meta { padding: 18px 20px 22px; }
+  .prod .meta .name { font-family: 'Marcellus'; font-size: 16px; }
+  .prod .meta .price { font-size: 13px; color: var(--ink-soft); margin-top: 6px; }
+
+  /* ---------- Provenance ---------- */
+  .provenance { background: var(--obsidian); color: var(--papyrus); }
+  .prov-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px; }
+  @media (max-width: 760px) { .prov-grid { grid-template-columns: 1fr; } }
+  .prov-item .num { font-family: 'Marcellus'; color: var(--gold-bright); font-size: 30px; }
+  .prov-item h3 { margin-top: 10px; font-size: 18px; color: #FBF3DF; }
+  .prov-item p { color: #B9A583; font-size: 14px; margin-top: 10px; }
+
+  /* ---------- Newsletter ---------- */
+  .news {
+    background: linear-gradient(120deg, var(--crimson), var(--crimson-2));
+    color: var(--papyrus); text-align: center;
+  }
+  .news h2 { font-size: 28px; color: #FBF3DF; }
+  .news p { color: #D9C4A6; margin: 14px 0 28px; }
+  .news form { display: flex; gap: 12px; max-width: 420px; margin: 0 auto; }
+  .news input {
+    flex: 1; padding: 14px 16px; border-radius: 2px; border: 1px solid rgba(231,197,107,0.4);
+    background: rgba(20,10,8,0.35); color: var(--papyrus); font-family: 'Inter'; font-size: 14px;
+  }
+  .news input::placeholder { color: #C9AF8A; }
+
+  /* ---------- Footer ---------- */
+  footer { background: var(--obsidian); color: #9C8563; padding: 56px 0 32px; }
+  .foot-grid { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 40px; }
+  @media (max-width: 700px) { .foot-grid { grid-template-columns: 1fr; } }
+  footer h4 { color: var(--gold-bright); font-family: 'Inter'; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 16px; }
+  footer ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; font-size: 14px; }
+  footer ul a:hover { color: var(--gold-bright); }
+  .foot-bottom { border-top: 1px solid #2A1712; margin-top: 44px; padding-top: 24px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; font-size: 12.5px; }
+  .foot-bottom a { color: #C9A227; }
+  .foot-bottom a:hover { color: var(--gold-bright); }
 </style>
 </head>
 <body>
-  <main>
-    <h1>Ruby Osiris</h1>
-    <p>Coming soon.</p>
-  </main>
+
+<header>
+  <nav class="wrap">
+    <a href="#" class="brand">
+      <span class="ankh"><svg viewBox="0 0 24 32" fill="none" stroke-width="2"><circle cx="12" cy="7" r="5.5"/><line x1="12" y1="12.5" x2="12" y2="30"/><line x1="4" y1="19" x2="20" y2="19"/></svg></span>
+      <span>Ruby Osiris<span class="sub">Fine Jewellery</span></span>
+    </a>
+    <div class="navlinks">
+      <a href="#collections">Collections</a>
+      <a href="#shop">Shop</a>
+      <a href="#provenance">Craft & Sourcing</a>
+      <a href="#news">Contact</a>
+    </div>
+    <a href="#shop" class="cta-small">View Collection</a>
+  </nav>
+</header>
+
+<section class="hero">
+  <div class="wrap hero-inner">
+    <div>
+      <div class="eyebrow">Est. on the banks of memory — Nile-inspired jewellery</div>
+      <h1>Gold and crimson, cast in the image of Osiris.</h1>
+      <p class="lead">Ruby Osiris designs jewellery drawn from Egyptian myth and river-gold — rings, necklaces, and earrings finished in 18k gold vermeil and deep garnet stone, sourced and shipped piece by piece.</p>
+      <div class="hero-ctas">
+        <a href="#shop" class="btn-gold">Shop the Collection</a>
+        <a href="#provenance" class="btn-ghost">Our Sourcing</a>
+      </div>
+    </div>
+    <div class="hero-emblem">
+      <svg viewBox="0 0 100 100" fill="none" stroke-width="1.4">
+        <circle cx="50" cy="26" r="16"/>
+        <line x1="50" y1="42" x2="50" y2="88"/>
+        <line x1="24" y1="60" x2="76" y2="60"/>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<div class="strip">
+  <div class="wrap">
+    <span>18k Gold Vermeil</span>
+    <span>Hand-Finished Stonework</span>
+    <span>Worldwide Dropship</span>
+    <span>Lifetime Plating Guarantee</span>
+  </div>
+</div>
+
+<section id="collections">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="eyebrow">Collections</div>
+      <h2>Three houses of the Nile</h2>
+      <p>Each collection carries its own weight of gold and stone — built for daily wear, cast for ceremony.</p>
+    </div>
+    <div class="collections">
+      <div class="coll-card necklaces">
+        <div><h3>Necklaces</h3><span>The River Line</span></div>
+      </div>
+      <div class="coll-card rings">
+        <div><h3>Rings</h3><span>The Signet Line</span></div>
+      </div>
+      <div class="coll-card earrings">
+        <div><h3>Earrings</h3><span>The Eye Line</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="shop" class="products">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="eyebrow">Shop</div>
+      <h2>New this season</h2>
+    </div>
+    <div class="grid6">
+      <div class="prod"><div class="swatch"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/></svg></div><div class="meta"><div class="name">Horus Pendant</div><div class="price">£68 — Gold Vermeil</div></div></div>
+      <div class="prod"><div class="swatch"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5"><rect x="6" y="6" width="12" height="12" rx="2"/></svg></div><div class="meta"><div class="name">Cartouche Band</div><div class="price">£54 — Gold Vermeil</div></div></div>
+      <div class="prod"><div class="swatch"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5"><path d="M12 3 3 12l9 9 9-9z"/></svg></div><div class="meta"><div class="name">Scarab Studs</div><div class="price">£42 — Garnet & Gold</div></div></div>
+      <div class="prod"><div class="swatch"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5"><circle cx="12" cy="8" r="5.5"/><line x1="12" y1="14" x2="12" y2="21"/><line x1="7" y1="17" x2="17" y2="17"/></svg></div><div class="meta"><div class="name">Ankh Choker</div><div class="price">£76 — Gold Vermeil</div></div></div>
+      <div class="prod"><div class="swatch"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5"><path d="M4 12h16M12 4v16"/></svg></div><div class="meta"><div class="name">Nile Cross Studs</div><div class="price">£38 — Gold Vermeil</div></div></div>
+      <div class="prod"><div class="swatch"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5"><ellipse cx="12" cy="12" rx="8" ry="5"/></svg></div><div class="meta"><div class="name">Eye of Ra Ring</div><div class="price">£58 — Garnet & Gold</div></div></div>
+    </div>
+  </div>
+</section>
+
+<section id="provenance" class="provenance">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="eyebrow" style="color: var(--gold-bright)">Craft & Sourcing</div>
+      <h2 style="color:#FBF3DF">Built for real wear, not just the box</h2>
+    </div>
+    <div class="prov-grid">
+      <div class="prov-item">
+        <div class="num">01</div>
+        <h3>Vetted suppliers</h3>
+        <p>Every partner workshop is inspected for plating thickness and stone quality before a piece ever reaches our catalogue.</p>
+      </div>
+      <div class="prov-item">
+        <div class="num">02</div>
+        <h3>Dropship, done properly</h3>
+        <p>Tracked worldwide shipping on every order, with a real support line — not a ticket that vanishes into a queue.</p>
+      </div>
+      <div class="prov-item">
+        <div class="num">03</div>
+        <h3>Guaranteed finish</h3>
+        <p>Gold vermeil pieces carry a 12-month plating guarantee. Wear it daily; we'll stand behind the shine.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="news" class="news">
+  <div class="wrap">
+    <h2>Join the House of Osiris</h2>
+    <p>New drops, early access, and the occasional myth. No spam — we promise on the river.</p>
+    <form onsubmit="return false;">
+      <input type="email" placeholder="you@email.com" required>
+      <button type="submit" class="btn-gold" style="border:none; cursor:pointer;">Subscribe</button>
+    </form>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-grid">
+      <div>
+        <h4>Ruby Osiris</h4>
+        <p style="font-size:14px; max-width:34ch; color:#B9A583;">Fine jewellery inspired by the Nile — gold vermeil and garnet, dropshipped worldwide from vetted workshops.</p>
+      </div>
+      <div>
+        <h4>Shop</h4>
+        <ul>
+          <li><a href="#collections">Collections</a></li>
+          <li><a href="#shop">New Arrivals</a></li>
+          <li><a href="#provenance">Sourcing & Care</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Support</h4>
+        <ul>
+          <li><a href="mailto:hello@rubyosiris.com">hello@rubyosiris.com</a></li>
+          <li><a href="#">Shipping & Returns</a></li>
+          <li><a href="#">Size Guide</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span>© 2026 Ruby Osiris. All rights reserved.</span>
+      <span>Site by <a href="https://stratus-digital.com" target="_blank" rel="noopener">Stratus Digital</a></span>
+    </div>
+  </div>
+</footer>
+
 </body>
 </html>

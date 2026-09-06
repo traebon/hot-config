@@ -98,8 +98,8 @@ Other WireGuard interfaces on the Gateway VPS (separate from the wg0 bare-metal 
           ends. hot-erp-nl's own peer `AllowedIPs` widened 2026-08-08, same reason/scope as wg3
           above (`10.10.70.106/32` only).
     wg6 — tunnel to `pbs` (Proxmox Backup Server, **local hardware on Mr. Byrne's own home
-          network**, 192.168.0.35/24 behind a home NAT — not a rented VPS like every other host
-          in this fleet). Built 2026-08-22, dedicated WireGuard chosen deliberately over Tailscale
+          network**, now `192.168.86.250/24` behind a home NAT — not a rented VPS like every other
+          host in this fleet). Built 2026-08-22, dedicated WireGuard chosen deliberately over Tailscale
           for this (Mr. Byrne's call — Tailscale = admin only, nightly backup transfer is
           production traffic). PBS dials out road-warrior style (like wg1), since it has no public
           IP of its own — Gateway 10.10.5.1 / PBS 10.10.5.2, port 51826. Extended so hot-bm-nl can
@@ -121,6 +121,17 @@ Other WireGuard interfaces on the Gateway VPS (separate from the wg0 bare-metal 
           fix (reverted those 3 VMs' backups to `local-zfs`), and the separate mail-relay bug found
           alongside it. PBS reachability needs Mr. Byrne to check the box itself — nothing on the
           Gateway/hot-bm-nl side of this tunnel can diagnose a dead peer.
+
+          **✅ Back 2026-09-06.** Mr. Byrne reported PBS's local address changed to
+          `192.168.86.250` (was `192.168.0.35`) — a different `/24` entirely, gateway now
+          `192.168.86.1`, consistent with the home router itself being replaced/reset rather than
+          just a DHCP renewal, and lines up with the ~25 Aug last-handshake timing (see the 2026-09-04
+          note above). Confirmed live from both ends: `wg6` handshake current on the Gateway (peer
+          endpoint now `148.252.145.134:<port>` — new WAN IP too) and on PBS itself (SSH via the
+          `pbs` Tailscale alias), and `pbs-hot` shows `active` again on hot-bm-nl (`pvesm status`).
+          `daily-fleet-backup-pbs` is still deliberately left on the `local-backup-zfs` interim
+          fallback pending Mr. Byrne's go-ahead to revert per the 2026-09-04 fix — see
+          `docs/HoT_PBS_Backup_Integration_Scope.md` Section 7.
 
 **Key rule:** Production traffic never routes through Tailscale. Tailscale = admin SSH only.
 **Key rule:** Bare metal has zero public-facing ports. All public traffic enters via the Gateway VPS.

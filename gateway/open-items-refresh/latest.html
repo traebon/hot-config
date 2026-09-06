@@ -280,10 +280,10 @@
   <header class="top">
     <p class="eyebrow">JARVIS &middot; Gateway VPS &middot; Infrastructure Sweep</p>
     <h1>Open Items</h1>
-    <p class="subtitle">First compiled 27 Jul 2026; refreshed 4 Sep 2026 against live state (current CLAUDE.md/claude-md split, this week's memory index, and <code>hot-config</code>'s real git log) rather than trusted from the 25 Aug snapshot &mdash; several items below moved since then without ever being reflected here.</p>
+    <p class="subtitle">First compiled 27 Jul 2026; refreshed 6 Sep 2026 against current CLAUDE.md/claude-md and memory only (this job's own scope is read-only &mdash; no live fleet/SSH access this run, so nothing below was re-verified against the actual boxes). One small addition found versus the 4&nbsp;Sep refresh: two stale PrivateNexus Discovery-candidate rows flagged that same day were never actually listed here &mdash; added below, under Actionable. Everything else checked out unchanged since 4&nbsp;Sep.</p>
     <div class="stat-strip">
       <div class="stat fixed"><div class="n">32</div><div class="l">Resolved since Jul&nbsp;27</div></div>
-      <div class="stat open"><div class="n">0</div><div class="l">Open / actionable</div></div>
+      <div class="stat open"><div class="n">1</div><div class="l">Open / actionable</div></div>
       <div class="stat parked"><div class="n">4</div><div class="l">Awaiting Mr. Byrne</div></div>
       <div class="stat deferred"><div class="n">2</div><div class="l">Deferred</div></div>
     </div>
@@ -307,7 +307,7 @@
   </section>
 
   <div class="tabbar" role="tablist">
-    <button class="tab" data-tab="actionable" role="tab" aria-selected="false">Actionable <span class="tab-count">0</span></button>
+    <button class="tab" data-tab="actionable" role="tab" aria-selected="false">Actionable <span class="tab-count">1</span></button>
     <button class="tab active" data-tab="parked" role="tab" aria-selected="true">Parked <span class="tab-count">6</span></button>
     <button class="tab" data-tab="resolved" role="tab" aria-selected="false">Resolved <span class="tab-count">32</span></button>
     <button class="tab" data-tab="roadmaps" role="tab" aria-selected="false">Roadmaps</button>
@@ -317,9 +317,20 @@
   <section class="group" id="actionable">
     <div class="group-head">
       <h2>Actionable now / soon</h2>
-      <span class="group-count">0 items</span>
+      <span class="group-count">1 item</span>
     </div>
-    <p class="group-note">Nothing currently open. The last item (sn-monitor memory headroom) was closed out 4&nbsp;Sep &mdash; see Resolved.</p>
+    <p class="group-note">The last previously-open item (sn-monitor memory headroom) was closed out 4&nbsp;Sep &mdash; see Resolved. One new small item below, real but minor, surfaced the same day and never previously listed here.</p>
+
+    <details class="item">
+      <summary>
+        <span class="caret">▸</span>
+        <span class="chip open">Cleanup, no decision needed</span>
+        <span class="title">Two stale PrivateNexus Discovery-candidate rows, never cleaned up</span>
+      </summary>
+      <div class="body">
+        <p>Found 4&nbsp;Sep while re-scoping the personal-services Parked item, below &mdash; two rows in PN's <code>discovery_candidates</code> queue reference containers that no longer exist on the fleet. Low-risk, doesn't need Mr.&nbsp;Byrne's input, just hasn't been picked up yet: delete the two orphaned rows. Not yet actioned as of this refresh.</p>
+      </div>
+    </details>
   </section>
   </div>
 
@@ -372,7 +383,7 @@
         <span class="title"><b>PBS is unreachable &mdash; needs Mr. Byrne to check it directly</b></span>
       </summary>
       <div class="body">
-        <p>4&nbsp;Sep: found while scoping this same item that a decision had already been made and half-built without ever being reflected here &mdash; sn-web/sn-monitor/sn-security's backups were pointed at PBS on 25&nbsp;Aug, with no fallback. The <code>wg6</code> tunnel to PBS turned out to have been dead for 9&nbsp;days, 14&nbsp;hours (zero handshake, Gateway side confirmed healthy throughout) &mdash; those 3 VMs had zero real backups anywhere that whole time, and the failure-notification emails were also silently bouncing as spam (separately fixed). Interim mitigation applied same day: reverted those 3 VMs' backups to <code>local-zfs</code> and cleared 2.44&nbsp;TB of stale pre-crisis backups to make real room (both confirmed with you first) &mdash; see Resolved, below. <b>What's still needed</b>: PBS itself is your own home hardware behind a home NAT &mdash; nothing on the Gateway or hot-bm-nl side can diagnose why it stopped dialing in. Once you've confirmed it's back up, the real Option A/B/C decision from the original scope doc still needs answering (never formally decided, only partially built) &mdash; and whatever gets chosen needs real monitoring added, since nothing was watching this tunnel at all. See <code>docs/HoT_PBS_Backup_Integration_Scope.md</code> Section 6.</p>
+        <p>4&nbsp;Sep: found while scoping this same item that a decision had already been made and half-built without ever being reflected here &mdash; sn-web/sn-monitor/sn-security's backups were pointed at PBS on 25&nbsp;Aug, with no fallback. The <code>wg6</code> tunnel to PBS turned out to have been dead for 9&nbsp;days, 14&nbsp;hours (zero handshake, Gateway side confirmed healthy throughout) &mdash; those 3 VMs had zero real backups anywhere that whole time, and the failure-notification emails were also silently bouncing as spam (separately fixed). Interim mitigation applied same day: reverted those 3 VMs' backups to <code>local-zfs</code> and cleared 2.44&nbsp;TB of stale pre-crisis backups to make real room (both confirmed with you first) &mdash; see Resolved, below. <b>What's still needed</b>: PBS itself is your own home hardware behind a home NAT &mdash; nothing on the Gateway or hot-bm-nl side can diagnose why it stopped dialing in. Once you've confirmed it's back up, the real Option A/B/C decision from the original scope doc still needs answering (never formally decided, only partially built) &mdash; and whatever gets chosen needs real monitoring added, since nothing was watching this tunnel at all. See <code>docs/HoT_PBS_Backup_Integration_Scope.md</code> Section 6. No update since 4&nbsp;Sep on whether the box itself is back &mdash; this refresh had no way to check live, so it stays parked rather than assumed either way.</p>
       </div>
     </details>
   </section>

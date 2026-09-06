@@ -49,17 +49,23 @@ when either landed.
   disclosure — restored to the real, user-confirmed scope; see
   `prompt_injection_incident_2026_08_17` memory.
 - Terraform / Ansible IaC
-- **Proxmox Backup Server (PBS) fleet integration** — scoped 2026-08-22. Mr. Byrne stood up a new
-  PBS host (local hardware on his own network, not a rented VPS) and wants it consolidating backups
-  "across the entire fleet." SSH connectivity established (`pbs` alias, reachable over Tailscale —
-  the box has no WireGuard tunnel and sits behind a home NAT, not a public IP). Real findings so
-  far: single-disk datastore with no RAID, a live but fragile `onlink`-only default route
-  (`192.168.0.35/24` gateway `192.168.1.1` mismatch), and a direct tension with the project's own
-  "Tailscale = admin only" rule since backup traffic is real production bulk transfer. Three scope
-  options (hot-bm-nl VMs only / fleet-wide file-level too / PBS as primary replacing Hetzner+B2) and
-  the transport question (new dedicated WireGuard tunnel vs. a documented Tailscale exception) both
-  need Mr. Byrne's decision before anything gets built. See
-  `docs/HoT_PBS_Backup_Integration_Scope.md`.
+- **Proxmox Backup Server (PBS) fleet integration** — scoped 2026-08-22, built the same day (Option
+  A-shaped: dedicated `wg6` WireGuard tunnel, `pbs-hot` storage on hot-bm-nl for VM 102/104/106).
+  **Not a clean "decision pending" item anymore — see `docs/HoT_PBS_Backup_Integration_Scope.md`
+  Sections 6-7 for the real state.** `wg6` went dark for 9+ days (2026-08-25→09-04, PBS-side —
+  likely a home router replacement, its local IP moved from `192.168.0.35` to `192.168.86.250`
+  along the way), leaving sn-web/sn-monitor/sn-security with zero real backups for that whole
+  window, compounded by a separately-broken failure-alert mail path (both fixed 2026-09-04, backups
+  interim-reverted to `local-zfs`). PBS confirmed reachable again 2026-09-06 (a home router
+  replacement, new local IP). **A fourth gap found the same day, and it's now the blocker**:
+  `pbs-hot`-targeted backups never got an encrypted offsite copy at all — the Hetzner push script
+  only reads flat vzdump files, which `pbs-hot` never produces — so VM 102/104/106 had zero offsite
+  coverage for their entire ~10 days on `pbs-hot`, not just during the tunnel outage. **Mr. Byrne's
+  call: stay on `local-backup-zfs` until that bridge is actually built**, not just monitored — see
+  `docs/HoT_PBS_Backup_Integration_Scope.md` Section 7. Monitoring itself (`wg6-handshake` /
+  `pbs-hot-storage` checks) was built and verified live the same day. Original three scope options
+  (hot-bm-nl VMs only / fleet-wide file-level too / PBS as primary replacing Hetzner+B2) still
+  formally undecided.
 - **More autonomous fleet operation ("more JARVIS, less manual sweep")** — raised by Mr. Byrne
   2026-08-19. The pattern across most incidents in this project so far is the same shape: a real
   problem sits silently for days until either a scheduled fleet health check or a direct user

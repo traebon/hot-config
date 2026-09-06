@@ -231,3 +231,180 @@ production incident, not just stale documentation. Found and fixed the same day;
    layer exists to catch, and it didn't, because nothing was ever pointed at this specific failure
    mode. If PBS stays in the picture at all, this needs a real check (e.g. `wg show wg6` handshake
    age, or `pvesm status` for `pbs-hot`) added to the nightly sweep.
+
+## 7. PBS reachable again, 2026-09-06 — answers Section 6 question 1, question 2 still open
+
+Mr. Byrne reported PBS's local address changed to `192.168.86.250` — a different `/24` from the
+`192.168.0.35` documented in Section 1 (and its `192.168.1.1` gateway mismatch, fixed 2026-08-22),
+with a new gateway (`192.168.86.1`) that's actually inside the declared subnet this time. This
+reads as the home router itself being replaced or reset, not a routine DHCP lease change, and lines
+up with the ~9-day-14-hour dead window Section 6 found (last real handshake ~25 Aug) — plausibly
+the router swap is the actual root cause of the outage, though that's inference, not confirmed by
+Mr. Byrne directly.
+
+**Confirmed live, both ends, same day:**
+- SSH to `pbs` (Tailscale alias) shows `wg6` with a handshake ~2 minutes old, `nic1` now
+  `192.168.86.250/24`, default route `via 192.168.86.1 dev nic1 proto kernel onlink` — a clean
+  onlink route this time, gateway genuinely inside the subnet.
+- Gateway's own `wg6` shows a current handshake too, peer endpoint now `148.252.145.134:<port>` —
+  a new WAN IP as well, consistent with a full router replacement.
+- `pvesm status` on hot-bm-nl shows `pbs-hot` `active` with 3.6TB free.
+
+**Section 6 question 1 ("is PBS actually reachable right now") is answered: yes.**
+
+**A fourth, previously-undiscovered problem was found checking Question 2, and it changes the
+answer.** `vzdump-offsite-push.sh` (hot-bm-nl, pushes the previous night's vzdump output to
+Hetzner via rclone crypt) only reads flat `.vma.zst` files from `local-zfs`'s dump directory
+(`DUMP_DIR="/local-zfs/vzdump-local/dump"`). When a VM's vzdump job targets `pbs-hot` instead,
+Proxmox streams directly into PBS's own chunked dedup datastore — no flat file is ever produced,
+so this script finds nothing to push. **Confirmed live against the real Hetzner listing**
+(`rclone lsl hetzner-crypt:proxmox-vm-backups/`): VM 100 (always on `local-zfs`) has an unbroken
+nightly entry throughout; VM 102/104/106 have **zero entries from 2026-08-24 through 2026-09-04**
+— the entire period they were on `pbs-hot` — and entries resume the day after the 09-04 revert to
+`local-zfs`. This means the true gap wasn't just the 9-day `wg6` outage — it's the full ~10 days
+these 3 VMs were on `pbs-hot` at all, they had **no encrypted offsite copy anywhere**, including the
+first ~1-4 days before `wg6` even died, while PBS itself was still healthy.
+
+**Mr. Byrne's decision, 2026-09-06: stay on `local-backup-zfs` for VM 102/104/106 (don't revert to
+`pbs-hot` yet) until this offsite-bridge gap is actually closed** — not just monitored. Nothing
+today bridges PBS-format backups to an encrypted offsite copy; reverting now would silently
+reintroduce the exact gap this section just found, just without the 9-day tunnel outage on top of
+it. This needs real design work before building: most likely extending the offsite-push mechanism
+to export PBS snapshots (e.g. via `proxmox-backup-client restore ... | rclone rcat`) rather than
+relying on a flat vzdump file, or an equivalent — not yet scoped in detail, no code written.
+
+**Question 3 (monitoring) — built 2026-09-06.** `fleet-health-sweep.sh` now carries two new
+streak-based checks (`hot-config/gateway/fleet-health-sweep/`, verified via a real
+`systemctl start fleet-health-sweep.service` run — caught and fixed an awk field-index bug in the
+`pbs-hot-storage` check before trusting it, `pvesm status`'s Status column is `$3` not `$2`):
+`wg6-handshake` (fails if the Gateway's last handshake with PBS is >1h old) and `pbs-hot-storage`
+(fails if `pvesm status` on hot-bm-nl doesn't report `pbs-hot` as `active`). Both escalate to
+`priority=urgent`/SMS after 3 consecutive failing nights, same as every other point check in the
+sweep — a future outage like this one gets caught within a day, not 9.
+
+**Real open items now:**
+1. Design + build the PBS-to-offsite-encrypted-copy bridge — blocking any revert to `pbs-hot` for
+   VM 102/104/106.
+2. Once that's built and verified, revisit whether to revert those 3 VMs to `pbs-hot` at all, given
+   Section 6's separate point that a single-disk, no-RAID, home-network target going dark for 9+
+   days with zero visibility is a real factor, independent of the offsite-copy question.
+
+## 8. PBS-to-offsite bridge — design scope (2026-09-06)
+
+Real facts checked live on `pbs` before writing this, not assumed:
+
+- **PBS 4.2.5** (`proxmox-backup-manager version`). This matters directly — 4.x has real, native
+  **S3 object-storage backend support**: `proxmox-backup-manager s3 endpoint create` (access/secret
+  key, endpoint, region, rate limits) and `datastore create --backend <s3-config>` both exist and
+  are documented CLI commands, not a guess from release notes. A second local datastore can be
+  backed by an S3 bucket instead of local disk.
+- **Datastore layout**: `houseoftrae-backups` is a single ext4 filesystem (`/dev/sdb1`, 3.6TB,
+  currently only 42GB used) at `/mnt/backups`. The real content lives in `/mnt/backups/.chunks`
+  (content-addressed, fixed-size chunk files, dotdir — easy to miss with a naive `du -sh /*`, which
+  is why the first check of this looked nearly empty) — this is genuinely deduplicated storage, not
+  a metadata layer over full images; matches the Section-under-`pbs_backup_integration_scope`
+  pilot's earlier finding (42GB landed for a 250GB nominal VM104 disk).
+- **`sync-job` exists too** (`proxmox-backup-manager sync-job create --remote-store ... --store
+  ...`) — PBS's native incremental replication mechanism, chunk-aware (only transfers what the
+  target doesn't already have). It targets a `remote` (`remote create --host ...`), which in PBS's
+  model is another PBS server's API — real server-to-server sync, not a generic "any storage"
+  target. A **second real PBS instance is not currently a decided piece of this fleet's
+  architecture** (would be new standing infrastructure, its own monitoring, its own home — the
+  roadmap's separate "second bare metal node (HA)" item is the nearest existing appetite for that
+  kind of thing, and it's undecided too).
+- **No backup-content encryption key exists anywhere in this setup today.**
+  `~/.config/proxmox-backup/` on PBS is empty (no `.key` files — PBS's own client-side backup
+  encryption, a distinct feature from transport/at-rest encryption, has never been set up), and the
+  existing `pbs-hot` storage entry on hot-bm-nl was registered without one either. **This means the
+  PBS datastore's current contents are not encrypted under any key House of Trae controls** — a
+  materially weaker guarantee than every other offsite copy in this project (Hetzner/B2 both go
+  through `rclone crypt`, meaning the storage provider itself never sees plaintext). This gap exists
+  independent of the offsite-bridge question and is worth flagging on its own, not just as a
+  precondition for one of the options below.
+- **B2's cap ($2/mo, ≈330GB, set 2026-08-08 — see `backup_architecture_b2_scope_2026_08_08`
+  memory) is no longer the obstacle it was for the old flat-vzdump target.** That cap was sized
+  against full, undeduped VM images (~415GB/night fleet-wide, ruled B2 out entirely). PBS's own
+  dedup changes that math completely — if a bridge preserves PBS's dedup (rather than re-expanding
+  to flat images), the real steady-state volume for VM 102/104/106 is plausibly in the low hundreds
+  of GB, i.e. close to or within B2's current cap, not a categorical mismatch the way it was before.
+  Hetzner Storage Box, by contrast, is SFTP/CIFS/Borg-style storage — **not S3-compatible**, so it
+  cannot be a target for PBS's native S3 backend at all, only for a raw file-level copy (Option B
+  below).
+
+### Option A — second PBS datastore, S3-backed (on B2), synced via a native `sync-job`
+
+Create an S3 endpoint config on PBS pointing at Backblaze B2's S3-compatible API, a second
+datastore (e.g. `houseoftrae-backups-offsite`) backed by it, and a `sync-job` replicating
+`houseoftrae-backups` → the S3-backed one, on a schedule. This is the mechanism PBS's own docs
+actually design for — real incremental, chunk-level, resumable sync, with PBS's own verify/GC
+semantics applying to both copies.
+
+- **Pros:** No new server. Reuses B2 (already paid for, already has working rclone-crypt
+  credentials for the *unrelated* small-DB tier — though this would need its own B2 Application Key
+  with S3-compatible credentials, a different credential type than the native B2 API key already in
+  use). Genuinely incremental at the chunk level — matches PBS's own dedup efficiency, unlike
+  re-exporting flat images. No change needed to `vzdump-offsite-push.sh` or the existing
+  `local-zfs`→Hetzner pipeline at all.
+- **Cons / open questions:** Doesn't match the existing rclone-crypt security bar on its own — B2
+  would receive plaintext chunk data over TLS unless PBS's own client-side backup encryption is
+  *also* set up (a real, separate build step: generate a master key, store it safely — losing it
+  makes the backups permanently unreadable, same risk class as the Tor onion service's private key
+  — and reconfigure `pbs-hot` on hot-bm-nl to encrypt going forward; existing unencrypted snapshots
+  stay unencrypted unless re-backed-up). B2's cap likely needs a modest raise once real volume is
+  measured (cheap, not the ~$hundreds/mo the old flat-image estimate implied). New B2 S3-compatible
+  key needs generating and saving to Vaultwarden.
+
+### Option B — raw file-level mirror of the chunk store to the existing Hetzner Storage Box
+
+Point a plain `rclone sync` (reusing the existing `hetzner-crypt` remote and its encryption) at
+`/mnt/backups/.chunks` + the datastore's `vm/` index/manifest tree, uploaded to a new path on the
+same Storage Box already in use. No PBS reconfiguration at all.
+
+- **Pros:** Reuses the exact encryption model already trusted for everything else (Hetzner never
+  sees plaintext, same as today). No new credentials, no new PBS config, smallest build.
+  Content-addressed chunk files mean re-running the sync only pushes genuinely new chunks —
+  incremental in practice even though the mechanism is dumb.
+- **Cons / real risks, not yet resolved:** This is not PBS's own supported sync path — it's a raw
+  filesystem copy of an internal format PBS doesn't document as externally stable. Two concrete
+  risks worth testing before trusting it: (1) whether a sync running concurrently with an active
+  backup or GC job could capture a chunk mid-write (PBS's own atomicity/write semantics for chunk
+  files haven't been checked here — needs verifying, e.g. does it write-then-rename or write in
+  place); (2) restoring from this mirror isn't "grab a file back" — it means standing up a fresh PBS
+  instance (or datastore) pointed at a restored copy of the same directory tree and confirming PBS
+  itself considers it intact (`proxmox-backup-manager` verify-equivalent), which has never been
+  tested here and could surface format assumptions this plan doesn't currently know about.
+
+### Option C — reconstruct flat images, reuse the existing `local-zfs`→Hetzner pipeline unchanged
+
+Use `proxmox-backup-client restore` to rebuild a full `.img`/`.vma`-equivalent from each PBS
+snapshot, then hand it to the exact same `vzdump-offsite-push.sh` mechanism already proven for VM
+100 — zero new pipeline, zero new encryption story (already rclone-crypt).
+
+- **Pros:** Lowest engineering risk — reuses a pipeline that's been running correctly for months.
+  Matches the existing security bar exactly, no new key management.
+- **Cons:** Throws away PBS's dedup benefit for the offsite leg specifically — back to
+  full-image-sized transfers (VM 102 alone was ~268GB/night undeduped). Needs real scratch disk
+  space to reconstruct each image before pushing, and the obvious place to put that scratch space
+  (`local-zfs`) is the exact resource PBS was adopted to relieve pressure on in the first place
+  (`hot_bm_nl_backup_crisis_2026_08_18`) — would need a dedicated scratch volume or streaming
+  restore-to-pipe (untested whether `proxmox-backup-client restore` can stream to stdout rather than
+  a file) to avoid recreating that problem.
+
+### Recommendation and what's still undecided
+
+**Option A is the best fit on paper** — it's the only one that keeps both properties this project
+already insists on elsewhere (encrypted-before-it-leaves-the-network, and real incremental/dedup
+efficiency) once the backup-encryption-key step is done — but it's also the option needing the most
+new build work (S3 endpoint, second datastore, sync-job schedule, PBS backup-encryption key
+generation and safe storage, a new B2 S3-compatible credential). **Option B is the fastest to stand
+up** but carries real unresolved integrity/restorability questions that should be tested (ideally
+against a disposable snapshot, not production data) before being trusted as a real DR copy. **Option
+C is the safest/most-proven** but permanently gives up PBS's efficiency for the offsite leg, which
+may be an acceptable trade if PBS's local dedup copy is considered "fast local recovery" and Hetzner
+stays "slow full-image DR," a two-tier framing this project hasn't explicitly adopted yet.
+
+No option has been built or started — this section is scope only, per the request. Needs Mr.
+Byrne's call on: (1) which option (or hybrid — e.g., Option C now as a quick fix, Option A later as
+the real answer), and (2) independent of that choice, whether to close the "no backup-content
+encryption key exists at all" gap regardless, since it currently applies to every backup PBS is
+holding today, not just the offsite question.

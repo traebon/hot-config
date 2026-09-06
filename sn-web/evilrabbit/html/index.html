@@ -1,27 +1,261 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Evil Rabbit Art</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Evil Rabbit Art — Gallery & Shop</title>
+<meta name="description" content="Evil Rabbit Art — original artwork, prints, and merch. Gallery and shop for @evilrabbitart.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  :root { color-scheme: light dark; }
-  html, body { height: 100%; margin: 0; }
-  body {
-    display: flex; align-items: center; justify-content: center;
-    font-family: system-ui, -apple-system, sans-serif;
-    background: #0b0c0f; color: #e8e8ea;
-    text-align: center;
+  :root {
+    --black: #0B0B0D;
+    --black-2: #151517;
+    --panel: #1C1C1F;
+    --line: #2E2E32;
+    --acid: #C6FF3D;
+    --acid-dim: #8FBF2A;
+    --venom: #E63950;
+    --paper: #EDEDE8;
+    --ink-soft: #9A9AA0;
   }
-  main { padding: 2rem; }
-  h1 { font-size: 1.6rem; font-weight: 600; margin: 0 0 0.5rem; letter-spacing: 0.01em; }
-  p { font-size: 0.95rem; color: #9a9aa2; margin: 0; }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    background: var(--black);
+    color: var(--paper);
+    font-family: 'Space Grotesk', -apple-system, sans-serif;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    background-image: radial-gradient(rgba(255,255,255,0.025) 1px, transparent 1px);
+    background-size: 3px 3px;
+  }
+
+  h1, h2, h3, .brand { font-family: 'Anton', sans-serif; font-weight: 400; text-transform: uppercase; letter-spacing: 0.01em; margin: 0; }
+  a { color: inherit; text-decoration: none; }
+
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 32px; }
+  @media (max-width: 640px) { .wrap { padding: 0 20px; } }
+
+  /* ---------- Nav ---------- */
+  header { position: sticky; top: 0; z-index: 20; background: rgba(11,11,13,0.9); backdrop-filter: blur(6px); border-bottom: 1px solid var(--line); }
+  nav.wrap { display: flex; align-items: center; justify-content: space-between; height: 78px; }
+  .brand { font-size: 22px; letter-spacing: 0.02em; display: flex; align-items: center; gap: 10px; }
+  .brand .dot { width: 10px; height: 10px; background: var(--acid); border-radius: 50%; box-shadow: 0 0 12px var(--acid); }
+  .navlinks { display: none; gap: 32px; font-family: 'Space Grotesk'; font-size: 14px; text-transform: uppercase; letter-spacing: 0.05em; }
+  @media (min-width: 860px) { .navlinks { display: flex; } }
+  .navlinks a { color: var(--ink-soft); transition: color .15s; }
+  .navlinks a:hover { color: var(--acid); }
+  .cta-small {
+    background: var(--acid); color: var(--black); padding: 10px 20px; font-weight: 700;
+    text-transform: uppercase; font-size: 12.5px; letter-spacing: 0.06em; border-radius: 2px;
+  }
+
+  /* ---------- Hero ---------- */
+  .hero { padding: 96px 0 80px; position: relative; overflow: hidden; }
+  .hero::before {
+    content: ''; position: absolute; top: -20%; right: -10%; width: 520px; height: 520px;
+    background: radial-gradient(circle, rgba(198,255,61,0.16), transparent 70%);
+    filter: blur(10px);
+  }
+  .hero::after {
+    content: ''; position: absolute; bottom: -30%; left: -10%; width: 460px; height: 460px;
+    background: radial-gradient(circle, rgba(230,57,80,0.14), transparent 70%);
+  }
+  .hero-inner { position: relative; }
+  .eyebrow { font-family: 'Space Grotesk'; font-size: 12px; letter-spacing: 0.3em; text-transform: uppercase; color: var(--acid); margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
+  .eyebrow::before { content: ''; width: 24px; height: 1px; background: var(--acid); }
+  .hero h1 { font-size: 72px; line-height: 0.98; max-width: 16ch; }
+  .hero h1 .flick { color: var(--venom); }
+  @media (max-width: 760px) { .hero h1 { font-size: 44px; } }
+  .hero p.lead { font-family: 'Space Grotesk'; font-size: 17px; color: var(--ink-soft); max-width: 50ch; margin: 26px 0 34px; }
+  .hero-ctas { display: flex; gap: 14px; flex-wrap: wrap; }
+  .btn-acid { background: var(--acid); color: var(--black); padding: 15px 28px; font-weight: 700; text-transform: uppercase; font-size: 13px; letter-spacing: 0.05em; border-radius: 2px; }
+  .btn-outline { border: 1px solid var(--line); color: var(--paper); padding: 15px 28px; font-weight: 600; text-transform: uppercase; font-size: 13px; letter-spacing: 0.05em; border-radius: 2px; }
+  .social-row { display: flex; gap: 22px; margin-top: 40px; font-size: 13px; color: var(--ink-soft); align-items: center; }
+  .social-row a { color: var(--paper); font-weight: 600; }
+  .social-row a:hover { color: var(--acid); }
+
+  /* ---------- Marquee ---------- */
+  .marquee { background: var(--venom); color: var(--black); padding: 12px 0; overflow: hidden; white-space: nowrap; font-family: 'Anton'; font-size: 14px; letter-spacing: 0.05em; text-transform: uppercase; }
+  .marquee span { display: inline-block; padding-right: 40px; }
+
+  /* ---------- Gallery ---------- */
+  section { padding: 90px 0; }
+  .section-head { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 44px; flex-wrap: wrap; gap: 18px; }
+  .section-head h2 { font-size: 36px; }
+  .section-head p { color: var(--ink-soft); font-size: 14px; max-width: 40ch; }
+
+  .gallery-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+  @media (max-width: 860px) { .gallery-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 560px) { .gallery-grid { grid-template-columns: 1fr; } }
+  .art-tile { aspect-ratio: 4/5; border-radius: 3px; position: relative; overflow: hidden; border: 1px solid var(--line); display: flex; align-items: flex-end; padding: 18px; }
+  .art-tile .tag { position: relative; font-family: 'Space Grotesk'; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; background: rgba(11,11,13,0.6); padding: 5px 10px; border-radius: 20px; }
+  .art-tile.a1 { background: linear-gradient(155deg, #E63950, #1C1C1F 70%); }
+  .art-tile.a2 { background: linear-gradient(155deg, #C6FF3D, #1C1C1F 70%); }
+  .art-tile.a3 { background: linear-gradient(155deg, #6B4FE0, #1C1C1F 70%); }
+  .art-tile.a4 { background: linear-gradient(155deg, #2E2E32, #0B0B0D 70%); }
+  .art-tile.a5 { background: linear-gradient(155deg, #E63950, #6B4FE0 70%); }
+  .art-tile.a6 { background: linear-gradient(155deg, #C6FF3D, #E63950 60%); }
+
+  /* ---------- Shop split ---------- */
+  .shop-split { background: var(--black-2); }
+  .split-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  @media (max-width: 760px) { .split-grid { grid-template-columns: 1fr; } }
+  .split-card { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 40px; }
+  .split-card h3 { font-size: 26px; margin-bottom: 12px; }
+  .split-card p { color: var(--ink-soft); font-size: 14.5px; margin-bottom: 24px; }
+  .split-card.originals h3 { color: var(--venom); }
+  .split-card.merch h3 { color: var(--acid); }
+
+  /* ---------- Bio ---------- */
+  .bio { display: grid; grid-template-columns: 0.9fr 1.1fr; gap: 48px; align-items: center; }
+  @media (max-width: 800px) { .bio { grid-template-columns: 1fr; } }
+  .bio-panel { aspect-ratio: 1; border-radius: 4px; background: linear-gradient(155deg, var(--venom), var(--panel) 70%); border: 1px solid var(--line); display: flex; align-items: center; justify-content: center; }
+  .bio-panel svg { width: 40%; stroke: var(--paper); opacity: 0.9; }
+  .bio p { color: var(--ink-soft); font-size: 15.5px; margin-top: 16px; max-width: 52ch; }
+
+  /* ---------- Footer ---------- */
+  footer { background: var(--black-2); border-top: 1px solid var(--line); padding: 56px 0 32px; }
+  .foot-grid { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 40px; }
+  @media (max-width: 700px) { .foot-grid { grid-template-columns: 1fr; } }
+  footer h4 { font-family: 'Space Grotesk'; color: var(--acid); font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 16px; }
+  footer ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; font-size: 14px; color: var(--ink-soft); }
+  footer ul a:hover { color: var(--acid); }
+  .foot-bottom { border-top: 1px solid var(--line); margin-top: 44px; padding-top: 24px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; font-size: 12.5px; color: var(--ink-soft); }
+  .foot-bottom a { color: var(--acid); }
 </style>
 </head>
 <body>
-  <main>
-    <h1>Evil Rabbit Art</h1>
-    <p>Coming soon.</p>
-  </main>
+
+<header>
+  <nav class="wrap">
+    <a href="#" class="brand"><span class="dot"></span>Evil Rabbit Art</a>
+    <div class="navlinks">
+      <a href="#gallery">Gallery</a>
+      <a href="#shop">Shop</a>
+      <a href="#about">About</a>
+      <a href="#connect">Connect</a>
+    </div>
+    <a href="#shop" class="cta-small">Shop Prints</a>
+  </nav>
+</header>
+
+<section class="hero">
+  <div class="wrap hero-inner">
+    <div class="eyebrow">Gallery &amp; shop — originals, prints, merch</div>
+    <h1>Art with <span class="flick">teeth.</span><br>Made to unsettle,<br>built to hang.</h1>
+    <p class="lead">Evil Rabbit Art is the studio and shop behind <strong>@evilrabbitart</strong> — original paintings, limited prints, and merch pulled from the same twisted, playful world.</p>
+    <div class="hero-ctas">
+      <a href="#gallery" class="btn-acid">View Gallery</a>
+      <a href="#shop" class="btn-outline">Shop Prints & Merch</a>
+    </div>
+    <div class="social-row">
+      <span>Follow the work —</span>
+      <a href="https://instagram.com/evilrabbitart" target="_blank" rel="noopener">Instagram @evilrabbitart</a>
+      <a href="https://tiktok.com/@evilrabbitart" target="_blank" rel="noopener">TikTok @evilrabbitart</a>
+    </div>
+  </div>
+</section>
+
+<div class="marquee">
+  <span>ORIGINALS &nbsp;•&nbsp; LIMITED PRINTS &nbsp;•&nbsp; APPAREL &nbsp;•&nbsp; STICKERS &nbsp;•&nbsp; NEW DROPS MONTHLY &nbsp;•&nbsp; ORIGINALS &nbsp;•&nbsp; LIMITED PRINTS &nbsp;•&nbsp; APPAREL &nbsp;•&nbsp; STICKERS &nbsp;•&nbsp; NEW DROPS MONTHLY &nbsp;•&nbsp;</span>
+</div>
+
+<section id="gallery">
+  <div class="wrap">
+    <div class="section-head">
+      <div>
+        <h2>The gallery</h2>
+      </div>
+      <p>A rotating selection of originals and studies. Full pieces and pricing on request.</p>
+    </div>
+    <div class="gallery-grid">
+      <div class="art-tile a1"><span class="tag">Original — Ink & Acrylic</span></div>
+      <div class="art-tile a2"><span class="tag">Original — Mixed Media</span></div>
+      <div class="art-tile a3"><span class="tag">Study — Marker</span></div>
+      <div class="art-tile a4"><span class="tag">Original — Ink</span></div>
+      <div class="art-tile a5"><span class="tag">Print — Riso</span></div>
+      <div class="art-tile a6"><span class="tag">Original — Acrylic</span></div>
+    </div>
+  </div>
+</section>
+
+<section id="shop" class="shop-split">
+  <div class="wrap">
+    <div class="section-head">
+      <h2>Shop</h2>
+      <p>Two ways in — take one home, or wear it out.</p>
+    </div>
+    <div class="split-grid">
+      <div class="split-card originals">
+        <h3>Originals</h3>
+        <p>One-off paintings and studies, sold direct — each piece signed, each piece the only one of its kind.</p>
+        <a href="#connect" class="btn-outline">Enquire About Originals</a>
+      </div>
+      <div class="split-card merch">
+        <h3>Prints & Merch</h3>
+        <p>Limited-run giclée prints, tees, and stickers. Small batches, restocked when they restock — not before.</p>
+        <a href="#connect" class="btn-acid">Browse the Shop</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="about">
+  <div class="wrap bio">
+    <div class="bio-panel">
+      <svg viewBox="0 0 100 100" fill="none" stroke-width="2">
+        <path d="M30 55c0-16 9-30 20-30s20 14 20 30-9 20-20 20-20-4-20-20z"/>
+        <path d="M40 25 36 5M60 25l4-20"/>
+        <circle cx="42" cy="52" r="3" fill="currentColor" stroke="none"/>
+        <circle cx="58" cy="52" r="3" fill="currentColor" stroke="none"/>
+        <path d="M42 65q8 6 16 0"/>
+      </svg>
+    </div>
+    <div>
+      <div class="eyebrow">About the studio</div>
+      <h2 style="font-size:34px;">One artist, one weird rabbit, no committee.</h2>
+      <p>Evil Rabbit Art started as a sketchbook character and grew into a full studio practice — paintings, prints, and merch, all built and shipped from the same small operation. If it's on the site, it's real work, not stock art.</p>
+      <p>New pieces drop first on Instagram and TikTok before they ever hit the shop — follow along to see work in progress, not just the finished piece.</p>
+    </div>
+  </div>
+</section>
+
+<footer id="connect">
+  <div class="wrap">
+    <div class="foot-grid">
+      <div>
+        <h4>Evil Rabbit Art</h4>
+        <p style="font-size:14px; max-width:34ch; color:var(--ink-soft);">Gallery and shop for original art, limited prints, and merch. Follow the work in progress on Instagram and TikTok.</p>
+      </div>
+      <div>
+        <h4>Shop</h4>
+        <ul>
+          <li><a href="#gallery">Gallery</a></li>
+          <li><a href="#shop">Prints & Merch</a></li>
+          <li><a href="#shop">Originals</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Connect</h4>
+        <ul>
+          <li><a href="mailto:hello@evilrabbitart.com">hello@evilrabbitart.com</a></li>
+          <li><a href="https://instagram.com/evilrabbitart" target="_blank" rel="noopener">Instagram</a></li>
+          <li><a href="https://tiktok.com/@evilrabbitart" target="_blank" rel="noopener">TikTok</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span>© 2026 Evil Rabbit Art. All rights reserved.</span>
+      <span>Site by <a href="https://stratus-digital.com" target="_blank" rel="noopener">Stratus Digital</a></span>
+    </div>
+  </div>
+</footer>
+
 </body>
 </html>

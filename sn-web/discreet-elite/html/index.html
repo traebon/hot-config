@@ -1,27 +1,426 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Discreet Elite</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Discreet Elite — One console for every platform</title>
+<meta name="description" content="Discreet Elite is a unified console for broadcasting and messaging across every connected platform from one private dashboard.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Spectral:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  :root { color-scheme: light dark; }
-  html, body { height: 100%; margin: 0; }
-  body {
-    display: flex; align-items: center; justify-content: center;
-    font-family: system-ui, -apple-system, sans-serif;
-    background: #0b0c0f; color: #e8e8ea;
-    text-align: center;
+  :root {
+    --bg: #17151A;
+    --surface: #211E26;
+    --surface-2: #2A2631;
+    --line: #38333F;
+    --text: #EFEDEF;
+    --text-dim: #A79FB0;
+    --text-faint: #6E6878;
+    --gold: #C6A15B;
+    --gold-soft: #3A311F;
+    --signal: #6FBF9E;
+    --signal-soft: #1E332B;
   }
-  main { padding: 2rem; }
-  h1 { font-size: 1.6rem; font-weight: 600; margin: 0 0 0.5rem; letter-spacing: 0.01em; }
-  p { font-size: 0.95rem; color: #9a9aa2; margin: 0; }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', -apple-system, sans-serif;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, h3, .brand { font-family: 'Spectral', Georgia, serif; margin: 0; }
+
+  a { color: inherit; }
+
+  .wrap { max-width: 1160px; margin: 0 auto; padding: 0 32px; }
+  @media (max-width: 640px) { .wrap { padding: 0 20px; } }
+
+  /* ---------- Nav ---------- */
+  header { padding: 30px 0; }
+  header .wrap { display: flex; align-items: center; justify-content: space-between; }
+  .brand { font-size: 19px; font-weight: 600; letter-spacing: 0.01em; }
+  nav { display: flex; gap: 34px; align-items: center; }
+  nav a {
+    text-decoration: none;
+    font-size: 14.5px;
+    font-weight: 500;
+    color: var(--text-dim);
+    transition: color 0.15s ease;
+  }
+  nav a:hover, nav a:focus-visible { color: var(--text); }
+  .nav-cta {
+    color: var(--bg) !important;
+    background: var(--gold);
+    padding: 9px 18px;
+    border-radius: 7px;
+    font-weight: 600 !important;
+  }
+
+  /* ---------- Hero ---------- */
+  .hero { padding: 64px 0 100px; }
+  .hero-grid {
+    display: grid;
+    grid-template-columns: 1.05fr 0.95fr;
+    gap: 64px;
+    align-items: center;
+  }
+  @media (max-width: 900px) {
+    .hero-grid { grid-template-columns: 1fr; }
+  }
+  .hero h1 {
+    font-size: clamp(36px, 5vw, 52px);
+    font-weight: 600;
+    line-height: 1.16;
+    letter-spacing: -0.01em;
+  }
+  .hero p.lede {
+    margin: 26px 0 0;
+    font-size: 17.5px;
+    color: var(--text-dim);
+    max-width: 46ch;
+    font-family: 'Inter', sans-serif;
+  }
+  .hero-actions { margin-top: 36px; display: flex; gap: 14px; flex-wrap: wrap; }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    padding: 13px 24px;
+    border-radius: 8px;
+    font-size: 14.5px;
+    font-weight: 600;
+    text-decoration: none;
+    font-family: 'Inter', sans-serif;
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+  .btn-primary { background: var(--gold); color: var(--bg); }
+  .btn-primary:hover { background: #D4B172; }
+  .btn-ghost { color: var(--text); border: 1px solid var(--line); }
+  .btn-ghost:hover { border-color: var(--text-faint); }
+
+  /* ---------- Console mockup ---------- */
+  .console {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 20px;
+  }
+  .console-bar {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 16px;
+    padding: 0 2px;
+  }
+  .console-bar span {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--line);
+  }
+  .console-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 13px 14px;
+    background: var(--surface-2);
+    border-radius: 9px;
+    margin-bottom: 8px;
+  }
+  .console-row:last-child { margin-bottom: 0; }
+  .platform { display: flex; align-items: center; gap: 10px; }
+  .platform-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--signal);
+    box-shadow: 0 0 0 3px var(--signal-soft);
+    flex: none;
+  }
+  .platform-name { font-size: 14px; font-weight: 500; font-family: 'Inter', sans-serif; }
+  .platform-meta {
+    font-size: 12.5px;
+    color: var(--text-faint);
+    font-family: 'Inter', sans-serif;
+    display: flex;
+    gap: 14px;
+  }
+  .platform-meta .num { color: var(--text-dim); font-weight: 500; }
+
+  .console-msg {
+    display: flex;
+    gap: 10px;
+    padding: 11px 14px;
+    background: var(--surface-2);
+    border-radius: 9px;
+    margin-top: 8px;
+    font-size: 13px;
+    font-family: 'Inter', sans-serif;
+  }
+  .console-msg .who { color: var(--gold); font-weight: 600; flex: none; }
+  .console-msg .msg { color: var(--text-dim); }
+
+  /* ---------- Feature strip ---------- */
+  .features { padding: 20px 0 100px; }
+  .features-head { max-width: 56ch; margin-bottom: 52px; }
+  .features-head h2 {
+    font-size: clamp(26px, 3.4vw, 34px);
+    font-weight: 600;
+  }
+  .features-head p {
+    margin: 14px 0 0;
+    color: var(--text-dim);
+    font-family: 'Inter', sans-serif;
+    font-size: 15.5px;
+  }
+  .feature-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    overflow: hidden;
+  }
+  @media (max-width: 760px) {
+    .feature-grid { grid-template-columns: 1fr; }
+  }
+  .feature {
+    background: var(--surface);
+    padding: 34px 32px;
+  }
+  .feature h3 {
+    font-size: 18px;
+    font-weight: 600;
+    font-family: 'Inter', sans-serif;
+  }
+  .feature p {
+    margin: 11px 0 0;
+    color: var(--text-dim);
+    font-size: 14.5px;
+    font-family: 'Inter', sans-serif;
+    max-width: 38ch;
+  }
+
+  /* ---------- Trust / privacy band ---------- */
+  .trust {
+    padding: 90px 0;
+    background: var(--surface);
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+  }
+  .trust-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 64px;
+    align-items: start;
+  }
+  @media (max-width: 800px) {
+    .trust-grid { grid-template-columns: 1fr; gap: 40px; }
+  }
+  .trust h2 {
+    font-size: clamp(24px, 3vw, 30px);
+    font-weight: 600;
+  }
+  .trust p {
+    margin: 16px 0 0;
+    color: var(--text-dim);
+    font-family: 'Inter', sans-serif;
+    font-size: 15.5px;
+    max-width: 44ch;
+  }
+  .trust-points { display: flex; flex-direction: column; gap: 22px; }
+  .trust-point { display: flex; gap: 14px; }
+  .trust-point-mark {
+    flex: none;
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    background: var(--gold-soft);
+    color: var(--gold);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    font-family: 'Inter', sans-serif;
+  }
+  .trust-point h4 {
+    font-size: 15px;
+    font-weight: 600;
+    font-family: 'Inter', sans-serif;
+    margin: 0;
+  }
+  .trust-point p {
+    margin: 5px 0 0;
+    font-size: 14px;
+    color: var(--text-dim);
+  }
+
+  /* ---------- Contact ---------- */
+  .contact { padding: 100px 0; }
+  .contact-inner { max-width: 640px; }
+  .contact h2 {
+    font-size: clamp(28px, 4vw, 40px);
+    font-weight: 600;
+  }
+  .contact p {
+    margin: 18px 0 0;
+    color: var(--text-dim);
+    font-family: 'Inter', sans-serif;
+    font-size: 16px;
+  }
+  .contact-actions { margin-top: 32px; display: flex; gap: 14px; flex-wrap: wrap; }
+
+  footer {
+    padding: 30px 0;
+    border-top: 1px solid var(--line);
+  }
+  footer .wrap {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    font-size: 13px;
+    color: var(--text-faint);
+    font-family: 'Inter', sans-serif;
+  }
+
+  :focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 </head>
 <body>
-  <main>
-    <h1>Discreet Elite</h1>
-    <p>Coming soon.</p>
-  </main>
+
+<header>
+  <div class="wrap">
+    <div class="brand">Discreet Elite</div>
+    <nav>
+      <a href="#features">Console</a>
+      <a href="#trust">Privacy</a>
+      <a href="#contact" class="nav-cta">Request access</a>
+    </nav>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <h1>One console. Every platform.</h1>
+      <p class="lede">Discreet Elite is a single dashboard for running your presence across every connected platform — one login, one inbox, one place to work from instead of a dozen open tabs.</p>
+      <div class="hero-actions">
+        <a href="#contact" class="btn btn-primary">Request access</a>
+        <a href="#features" class="btn btn-ghost">See how it works</a>
+      </div>
+    </div>
+
+    <div class="console" aria-hidden="true">
+      <div class="console-bar"><span></span><span></span><span></span></div>
+      <div class="console-row">
+        <div class="platform">
+          <span class="platform-dot"></span>
+          <span class="platform-name">Platform A</span>
+        </div>
+        <div class="platform-meta"><span class="num">312</span> connected</div>
+      </div>
+      <div class="console-row">
+        <div class="platform">
+          <span class="platform-dot"></span>
+          <span class="platform-name">Platform B</span>
+        </div>
+        <div class="platform-meta"><span class="num">148</span> connected</div>
+      </div>
+      <div class="console-row">
+        <div class="platform">
+          <span class="platform-dot"></span>
+          <span class="platform-name">Platform C</span>
+        </div>
+        <div class="platform-meta"><span class="num">96</span> connected</div>
+      </div>
+      <div class="console-msg">
+        <span class="who">Platform B</span>
+        <span class="msg">New message waiting in unified inbox…</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="features" id="features">
+  <div class="wrap">
+    <div class="features-head">
+      <h2>Everything in one place, on purpose</h2>
+      <p>Built to be run by one person without a technical background — not a control room, a console.</p>
+    </div>
+    <div class="feature-grid">
+      <div class="feature">
+        <h3>Broadcast everywhere at once</h3>
+        <p>Go live on every connected platform from a single start button, instead of managing each one separately.</p>
+      </div>
+      <div class="feature">
+        <h3>One inbox for every chat</h3>
+        <p>Messages from every connected platform land in a single unified inbox, so nothing gets missed switching between tabs.</p>
+      </div>
+      <div class="feature">
+        <h3>Connected device support</h3>
+        <p>Pair supported Bluetooth interactive devices and trigger them directly from alerts, without a separate app running per platform.</p>
+      </div>
+      <div class="feature">
+        <h3>Open-source core</h3>
+        <p>The console's core is open source and self-hostable — you can see exactly what it does, and where your data goes.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="trust" id="trust">
+  <div class="wrap trust-grid">
+    <div>
+      <h2>Built to stay out of the way</h2>
+      <p>Discreet by name and by design — the console is built so running multiple platforms feels like using one simple tool, not learning new software.</p>
+    </div>
+    <div class="trust-points">
+      <div class="trust-point">
+        <div class="trust-point-mark">1</div>
+        <div>
+          <h4>Your accounts, your control</h4>
+          <p>Discreet Elite connects to platforms you're already signed up with — it doesn't create new accounts on your behalf.</p>
+        </div>
+      </div>
+      <div class="trust-point">
+        <div class="trust-point-mark">2</div>
+        <div>
+          <h4>Nothing shown you didn't choose</h4>
+          <p>The console only ever displays what you've connected — no shared data between accounts, no cross-platform posting without asking.</p>
+        </div>
+      </div>
+      <div class="trust-point">
+        <div class="trust-point-mark">3</div>
+        <div>
+          <h4>Self-hostable</h4>
+          <p>Run the open-source core yourself if you'd rather not rely on a hosted service at all.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="contact" id="contact">
+  <div class="wrap contact-inner">
+    <h2>Request access</h2>
+    <p>Discreet Elite is currently onboarding a limited number of accounts. Get in touch and we'll walk you through setup.</p>
+    <div class="contact-actions">
+      <a href="mailto:hello@discreet-elite.uk" class="btn btn-primary">hello@discreet-elite.uk</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div style="display:flex; gap:16px; flex-wrap:wrap;">
+      <span>© 2026 Discreet Elite</span>
+      <span>A private console for every connected platform</span>
+    </div>
+    <span>Site by <a href="https://stratus-digital.com" target="_blank" rel="noopener" style="color:var(--gold);">Stratus Digital</a></span>
+  </div>
+</footer>
+
 </body>
 </html>

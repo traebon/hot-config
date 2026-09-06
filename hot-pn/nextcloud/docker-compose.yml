@@ -1,0 +1,60 @@
+services:
+  nextcloud-db:
+    image: postgres:16-alpine
+    container_name: nextcloud-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: nextcloud
+      POSTGRES_USER: nextcloud
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+    volumes:
+      - ./db-data:/var/lib/postgresql/data
+      - ./secrets/db_password.txt:/run/secrets/db_password:ro
+    networks:
+      - nextcloud-internal
+
+  nextcloud-redis:
+    image: redis:7-alpine
+    container_name: nextcloud-redis
+    restart: unless-stopped
+    # entrypoint/command split into explicit `sh -c` form on purpose -- compose's plain
+    # `command: <string>` is parsed into argv directly, it does NOT invoke a shell, so
+    # $(cat ...) would never actually run and requirepass would end up literally set to
+    # the unexpanded text "$(cat ...)" (confirmed with a real scratch test before shipping
+    # this, not assumed -- redis-cli auth failed with WRONGPASS until this fix).
+    entrypoint: ["sh", "-c"]
+    command: ["redis-server --requirepass \"$$(cat /run/secrets/redis_password)\""]
+    volumes:
+      - ./secrets/redis_password.txt:/run/secrets/redis_password:ro
+    networks:
+      - nextcloud-internal
+
+  nextcloud:
+    image: nextcloud:34-apache
+    container_name: nextcloud
+    restart: unless-stopped
+    depends_on:
+      - nextcloud-db
+      - nextcloud-redis
+    environment:
+      POSTGRES_HOST: nextcloud-db
+      POSTGRES_DB: nextcloud
+      POSTGRES_USER: nextcloud
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+      NEXTCLOUD_ADMIN_USER: tristian
+      NEXTCLOUD_ADMIN_PASSWORD_FILE: /run/secrets/admin_password
+      NEXTCLOUD_TRUSTED_DOMAINS: localhost cloud.house-of-trae.com
+      REDIS_HOST: nextcloud-redis
+      REDIS_HOST_PASSWORD_FILE: /run/secrets/redis_password
+    volumes:
+      - ./data:/var/www/html
+      - ./secrets/db_password.txt:/run/secrets/db_password:ro
+      - ./secrets/admin_password.txt:/run/secrets/admin_password:ro
+      - ./secrets/redis_password.txt:/run/secrets/redis_password:ro
+    ports:
+      - "10.10.2.2:28142:80"
+    networks:
+      - nextcloud-internal
+
+networks:
+  nextcloud-internal:

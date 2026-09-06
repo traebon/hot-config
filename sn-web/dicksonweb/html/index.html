@@ -1,27 +1,344 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Dickson Supplies</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dickson Supplies — Medical Distribution</title>
+<meta name="description" content="Dickson Supplies — bulk distribution of medical, clinical, and PPE supplies for care providers and practices.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-  :root { color-scheme: light dark; }
-  html, body { height: 100%; margin: 0; }
-  body {
-    display: flex; align-items: center; justify-content: center;
-    font-family: system-ui, -apple-system, sans-serif;
-    background: #0b0c0f; color: #e8e8ea;
-    text-align: center;
+  :root {
+    --white: #FFFFFF;
+    --fog: #F3F6F8;
+    --fog-2: #E7ECEF;
+    --line: #D6DEE3;
+    --ink: #10222E;
+    --ink-soft: #52697A;
+    --blue: #0B3B6F;
+    --blue-2: #082A50;
+    --teal: #17958E;
+    --teal-bright: #1FB6AC;
+    --accent-red: #C4372F;
   }
-  main { padding: 2rem; }
-  h1 { font-size: 1.6rem; font-weight: 600; margin: 0 0 0.5rem; letter-spacing: 0.01em; }
-  p { font-size: 0.95rem; color: #9a9aa2; margin: 0; }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    background: var(--white);
+    color: var(--ink);
+    font-family: 'Inter', -apple-system, sans-serif;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, h3, .brand { font-family: 'IBM Plex Sans', 'Inter', sans-serif; font-weight: 600; margin: 0; letter-spacing: -0.01em; }
+  a { color: inherit; text-decoration: none; }
+
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 32px; }
+  @media (max-width: 640px) { .wrap { padding: 0 20px; } }
+
+  /* ---------- Top bar ---------- */
+  .topbar { background: var(--blue-2); color: #C9DCE8; font-size: 12.5px; padding: 8px 0; }
+  .topbar .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+  .topbar a { color: #C9DCE8; }
+  .topbar a:hover { color: #fff; }
+
+  /* ---------- Nav ---------- */
+  header { background: var(--white); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 20; }
+  nav.wrap { display: flex; align-items: center; justify-content: space-between; height: 78px; }
+  .brand { font-size: 21px; display: flex; align-items: center; gap: 10px; color: var(--blue); }
+  .brand .mark { width: 34px; height: 34px; border-radius: 6px; background: var(--blue); display: flex; align-items: center; justify-content: center; }
+  .brand .mark svg { width: 20px; stroke: #fff; }
+  .navlinks { display: none; gap: 32px; font-size: 14.5px; font-weight: 500; }
+  @media (min-width: 900px) { .navlinks { display: flex; } }
+  .navlinks a { color: var(--ink-soft); transition: color .15s; }
+  .navlinks a:hover { color: var(--blue); }
+  .cta-small { background: var(--teal); color: #fff; padding: 11px 22px; border-radius: 4px; font-size: 13.5px; font-weight: 600; transition: background .15s; }
+  .cta-small:hover { background: var(--teal-bright); }
+
+  /* ---------- Hero ---------- */
+  .hero { background: linear-gradient(155deg, var(--blue) 0%, var(--blue-2) 100%); color: #fff; padding: 100px 0 88px; position: relative; overflow: hidden; }
+  .hero::after {
+    content: ''; position: absolute; right: -8%; top: -20%; width: 480px; height: 480px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(31,182,172,0.25), transparent 70%);
+  }
+  .hero-inner { position: relative; display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 48px; align-items: center; }
+  @media (max-width: 860px) { .hero-inner { grid-template-columns: 1fr; } }
+  .eyebrow { font-size: 12.5px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--teal-bright); font-weight: 600; margin-bottom: 18px; }
+  .hero h1 { font-size: 46px; line-height: 1.16; color: #fff; }
+  @media (max-width: 640px) { .hero h1 { font-size: 32px; } }
+  .hero p.lead { font-family: 'Inter'; font-size: 16.5px; color: #C9DCE8; max-width: 48ch; margin: 20px 0 32px; }
+  .hero-ctas { display: flex; gap: 14px; flex-wrap: wrap; }
+  .btn-teal { background: var(--teal-bright); color: var(--blue-2); padding: 15px 28px; font-weight: 700; font-size: 14px; border-radius: 4px; }
+  .btn-ghost-light { border: 1px solid rgba(255,255,255,0.35); color: #fff; padding: 15px 28px; font-size: 14px; font-weight: 600; border-radius: 4px; }
+
+  .stat-card { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; padding: 32px; backdrop-filter: blur(4px); }
+  .stat-row { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .stat-row .num { font-family: 'IBM Plex Sans'; font-size: 30px; font-weight: 700; color: var(--teal-bright); }
+  .stat-row .lbl { font-size: 12.5px; color: #C9DCE8; margin-top: 6px; }
+
+  /* ---------- Sections ---------- */
+  section { padding: 90px 0; }
+  .section-head { text-align: center; max-width: 640px; margin: 0 auto 52px; }
+  .section-head .eyebrow { color: var(--teal); }
+  .section-head h2 { font-size: 32px; color: var(--blue); }
+  .section-head p { color: var(--ink-soft); margin-top: 14px; font-size: 15px; }
+
+  /* ---------- Categories ---------- */
+  .cat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }
+  @media (max-width: 860px) { .cat-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 560px) { .cat-grid { grid-template-columns: 1fr; } }
+  .cat-card { border: 1px solid var(--line); border-radius: 8px; padding: 28px; transition: border-color .15s, transform .15s; }
+  .cat-card:hover { border-color: var(--teal); transform: translateY(-2px); }
+  .cat-card .icon { width: 44px; height: 44px; border-radius: 8px; background: var(--fog); display: flex; align-items: center; justify-content: center; margin-bottom: 18px; }
+  .cat-card .icon svg { width: 22px; stroke: var(--blue); }
+  .cat-card h3 { font-size: 16.5px; color: var(--blue); }
+  .cat-card p { font-size: 13.5px; color: var(--ink-soft); margin-top: 8px; }
+
+  /* ---------- Trust / compliance strip ---------- */
+  .compliance { background: var(--fog); }
+  .comp-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; text-align: center; }
+  @media (max-width: 760px) { .comp-grid { grid-template-columns: repeat(2, 1fr); } }
+  .comp-item .icon { width: 52px; height: 52px; border-radius: 50%; background: #fff; border: 1px solid var(--line); display: flex; align-items: center; justify-content: center; margin: 0 auto 14px; }
+  .comp-item .icon svg { width: 24px; stroke: var(--teal); }
+  .comp-item h4 { font-size: 14.5px; color: var(--blue); }
+  .comp-item p { font-size: 12.5px; color: var(--ink-soft); margin-top: 6px; }
+
+  /* ---------- Process ---------- */
+  .process-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; position: relative; }
+  @media (max-width: 860px) { .process-grid { grid-template-columns: 1fr; gap: 32px; } }
+  .process-grid::before {
+    content: ''; position: absolute; top: 22px; left: 12%; right: 12%; height: 1px; background: var(--line);
+  }
+  @media (max-width: 860px) { .process-grid::before { display: none; } }
+  .proc-item { position: relative; padding: 0 16px; text-align: center; }
+  .proc-item .badge { width: 44px; height: 44px; border-radius: 50%; background: var(--blue); color: #fff; display: flex; align-items: center; justify-content: center; margin: 0 auto 18px; font-family: 'IBM Plex Sans'; font-weight: 700; position: relative; z-index: 1; }
+  .proc-item h4 { font-size: 15px; color: var(--blue); }
+  .proc-item p { font-size: 13px; color: var(--ink-soft); margin-top: 8px; }
+
+  /* ---------- Quote CTA ---------- */
+  .quote { background: linear-gradient(155deg, var(--blue) 0%, var(--blue-2) 100%); color: #fff; text-align: center; }
+  .quote h2 { font-size: 30px; color: #fff; }
+  .quote p { color: #C9DCE8; margin: 14px auto 32px; max-width: 52ch; }
+  .quote-form { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 12px; max-width: 760px; margin: 0 auto; }
+  @media (max-width: 700px) { .quote-form { grid-template-columns: 1fr; } }
+  .quote-form input {
+    padding: 14px 16px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.25);
+    background: rgba(255,255,255,0.08); color: #fff; font-family: 'Inter'; font-size: 14px;
+  }
+  .quote-form input::placeholder { color: #9CB6C6; }
+  .quote-form button { border: none; cursor: pointer; }
+
+  /* ---------- Footer ---------- */
+  footer { background: var(--blue-2); color: #93AFC1; padding: 56px 0 32px; }
+  .foot-grid { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 40px; }
+  @media (max-width: 700px) { .foot-grid { grid-template-columns: 1fr; } }
+  footer h4 { color: var(--teal-bright); font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 16px; }
+  footer ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; font-size: 14px; }
+  footer ul a:hover { color: #fff; }
+  .foot-bottom { border-top: 1px solid rgba(255,255,255,0.1); margin-top: 44px; padding-top: 24px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; font-size: 12.5px; }
+  .foot-bottom a { color: var(--teal-bright); }
 </style>
 </head>
 <body>
-  <main>
-    <h1>Dickson Supplies</h1>
-    <p>Coming soon.</p>
-  </main>
+
+<div class="topbar">
+  <div class="wrap">
+    <span>Trade accounts &amp; bulk pricing available</span>
+    <a href="mailto:orders@dickson-supplies.com">orders@dickson-supplies.com</a>
+  </div>
+</div>
+
+<header>
+  <nav class="wrap">
+    <a href="#" class="brand">
+      <span class="mark"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M12 3v18M3 12h18"/></svg></span>
+      Dickson Supplies
+    </a>
+    <div class="navlinks">
+      <a href="#categories">Product Range</a>
+      <a href="#compliance">Compliance</a>
+      <a href="#process">How It Works</a>
+      <a href="#quote">Request a Quote</a>
+    </div>
+    <a href="#quote" class="cta-small">Request a Quote</a>
+  </nav>
+</header>
+
+<section class="hero">
+  <div class="wrap hero-inner">
+    <div>
+      <div class="eyebrow">Medical & clinical distribution</div>
+      <h1>Reliable medical supply distribution, at the volume your practice actually needs.</h1>
+      <p class="lead">Dickson Supplies stocks and ships PPE, wound care, diagnostics, and clinical consumables to practices, care homes, and clinics — with trade pricing and consistent lead times.</p>
+      <div class="hero-ctas">
+        <a href="#quote" class="btn-teal">Request a Quote</a>
+        <a href="#categories" class="btn-ghost-light">Browse Product Range</a>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-row">
+        <div><div class="num">1,200+</div><div class="lbl">SKUs in stock</div></div>
+        <div><div class="num">48hr</div><div class="lbl">Standard UK dispatch</div></div>
+        <div><div class="num">300+</div><div class="lbl">Practices supplied</div></div>
+        <div><div class="num">24/7</div><div class="lbl">Trade account ordering</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="categories">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="eyebrow">Product Range</div>
+      <h2>Stocked across six core categories</h2>
+      <p>Full catalogue and trade pricing available on request — this is the shape of what we carry.</p>
+    </div>
+    <div class="cat-grid">
+      <div class="cat-card">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M12 3c-4 3-7 5-7 9a7 7 0 0014 0c0-4-3-6-7-9z"/></svg></div>
+        <h3>PPE & Infection Control</h3>
+        <p>Gloves, masks, gowns, and surface disinfectants sourced for consistent supply.</p>
+      </div>
+      <div class="cat-card">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M4 12h4l2-7 4 14 2-7h4"/></svg></div>
+        <h3>Diagnostics</h3>
+        <p>Rapid test kits, monitoring devices, and consumables for point-of-care testing.</p>
+      </div>
+      <div class="cat-card">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9h6v6H9z"/></svg></div>
+        <h3>Wound Care</h3>
+        <p>Dressings, sutures, and advanced wound management products across grades.</p>
+      </div>
+      <div class="cat-card">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l4 2"/></svg></div>
+        <h3>Surgical Instruments</h3>
+        <p>Single-use and reusable instrument sets for minor procedures and theatre.</p>
+      </div>
+      <div class="cat-card">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M5 12a7 7 0 0114 0M5 12v6a2 2 0 002 2h1M19 12v6a2 2 0 01-2 2h-1"/></svg></div>
+        <h3>Mobility & Care Aids</h3>
+        <p>Support equipment for care homes and home-care providers, stocked for quick turnaround.</p>
+      </div>
+      <div class="cat-card">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M9 3h6l1 4H8l1-4z"/><path d="M6 7h12l-1 14H7L6 7z"/></svg></div>
+        <h3>Pharmacy Consumables</h3>
+        <p>Dispensing supplies, storage, and general pharmacy stock for practices and pharmacies.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="compliance" class="compliance">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="eyebrow">Compliance</div>
+      <h2>Sourced with regulatory compliance first</h2>
+      <p>Every product line is reviewed for CE marking and relevant regulatory documentation before it enters our catalogue.</p>
+    </div>
+    <div class="comp-grid">
+      <div class="comp-item">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg></div>
+        <h4>CE-Marked Products</h4>
+        <p>Reviewed at intake, not assumed</p>
+      </div>
+      <div class="comp-item">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/></svg></div>
+        <h4>Batch Traceability</h4>
+        <p>Full lot tracking on every shipment</p>
+      </div>
+      <div class="comp-item">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M12 3l7 4v5c0 5-3 8-7 9-4-1-7-4-7-9V7l7-4z"/></svg></div>
+        <h4>Cold-Chain Ready</h4>
+        <p>Temperature-controlled lines available</p>
+      </div>
+      <div class="comp-item">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M9 12l2 2 4-4"/></svg></div>
+        <h4>Documented QA</h4>
+        <p>Supplier audit records on file</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="process">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="eyebrow">How It Works</div>
+      <h2>From enquiry to dispatch</h2>
+    </div>
+    <div class="process-grid">
+      <div class="proc-item">
+        <div class="badge">1</div>
+        <h4>Request a quote</h4>
+        <p>Tell us your practice type and typical volumes.</p>
+      </div>
+      <div class="proc-item">
+        <div class="badge">2</div>
+        <h4>Set up a trade account</h4>
+        <p>Agreed pricing and payment terms, confirmed in writing.</p>
+      </div>
+      <div class="proc-item">
+        <div class="badge">3</div>
+        <h4>Order on your schedule</h4>
+        <p>One-off or standing orders, adjusted as your needs change.</p>
+      </div>
+      <div class="proc-item">
+        <div class="badge">4</div>
+        <h4>48hr dispatch</h4>
+        <p>Tracked delivery, with batch documentation included.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="quote" class="quote">
+  <div class="wrap">
+    <h2>Request trade pricing</h2>
+    <p>Tell us a little about your practice and what you order regularly — we'll come back with a quote and account terms.</p>
+    <form class="quote-form" onsubmit="return false;">
+      <input type="text" placeholder="Practice / organisation name" required>
+      <input type="email" placeholder="you@practice.com" required>
+      <input type="text" placeholder="Approx. monthly order volume">
+      <button type="submit" class="btn-teal">Request Quote</button>
+    </form>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-grid">
+      <div>
+        <h4>Dickson Supplies</h4>
+        <p style="font-size:14px; max-width:34ch; color:#93AFC1;">Medical and clinical supply distribution for practices, care homes, and clinics — trade pricing, 48hr UK dispatch.</p>
+      </div>
+      <div>
+        <h4>Product Range</h4>
+        <ul>
+          <li><a href="#categories">PPE & Infection Control</a></li>
+          <li><a href="#categories">Diagnostics</a></li>
+          <li><a href="#categories">Wound Care</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Trade Accounts</h4>
+        <ul>
+          <li><a href="mailto:orders@dickson-supplies.com">orders@dickson-supplies.com</a></li>
+          <li><a href="#compliance">Compliance</a></li>
+          <li><a href="#quote">Request a Quote</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span>© 2026 Dickson Supplies. All rights reserved.</span>
+      <span>Site by <a href="https://stratus-digital.com" target="_blank" rel="noopener">Stratus Digital</a></span>
+    </div>
+  </div>
+</footer>
+
 </body>
 </html>

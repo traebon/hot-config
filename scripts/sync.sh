@@ -171,6 +171,10 @@ sync_remote sn-monitor /opt/monitoring/prometheus/config/prometheus.yml  "$REPO/
 # ── Sync sn-infra configs (via SSH) ──────────────────────────────────────────
 
 log "Syncing sn-infra configs..."
+# hot-wiki -- found untracked 2026-09-06 during the PBS-offsite-bridge "what's our real rebuild
+# recipe" audit. Live since 2026-08-25 (wiki.house-of-trae.com), was never added here.
+sync_remote sn-infra /opt/stacks/wiki/docker-compose.yml "$REPO/sn-infra/wiki/docker-compose.yml"
+sync_remote sn-infra /opt/stacks/wiki/entrypoint.sh       "$REPO/sn-infra/wiki/entrypoint.sh"
 sync_remote sn-infra /opt/stacks/pdns-admin/docker-compose.yml  "$REPO/sn-infra/pdns-admin/docker-compose.yml"
 # Path corrected 2026-08-23: on-disk directory is `namevault`, not `namegen` (renamed at some
 # point after the 2026-07-27 sn-infra rebuild — container_names inside the compose still say
@@ -196,6 +200,16 @@ sync_remote sn-web /opt/stacks/emerald-markets/docker-compose.yml "$REPO/sn-web/
 sync_remote sn-web /opt/stacks/ruby/docker-compose.yml            "$REPO/sn-web/ruby/docker-compose.yml"
 sync_remote sn-web /opt/stacks/evilrabbit/docker-compose.yml      "$REPO/sn-web/evilrabbit/docker-compose.yml"
 sync_remote sn-web /opt/stacks/dicksonweb/docker-compose.yml      "$REPO/sn-web/dicksonweb/docker-compose.yml"
+# Site content (html/) for the 5 plain-nginx sites -- found untracked 2026-09-06 during the
+# PBS-offsite-bridge "what's our real rebuild recipe" audit (a pre-existing gap noted but never
+# closed since the real designs were built 2026-09-02/04, see sn_web_client_sites_and_portal
+# memory). Each site is a single index.html today -- tracked as such; if a site grows more files
+# later this needs to become a real directory sync, not more one-off lines.
+sync_remote sn-web /opt/stacks/discreet-elite/html/index.html  "$REPO/sn-web/discreet-elite/html/index.html"
+sync_remote sn-web /opt/stacks/emerald-markets/html/index.html "$REPO/sn-web/emerald-markets/html/index.html"
+sync_remote sn-web /opt/stacks/ruby/html/index.html            "$REPO/sn-web/ruby/html/index.html"
+sync_remote sn-web /opt/stacks/evilrabbit/html/index.html      "$REPO/sn-web/evilrabbit/html/index.html"
+sync_remote sn-web /opt/stacks/dicksonweb/html/index.html      "$REPO/sn-web/dicksonweb/html/index.html"
 
 # ── Sync hot-erp-nl configs (via SSH) ────────────────────────────────────────
 # ERPNext/Dickson permanently moved off sn-business to hot-erp-nl (2026-08-01) — sn-business
@@ -205,6 +219,20 @@ sync_remote sn-web /opt/stacks/dicksonweb/docker-compose.yml      "$REPO/sn-web/
 
 log "Syncing hot-erp-nl configs..."
 sync_remote hot-erp-nl /opt/stacks/dickson/docker-compose.yml "$REPO/hot-erp/dickson/docker-compose.yml"
+
+# ── Sync hot-pn's Catalogue-deployed stacks (via SSH) ────────────────────────
+# Added 2026-09-06 during the PBS-offsite-bridge "what's our real rebuild recipe" audit --
+# found zero config tracking anywhere for nextcloud/notesnook. hot-pn's own pn-config-sync.sh
+# (host-local, its own timer) only mirrors /opt/privatenexus (the app's own source), not these
+# Catalogue-deployed stacks under /opt/stacks/ -- a genuinely separate gap, not overlapping
+# coverage. The rendered compose content is also technically recoverable from
+# action_requests.generated_compose in privatenexus-db's own nightly pg_dump, but that's an
+# indirect path (query the DB, not read a file) -- tracking the real on-disk file here is more
+# direct and matches every other host's convention. data/db-data/s3-data/secrets excluded, same
+# rule as everywhere else in this repo.
+log "Syncing hot-pn Catalogue-deployed stack configs..."
+sync_remote hot-pn /opt/stacks/nextcloud/docker-compose.yml  "$REPO/hot-pn/nextcloud/docker-compose.yml"
+sync_remote hot-pn /opt/stacks/notesnook/docker-compose.yml  "$REPO/hot-pn/notesnook/docker-compose.yml"
 
 # ── Sync Tor hidden service configs ──────────────────────────────────────────
 # data/ is intentionally excluded — private keys must NEVER go to git
@@ -220,6 +248,24 @@ log "Syncing sn-security configs..."
 sync_remote sn-security /opt/stacks/forgejo-runner/docker-compose.yml "$REPO/sn-security/forgejo-runner/docker-compose.yml"
 sync_remote sn-security /opt/stacks/forgejo-runner/config.yaml        "$REPO/sn-security/forgejo-runner/config.yaml"
 sync_remote sn-security /opt/stacks/forgejo-runner/entrypoint.sh      "$REPO/sn-security/forgejo-runner/entrypoint.sh"
+
+# Wazuh's real config tree -- found 2026-09-06 during the PBS-offsite-bridge "what's our real
+# rebuild recipe" audit: only docker-compose.yml was ever kept fresh here, so the config/
+# subdirectory already sitting in this repo (rules/manager conf/dashboard conf) was a stale
+# one-time copy, not something sync.sh actually refreshed. Deliberately excludes 2 things:
+# .env (real plaintext WAZUH_*_PASSWORD values -- Docker secrets, not for git) and
+# wazuh_indexer_ssl_certs/ (real TLS private keys -- regenerate via generate-indexer-certs.yml,
+# already tracked below, rather than storing key material in a repo mirrored to public GitHub/
+# Codeberg). internal_users.yml is fine to track -- bcrypt hashes only, checked live.
+# wazuh_dashboard/wazuh.yml is ALSO excluded -- caught live by the secret-leak guard below: this
+# file embeds the real wazuh-wui API password inline (`password: "..."`), no *_FILE/Docker-secret
+# indirection exists for this particular Wazuh config format (matches the standing
+# operational-rules.md note on this file). The password itself is already in Vaultwarden.
+sync_remote sn-security /opt/stacks/wazuh/config/certs.yml                                  "$REPO/sn-security/wazuh/config/certs.yml"
+sync_remote sn-security /opt/stacks/wazuh/config/wazuh_cluster/wazuh_manager.conf           "$REPO/sn-security/wazuh/config/wazuh_cluster/wazuh_manager.conf"
+sync_remote sn-security /opt/stacks/wazuh/config/wazuh_dashboard/opensearch_dashboards.yml  "$REPO/sn-security/wazuh/config/wazuh_dashboard/opensearch_dashboards.yml"
+sync_remote sn-security /opt/stacks/wazuh/config/wazuh_indexer/internal_users.yml           "$REPO/sn-security/wazuh/config/wazuh_indexer/internal_users.yml"
+sync_remote sn-security /opt/stacks/wazuh/config/wazuh_indexer/wazuh.indexer.yml            "$REPO/sn-security/wazuh/config/wazuh_indexer/wazuh.indexer.yml"
 # Wazuh SIEM — found 2026-08-23 during the full fleet sync sweep: never synced at all despite
 # being a major service on this host (manager + indexer + dashboard).
 sync_remote sn-security /opt/stacks/wazuh/docker-compose.yml          "$REPO/sn-security/wazuh/docker-compose.yml"

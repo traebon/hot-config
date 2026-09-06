@@ -1,27 +1,438 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Emerald Markets</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Emerald Markets — Ireland's open marketplace</title>
+<meta name="description" content="Emerald Markets is Ireland's open-source marketplace for second-hand goods — browse the stalls, bid on a lot, or buy it now.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@500;600;700&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  :root { color-scheme: light dark; }
-  html, body { height: 100%; margin: 0; }
-  body {
-    display: flex; align-items: center; justify-content: center;
-    font-family: system-ui, -apple-system, sans-serif;
-    background: #0b0c0f; color: #e8e8ea;
-    text-align: center;
+  :root {
+    --emerald: #0B3D2E;
+    --emerald-2: #0E4A38;
+    --emerald-deep: #072A20;
+    --gold: #C9A54B;
+    --gold-bright: #E0C06C;
+    --paper: #F7F6F2;
+    --paper-2: #EFEDE6;
+    --ink: #1B2420;
+    --ink-dim: #5B665F;
+    --line: #DEDBD1;
+    --price: #0B3D2E;
+    --bid: #A8442C;
   }
-  main { padding: 2rem; }
-  h1 { font-size: 1.6rem; font-weight: 600; margin: 0 0 0.5rem; letter-spacing: 0.01em; }
-  p { font-size: 0.95rem; color: #9a9aa2; margin: 0; }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Work Sans', -apple-system, sans-serif;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, h3, .brand { font-family: 'Zilla Slab', Georgia, serif; margin: 0; }
+
+  a { color: inherit; }
+
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 32px; }
+  @media (max-width: 640px) { .wrap { padding: 0 20px; } }
+
+  /* ---------- Header ---------- */
+  header {
+    background: var(--emerald);
+    color: var(--gold-bright);
+    padding: 26px 0;
+    border-bottom: 3px solid var(--gold);
+  }
+  header .wrap { display: flex; align-items: center; justify-content: space-between; }
+  .brand {
+    font-size: 23px;
+    font-weight: 700;
+    color: var(--gold-bright);
+    letter-spacing: 0.01em;
+  }
+  nav { display: flex; gap: 30px; align-items: center; }
+  nav a {
+    text-decoration: none;
+    font-size: 14.5px;
+    font-weight: 500;
+    color: #CFE3D8;
+  }
+  nav a:hover, nav a:focus-visible { color: var(--gold-bright); }
+  .nav-sell {
+    background: var(--gold);
+    color: var(--emerald-deep) !important;
+    padding: 9px 18px;
+    border-radius: 6px;
+    font-weight: 700 !important;
+  }
+
+  /* ---------- Hero ---------- */
+  .hero {
+    background: var(--emerald);
+    color: #EAF3EE;
+    padding: 64px 0 84px;
+  }
+  .hero h1 {
+    font-size: clamp(34px, 5vw, 50px);
+    font-weight: 700;
+    line-height: 1.14;
+    max-width: 15ch;
+  }
+  .hero p.lede {
+    margin: 22px 0 0;
+    font-size: 17px;
+    color: #B9CFC3;
+    max-width: 48ch;
+  }
+  .search {
+    margin-top: 36px;
+    display: flex;
+    max-width: 560px;
+    border: 2px solid var(--gold);
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--paper);
+  }
+  .search input {
+    flex: 1;
+    border: none;
+    padding: 14px 18px;
+    font-size: 15px;
+    font-family: 'Work Sans', sans-serif;
+    background: transparent;
+    color: var(--ink);
+    outline: none;
+  }
+  .search button {
+    border: none;
+    background: var(--gold);
+    color: var(--emerald-deep);
+    font-family: 'Work Sans', sans-serif;
+    font-weight: 700;
+    font-size: 14.5px;
+    padding: 0 26px;
+    cursor: pointer;
+  }
+  .search button:hover { background: var(--gold-bright); }
+
+  /* ---------- Stalls (categories) ---------- */
+  .stalls { padding: 44px 0 8px; }
+  .stalls-row {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    padding-bottom: 8px;
+  }
+  .stall {
+    flex: none;
+    background: white;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px 18px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--ink-dim);
+    white-space: nowrap;
+  }
+  .stall:hover { border-color: var(--emerald); color: var(--emerald); }
+
+  /* ---------- Listings ---------- */
+  .listings { padding: 48px 0 96px; }
+  .section-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .section-head h2 { font-size: 26px; font-weight: 700; }
+  .section-head p { margin: 0; color: var(--ink-dim); font-size: 14.5px; }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+  }
+  @media (max-width: 900px) { .grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 480px) { .grid { grid-template-columns: 1fr; } }
+
+  .listing {
+    background: white;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .listing-media {
+    aspect-ratio: 1 / 1;
+    background: linear-gradient(150deg, var(--paper-2), #E3E0D6 70%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #A3A093;
+    font-size: 12px;
+    font-weight: 500;
+    text-align: center;
+    padding: 0 16px;
+  }
+  .listing-body { padding: 14px 16px 16px; }
+  .condition {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--emerald);
+    background: #E3EEE8;
+    padding: 3px 8px;
+    border-radius: 4px;
+    margin-bottom: 8px;
+  }
+  .listing h3 {
+    font-family: 'Work Sans', sans-serif;
+    font-size: 14.5px;
+    font-weight: 600;
+    line-height: 1.35;
+  }
+  .listing-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-top: 10px;
+  }
+  .price { font-size: 17px; font-weight: 700; color: var(--price); font-family: 'Work Sans', sans-serif; }
+  .bidinfo { font-size: 11.5px; color: var(--ink-dim); }
+  .bidinfo .bid-count { color: var(--bid); font-weight: 600; }
+
+  /* ---------- Knot divider ---------- */
+  .divider {
+    display: flex;
+    justify-content: center;
+    padding: 8px 0 8px;
+  }
+  .divider svg { width: 56px; height: 56px; opacity: 0.75; }
+
+  /* ---------- Open source ---------- */
+  .oss {
+    background: var(--paper-2);
+    padding: 88px 0;
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+  }
+  .oss-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 60px;
+    align-items: start;
+  }
+  @media (max-width: 800px) { .oss-grid { grid-template-columns: 1fr; gap: 32px; } }
+  .oss h2 { font-size: clamp(24px, 3vw, 30px); font-weight: 700; }
+  .oss > .wrap > .oss-grid > div > p { margin: 16px 0 0; color: var(--ink-dim); font-size: 15.5px; max-width: 42ch; }
+  .oss-points { display: flex; flex-direction: column; gap: 20px; }
+  .oss-point { display: flex; gap: 14px; }
+  .oss-point-mark {
+    flex: none;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--emerald);
+    margin-top: 8px;
+  }
+  .oss-point h4 { font-size: 15px; font-weight: 600; font-family: 'Work Sans', sans-serif; margin: 0; }
+  .oss-point p { margin: 5px 0 0; font-size: 14px; color: var(--ink-dim); }
+
+  /* ---------- Sell CTA ---------- */
+  .sell-cta {
+    padding: 90px 0;
+    text-align: left;
+  }
+  .sell-cta h2 { font-size: clamp(26px, 3.6vw, 36px); font-weight: 700; max-width: 18ch; }
+  .sell-cta p { margin: 16px 0 0; color: var(--ink-dim); font-size: 16px; max-width: 46ch; }
+  .btn-list {
+    display: inline-flex;
+    margin-top: 28px;
+    background: var(--emerald);
+    color: var(--gold-bright);
+    padding: 14px 28px;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 15px;
+    text-decoration: none;
+  }
+  .btn-list:hover { background: var(--emerald-2); }
+
+  footer {
+    background: var(--emerald-deep);
+    color: #9FB8AB;
+    padding: 34px 0;
+    border-top: 3px solid var(--gold);
+  }
+  footer .wrap {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    font-size: 13px;
+  }
+  footer .brand-small { color: var(--gold-bright); font-weight: 700; font-family: 'Zilla Slab', serif; font-size: 15px; }
+
+  :focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 </head>
 <body>
-  <main>
-    <h1>Emerald Markets</h1>
-    <p>Coming soon.</p>
-  </main>
+
+<header>
+  <div class="wrap">
+    <div class="brand">Emerald Markets</div>
+    <nav>
+      <a href="#listings">Browse</a>
+      <a href="#oss">Open source</a>
+      <a href="#sell" class="nav-sell">Sell a lot</a>
+    </nav>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="wrap">
+    <h1>Ireland's open marketplace for what's already been loved.</h1>
+    <p class="lede">Emerald Markets is a second-hand marketplace built on open-source software — browse the stalls online, or find us in person. Bid on a lot, or buy it now.</p>
+    <div class="search">
+      <input type="text" placeholder="Search the stalls — 'record player', 'bike', 'armchair'…" aria-label="Search listings">
+      <button type="button">Search</button>
+    </div>
+  </div>
+</section>
+
+<section class="stalls">
+  <div class="wrap">
+    <div class="stalls-row">
+      <div class="stall">Antiques & curios</div>
+      <div class="stall">Furniture</div>
+      <div class="stall">Electronics</div>
+      <div class="stall">Clothing</div>
+      <div class="stall">Books & records</div>
+      <div class="stall">Tools</div>
+      <div class="stall">Garden</div>
+      <div class="stall">Bikes</div>
+      <div class="stall">Kids & toys</div>
+    </div>
+  </div>
+</section>
+
+<section class="listings" id="listings">
+  <div class="wrap">
+    <div class="section-head">
+      <h2>Featured lots</h2>
+      <p>Listings refresh as sellers add new stock</p>
+    </div>
+    <div class="grid">
+      <div class="listing">
+        <div class="listing-media">Listing photo</div>
+        <div class="listing-body">
+          <span class="condition">Used — good</span>
+          <h3>Teak sideboard, 1960s</h3>
+          <div class="listing-meta">
+            <span class="price">€145</span>
+            <span class="bidinfo"><span class="bid-count">6 bids</span></span>
+          </div>
+        </div>
+      </div>
+      <div class="listing">
+        <div class="listing-media">Listing photo</div>
+        <div class="listing-body">
+          <span class="condition">Like new</span>
+          <h3>Record player, belt-drive</h3>
+          <div class="listing-meta">
+            <span class="price">€60</span>
+            <span class="bidinfo">Buy it now</span>
+          </div>
+        </div>
+      </div>
+      <div class="listing">
+        <div class="listing-media">Listing photo</div>
+        <div class="listing-body">
+          <span class="condition">Used — fair</span>
+          <h3>Hybrid bike, size M</h3>
+          <div class="listing-meta">
+            <span class="price">€90</span>
+            <span class="bidinfo"><span class="bid-count">2 bids</span></span>
+          </div>
+        </div>
+      </div>
+      <div class="listing">
+        <div class="listing-media">Listing photo</div>
+        <div class="listing-body">
+          <span class="condition">Used — good</span>
+          <h3>Cast iron pan set</h3>
+          <div class="listing-meta">
+            <span class="price">€22</span>
+            <span class="bidinfo">Buy it now</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider" aria-hidden="true">
+  <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M50 10 C25 10 15 30 30 40 C45 50 45 50 30 60 C15 70 25 90 50 90 C75 90 85 70 70 60 C55 50 55 50 70 40 C85 30 75 10 50 10 Z"
+      stroke="#0B3D2E" stroke-width="3.5" fill="none" stroke-linejoin="round"/>
+  </svg>
+</div>
+
+<section class="oss" id="oss">
+  <div class="wrap oss-grid">
+    <div>
+      <h2>Built in the open</h2>
+      <p>Emerald Markets runs on open-source marketplace software from the ground up — the code behind listings, bidding, and payments is public and auditable, not a black box.</p>
+    </div>
+    <div class="oss-points">
+      <div class="oss-point">
+        <div class="oss-point-mark"></div>
+        <div>
+          <h4>No proprietary lock-in</h4>
+          <p>Your listings and account data aren't tied to a closed platform — the underlying software can be self-hosted by anyone.</p>
+        </div>
+      </div>
+      <div class="oss-point">
+        <div class="oss-point-mark"></div>
+        <div>
+          <h4>Community-maintained</h4>
+          <p>Fixes and features come from a real, visible codebase — not a support ticket disappearing into a queue.</p>
+        </div>
+      </div>
+      <div class="oss-point">
+        <div class="oss-point-mark"></div>
+        <div>
+          <h4>In-person and online</h4>
+          <p>The same open-source system runs our point-of-sale on the stall floor and the listings online — one record, not two.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sell-cta wrap" id="sell">
+  <h2>Got something worth a second life?</h2>
+  <p>List it in a few minutes — set a starting bid, or a fixed price, and choose collection or post.</p>
+  <a href="#" class="btn-list">Start a listing</a>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div style="display:flex; gap:16px; flex-wrap:wrap; align-items:center;">
+      <span class="brand-small">Emerald Markets</span>
+      <span>Ireland's open-source marketplace</span>
+    </div>
+    <span>Site by <a href="https://stratus-digital.com" target="_blank" rel="noopener" style="color:var(--gold-bright);">Stratus Digital</a></span>
+  </div>
+</footer>
+
 </body>
 </html>

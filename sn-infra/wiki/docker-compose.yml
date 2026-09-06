@@ -1,0 +1,48 @@
+services:
+  hot-wiki-db:
+    image: postgres:16-alpine
+    container_name: hot-wiki-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=wiki
+      - POSTGRES_USER=wikijs
+      - POSTGRES_PASSWORD_FILE=/run/secrets/db_password
+    secrets:
+      - db_password
+    volumes:
+      - hot_wiki_db:/var/lib/postgresql/data
+    networks:
+      - hot-wiki-internal
+
+  hot-wiki:
+    image: requarks/wiki:2
+    container_name: hot-wiki
+    restart: unless-stopped
+    depends_on:
+      - hot-wiki-db
+    entrypoint: /entrypoint.sh
+    environment:
+      - DB_TYPE=postgres
+      - DB_HOST=hot-wiki-db
+      - DB_PORT=5432
+      - DB_USER=wikijs
+      - DB_NAME=wiki
+    secrets:
+      - db_password
+    volumes:
+      - ./entrypoint.sh:/entrypoint.sh:ro
+    ports:
+      - "10.10.10.100:3030:3000"
+    networks:
+      - hot-wiki-internal
+
+networks:
+  hot-wiki-internal:
+    driver: bridge
+
+volumes:
+  hot_wiki_db:
+
+secrets:
+  db_password:
+    file: ./secrets/db_password.txt
