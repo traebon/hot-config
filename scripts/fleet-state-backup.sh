@@ -1,19 +1,20 @@
 #!/bin/bash
-# Fleet state backup — nightly small-state backups for VM 102/104/106 (sn-web/sn-monitor/
-# sn-security), added 2026-09-06 as the direct answer to the PBS-offsite-bridge scoping
-# (docs/HoT_PBS_Backup_Integration_Scope.md Section 8): rather than needing a full 250GB VM
-# image to cross PBS's slow home-network upload link (~1.5-2 MiB/s, measured live — 47+ hours
-# for one VM), this backs up only the genuinely irreplaceable state on each — small enough to
-# push directly via the same proven rclone-crypt pipeline Keycloak/PrivateNexus's DB backups
-# already use, no PBS/home-network dependency at all. Docker-compose files and static configs
-# for these VMs are covered separately by scripts/sync.sh (git, daily 01:00) — this script is
-# specifically for *runtime state* that lives in a database or data directory, not a config
-# file: Grafana's dashboards/alert-rules/datasources, and Uptime Kuma's monitor definitions.
+# Fleet state backup — nightly backup of every genuinely irreplaceable piece of state across the
+# whole fleet: databases and real user/business data that no config file or PBS image backup
+# covers. Started 2026-09-06 as the direct answer to the PBS-offsite-bridge scoping
+# (docs/HoT_PBS_Backup_Integration_Scope.md Section 8) for sn-monitor alone; widened the same day
+# after auditing the rest of the fleet for the same class of gap and finding a genuinely critical
+# one — Vaultwarden (every credential in this project) had zero backup coverage anywhere.
 #
-# Known gap, deliberately not covered here yet: Wazuh's indexer data (~228MB of actual
+# Docker-compose files, Caddyfile, and other static config are covered separately by
+# scripts/sync.sh (git, daily 01:00). Real mail content (Maildir) is covered by
+# backup-gateway-vps.sh. This script is specifically for state that lives in a database or a real
+# user-data directory that neither of those touch.
+#
+# Known gap, deliberately not covered here yet: Wazuh's indexer data (~228MB of real
 # security-event history on sn-security) — needs a real OpenSearch snapshot/export mechanism to
 # back up safely and consistently, not a raw file copy of a live index. Wazuh's *config*
-# (rules/decoders/manager.conf) is covered via scripts/sync.sh already. Follow-up, not blocking.
+# (rules/decoders/manager.conf) is covered via scripts/sync.sh already.
 set -uo pipefail
 
 DUMP_DIR="/var/backups/fleet-state"
@@ -35,6 +36,17 @@ notify() {
   curl -fsS -m 10 -u ":$(cat "$NTFY_TOKEN_FILE")" \
     -H "X-Title: $title" -H "X-Priority: $priority" \
     -d "$message" "$NTFY_URL/$NTFY_TOPIC" >/dev/null 2>&1 || true
+}
+
+# host -> ssh alias, empty string means "local" (the Gateway itself) — same convention as
+# fleet-health-sweep.sh.
+run_remote() {
+  local alias="$1" cmd="$2"
+  if [ -z "$alias" ]; then
+    bash -c "$cmd"
+  else
+    ssh -o ConnectTimeout=10 -o BatchMode=yes "$alias" "$cmd"
+  fi
 }
 
 push() {
@@ -62,24 +74,30 @@ push() {
   fi
 }
 
+# ── generic Postgres dump: pg_dump over (optional) SSH, gzip, push ──────────────────────────────
+# args: label  ssh_alias  container  db_user  db_name  subpath
+pg_backup() {
+  local label="$1" alias="$2" container="$3" user="$4" db="$5" sub="$6"
+  local out="$DUMP_DIR/${label}-$DATE.sql.gz"
+  if run_remote "$alias" "docker exec $container pg_dump -U $user $db" 2>/tmp/"$label".err | gzip > "$out"; then
+    if [ -s "$out" ]; then
+      log "$label dump OK: $out ($(du -sh "$out" | cut -f1))"
+      push "$out" "$sub"
+    else
+      log "$label dump empty — treating as failure. $(cat /tmp/"$label".err 2>/dev/null)"
+      FAILED=1; FAIL_DETAIL+="${label}(empty) "
+    fi
+  else
+    log "$label dump FAILED: $(cat /tmp/"$label".err 2>/dev/null)"
+    FAILED=1; FAIL_DETAIL+="${label}(dump) "
+  fi
+  rm -f /tmp/"$label".err
+}
+
 log "=== fleet state backup START ==="
 
 # ── sn-monitor: Grafana Postgres DB ──────────────────────────────────────────
-GRAFANA_OUT="$DUMP_DIR/grafana-db-$DATE.sql.gz"
-if ssh -o ConnectTimeout=10 -o BatchMode=yes sn-monitor \
-    "docker exec grafana-db pg_dump -U grafana grafana" 2>/tmp/grafana-dump.err | gzip > "$GRAFANA_OUT"; then
-  if [ -s "$GRAFANA_OUT" ]; then
-    log "Grafana DB dump OK: $GRAFANA_OUT ($(du -sh "$GRAFANA_OUT" | cut -f1))"
-    push "$GRAFANA_OUT" "sn-monitor"
-  else
-    log "Grafana DB dump empty — treating as failure. $(cat /tmp/grafana-dump.err 2>/dev/null)"
-    FAILED=1; FAIL_DETAIL+="grafana-db(empty) "
-  fi
-else
-  log "Grafana DB dump FAILED: $(cat /tmp/grafana-dump.err 2>/dev/null)"
-  FAILED=1; FAIL_DETAIL+="grafana-db(dump) "
-fi
-rm -f /tmp/grafana-dump.err
+pg_backup "grafana-db" sn-monitor grafana-db grafana grafana "sn-monitor"
 
 # ── sn-monitor: Uptime Kuma SQLite DB ────────────────────────────────────────
 # Online backup via a throwaway alpine+sqlite container (not a raw cp) — kuma.db runs in WAL
@@ -101,6 +119,106 @@ else
   FAILED=1; FAIL_DETAIL+="uptime-kuma(dump) "
 fi
 rm -f /tmp/kuma-dump.err
+
+# ── Gateway: Vaultwarden SQLite DB ───────────────────────────────────────────
+# The single most critical piece in this whole backup -- every credential in this project lives
+# here -- and had ZERO backup coverage anywhere until 2026-09-06 (sync.sh only ever tracked
+# compose.yaml; backup-gateway-vps.sh's scope is Tor/PowerDNS/Mailserver only, never this).
+# Local (no SSH -- Vaultwarden runs on the Gateway itself). Same online-backup approach as Uptime
+# Kuma -- db.sqlite3 is a live database, not a static file.
+VW_OUT="$DUMP_DIR/vaultwarden-db-$DATE.sqlite3.gz"
+if docker run --rm -v vaultwarden_vaultwarden_data:/data:ro alpine sh -c \
+    'apk add --no-cache sqlite >/dev/null 2>&1 && sqlite3 /data/db.sqlite3 ".backup /tmp/v.db" && cat /tmp/v.db' \
+    2>/tmp/vaultwarden.err | gzip > "$VW_OUT"; then
+  if [ -s "$VW_OUT" ]; then
+    log "Vaultwarden DB backup OK: $VW_OUT ($(du -sh "$VW_OUT" | cut -f1))"
+    push "$VW_OUT" "gateway"
+  else
+    log "Vaultwarden DB backup empty — treating as failure. $(cat /tmp/vaultwarden.err 2>/dev/null)"
+    FAILED=1; FAIL_DETAIL+="vaultwarden(empty) "
+  fi
+else
+  log "Vaultwarden DB backup FAILED: $(cat /tmp/vaultwarden.err 2>/dev/null)"
+  FAILED=1; FAIL_DETAIL+="vaultwarden(dump) "
+fi
+rm -f /tmp/vaultwarden.err
+
+# ── sn-infra: Forgejo (Postgres DB + real repo data) ─────────────────────────
+pg_backup "forgejo-db" sn-infra forgejo-db forgejo forgejo "sn-infra"
+FORGEJO_OUT="$DUMP_DIR/forgejo-data-$DATE.tar.gz"
+if ssh -o ConnectTimeout=10 -o BatchMode=yes sn-infra \
+    "docker exec forgejo tar -cf - -C /data ." 2>/tmp/forgejo-data.err | gzip > "$FORGEJO_OUT"; then
+  if [ -s "$FORGEJO_OUT" ]; then
+    log "Forgejo data tar OK: $FORGEJO_OUT ($(du -sh "$FORGEJO_OUT" | cut -f1))"
+    push "$FORGEJO_OUT" "sn-infra"
+  else
+    log "Forgejo data tar empty — treating as failure. $(cat /tmp/forgejo-data.err 2>/dev/null)"
+    FAILED=1; FAIL_DETAIL+="forgejo-data(empty) "
+  fi
+else
+  log "Forgejo data tar FAILED: $(cat /tmp/forgejo-data.err 2>/dev/null)"
+  FAILED=1; FAIL_DETAIL+="forgejo-data(tar) "
+fi
+rm -f /tmp/forgejo-data.err
+
+# ── sn-infra: PowerDNS-Admin, hot-wiki, Namevault Postgres DBs ───────────────
+pg_backup "pdns-admin-db" sn-infra pdns-admin-db pdnsadmin pdnsadmin "sn-infra"
+pg_backup "hot-wiki-db" sn-infra hot-wiki-db wikijs wiki "sn-infra"
+pg_backup "namevault-db" sn-infra namegen-db namegen namegen "sn-infra"
+
+# ── hot-erp-nl: ERPNext (MariaDB + real uploaded-file volumes) ───────────────
+ERP_DB_OUT="$DUMP_DIR/dickson-db-$DATE.sql.gz"
+if ssh -o ConnectTimeout=10 -o BatchMode=yes hot-erp-nl \
+    "docker exec dickson-db sh -c 'mariadb-dump -u root -p\$(cat /run/secrets/dickson_db_password) _ae77c090ad3ef28b'" \
+    2>/tmp/dickson-db.err | gzip > "$ERP_DB_OUT"; then
+  if [ -s "$ERP_DB_OUT" ]; then
+    log "ERPNext DB dump OK: $ERP_DB_OUT ($(du -sh "$ERP_DB_OUT" | cut -f1))"
+    push "$ERP_DB_OUT" "hot-erp-nl"
+  else
+    log "ERPNext DB dump empty — treating as failure. $(cat /tmp/dickson-db.err 2>/dev/null)"
+    FAILED=1; FAIL_DETAIL+="dickson-db(empty) "
+  fi
+else
+  log "ERPNext DB dump FAILED: $(cat /tmp/dickson-db.err 2>/dev/null)"
+  FAILED=1; FAIL_DETAIL+="dickson-db(dump) "
+fi
+rm -f /tmp/dickson-db.err
+
+ERP_FILES_OUT="$DUMP_DIR/dickson-files-$DATE.tar.gz"
+if ssh -o ConnectTimeout=10 -o BatchMode=yes hot-erp-nl \
+    "docker run --rm -v dickson_dickson-sites-data:/sites:ro -v dickson_dickson-assets-data:/assets:ro alpine tar -cf - -C / sites assets" \
+    2>/tmp/dickson-files.err | gzip > "$ERP_FILES_OUT"; then
+  if [ -s "$ERP_FILES_OUT" ]; then
+    log "ERPNext files tar OK: $ERP_FILES_OUT ($(du -sh "$ERP_FILES_OUT" | cut -f1))"
+    push "$ERP_FILES_OUT" "hot-erp-nl"
+  else
+    log "ERPNext files tar empty — treating as failure. $(cat /tmp/dickson-files.err 2>/dev/null)"
+    FAILED=1; FAIL_DETAIL+="dickson-files(empty) "
+  fi
+else
+  log "ERPNext files tar FAILED: $(cat /tmp/dickson-files.err 2>/dev/null)"
+  FAILED=1; FAIL_DETAIL+="dickson-files(tar) "
+fi
+rm -f /tmp/dickson-files.err
+
+# ── hot-pn: Nextcloud (Postgres DB + real 13GB user-data directory) ──────────
+pg_backup "nextcloud-db" hot-pn nextcloud-db nextcloud nextcloud "hot-pn"
+NEXTCLOUD_OUT="$DUMP_DIR/nextcloud-data-$DATE.tar.gz"
+log "Streaming Nextcloud's real data directory (~13GB) -- this is the largest single piece, may take several minutes..."
+if ssh -o ConnectTimeout=10 -o BatchMode=yes hot-pn \
+    "docker exec nextcloud tar -cf - -C /var/www/html data" 2>/tmp/nextcloud-data.err | gzip > "$NEXTCLOUD_OUT"; then
+  if [ -s "$NEXTCLOUD_OUT" ]; then
+    log "Nextcloud data tar OK: $NEXTCLOUD_OUT ($(du -sh "$NEXTCLOUD_OUT" | cut -f1))"
+    push "$NEXTCLOUD_OUT" "hot-pn"
+  else
+    log "Nextcloud data tar empty — treating as failure. $(cat /tmp/nextcloud-data.err 2>/dev/null)"
+    FAILED=1; FAIL_DETAIL+="nextcloud-data(empty) "
+  fi
+else
+  log "Nextcloud data tar FAILED: $(cat /tmp/nextcloud-data.err 2>/dev/null)"
+  FAILED=1; FAIL_DETAIL+="nextcloud-data(tar) "
+fi
+rm -f /tmp/nextcloud-data.err
 
 # ── retention cleanup ─────────────────────────────────────────────────────────
 find "$DUMP_DIR" -type f -mtime "+${RETENTION_DAYS}" -delete
