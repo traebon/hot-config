@@ -1,0 +1,10 @@
+[Unit]
+Description=Fleet state backup (Grafana DB, Uptime Kuma DB) — small state, direct to rclone-crypt
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/fleet-state-backup.sh
+StandardOutput=append:/var/log/fleet-state-backup.log
+StandardError=append:/var/log/fleet-state-backup.log

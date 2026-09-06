@@ -1,0 +1,13 @@
+[Unit]
+Description=Nightly fleet state backup (Grafana DB, Uptime Kuma DB)
+
+[Timer]
+# OnCalendar only, per this project's own standing rule (operational-rules.md) — OnBootSec/
+# OnUnitActiveSec alone can silently wedge forever after a missed boot window, see
+# gateway_timer_wedge_bug_2026_08_19 memory.
+OnCalendar=03:10
+RandomizedDelaySec=5min
+Persistent=true
+
+[Install]
+WantedBy=timers.target
