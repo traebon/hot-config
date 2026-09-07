@@ -174,6 +174,41 @@ for name in gateway hot-bm-nl sn-infra sn-web sn-monitor sn-security hot-pn hot-
     fi
   fi
 
+  # --- pbs-host-backup liveness (Gateway/hot-pn/hot-erp-nl daily encrypted PBS rebuild backup) ---
+  # Added 2026-09-08, closing a gap flagged when pbs-host-backup.sh was built the day before:
+  # a failed run only fired its own inline Ntfy alert, no streak-based escalation if it fails
+  # silently for several nights running -- the same class of gap the grub-pc/apt-daily-update
+  # incident already taught this project the cost of. See docs/HoT_PBS_Backup_Integration_Scope.md
+  # Section 10.
+  if [[ " gateway hot-pn hot-erp-nl " == *" $name "* ]]; then
+    pbs_host_result="$(run_remote "$alias" "systemctl show -p Result --value pbs-host-backup.service 2>/dev/null")"
+    if [ "$pbs_host_result" = "success" ]; then
+      report_check "$name" "pbs-host-backup" ok ""
+    elif [ -n "$pbs_host_result" ]; then
+      report_check "$name" "pbs-host-backup" fail "pbs-host-backup.service last result: $pbs_host_result"
+    fi
+  fi
+
+  # --- pbs VM backup success (vzdump jobs targeting pbs-hot: VM 100/102/104/106) ---
+  # Added 2026-09-08, same motivation as the check above -- pbs-hot-storage only confirms the
+  # storage target is reachable, not that last night's actual backup jobs succeeded (the real
+  # prune-permission bug found 2026-09-07 failed the whole job with a genuine error while the
+  # backup data itself landed fine -- exactly the silent-until-checked failure mode this closes).
+  if [ "$name" = "hot-bm-nl" ]; then
+    vzdump_fail=""
+    for vmid in 100 102 104 106; do
+      last_lines="$(run_remote "$alias" "tail -3 /var/log/vzdump/qemu-${vmid}.log 2>/dev/null")"
+      if echo "$last_lines" | grep -qiE "error|finished with errors"; then
+        vzdump_fail="${vzdump_fail}VM ${vmid}: $(echo "$last_lines" | tail -1)"$'\n'
+      fi
+    done
+    if [ -z "$vzdump_fail" ]; then
+      report_check "hot-bm-nl" "pbs-vm-backup" ok ""
+    else
+      report_check "hot-bm-nl" "pbs-vm-backup" fail "$vzdump_fail"
+    fi
+  fi
+
   # --- wazuh agent liveness (process-vs-systemd-state, the sn-infra bug class) ---
   wazuh_check="$(run_remote "$alias" '
     if [ -x /var/ossec/bin/wazuh-control ]; then
