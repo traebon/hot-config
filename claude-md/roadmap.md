@@ -66,6 +66,23 @@ when either landed.
   `pbs-hot-storage` checks) was built and verified live the same day. Original three scope options
   (hot-bm-nl VMs only / fleet-wide file-level too / PBS as primary replacing Hetzner+B2) still
   formally undecided.
+  **Resolved 2026-09-07, at Mr. Byrne's explicit direction: PBS is now the fleet's continuously
+  updated, fully-encrypted local (non-cloud) rebuild backup — "everything it would take to rebuild
+  HoT," on his own hardware, not a one-off archive.** `daily-fleet-backup-pbs` (VM 102/104/106)
+  reverted from the interim `local-backup-zfs` fallback back to `pbs-hot`; a new job additionally
+  sends VM 100/sn-infra there too (additive, its existing local-zfs+Hetzner path is untouched).
+  `pbs-hot` storage gained real client-side encryption for the first time (`encryption-key autogen`
+  on hot-bm-nl — this datastore had none before, a gap flagged but not closed back in Section 8).
+  New: `pbs-host-backup.sh` (systemd timer, all 3 hosts, `docs` Section 10 / `services-fleet.md`)
+  extends PBS coverage to Gateway/hot-pn/hot-erp-nl — the 3 fleet hosts that are standalone VPS's,
+  not Proxmox VMs, so `pbs-hot` could never reach them before this; backs up `/opt`, `/root`,
+  `/var/lib/docker/volumes` (real named-volume data confirmed non-trivial on all 3 hosts, not
+  assumed empty), encrypted client-side with a dedicated scrypt-passphrase key. All 3 hosts'
+  first-run backups verified live before the timers were trusted. **One real open finding from this
+  build**: VM 104's first encrypted PBS backup measured only ~4 MiB/s write throughput — a full VM
+  image could take 15-18h at that rate, worth watching for pileup on the first few real nightly
+  runs (see `alerting-backups.md`). PBS still has no cloud/offsite copy of its own by design — it
+  *is* the local-storage target now, not a source that also needs replicating elsewhere.
 - **More autonomous fleet operation ("more JARVIS, less manual sweep")** — raised by Mr. Byrne
   2026-08-19. The pattern across most incidents in this project so far is the same shape: a real
   problem sits silently for days until either a scheduled fleet health check or a direct user

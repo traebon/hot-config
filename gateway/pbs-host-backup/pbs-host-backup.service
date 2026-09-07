@@ -1,0 +1,9 @@
+[Unit]
+Description=Daily encrypted PBS rebuild backup (host-level: /opt, /root, docker volumes)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/pbs-fleet-backup/env
+ExecStart=/usr/local/bin/pbs-host-backup.sh

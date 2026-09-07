@@ -1,0 +1,9 @@
+[Unit]
+Description=Daily encrypted PBS rebuild backup timer
+
+[Timer]
+OnCalendar=03:40
+Persistent=true
+
+[Install]
+WantedBy=timers.target
