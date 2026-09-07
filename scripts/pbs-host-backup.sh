@@ -69,6 +69,9 @@ echo "$OUTPUT" >> "$LOG"
 
 if [ $RC -eq 0 ]; then
   log "Backup OK for $HOSTNAME_ID"
+  PRUNE_OUTPUT=$(proxmox-backup-client prune "host/$HOSTNAME_ID" \
+    --repository "$REPOSITORY" --keep-daily 7 --keep-weekly 4 2>&1)
+  echo "$PRUNE_OUTPUT" >> "$LOG"
   notify 2 "PBS host backup OK ($HOSTNAME_ID)" "Daily encrypted rebuild backup completed."
 else
   log "Backup FAILED for $HOSTNAME_ID (exit $RC)"
