@@ -232,6 +232,11 @@ rm -f /tmp/nextcloud-data.err
 # snapshot; partial mode captures everything healthy and marks the rest, rather than an all-or-
 # nothing failure over data that was already gone. See docs/HoT_PBS_Backup_Integration_Scope.md
 # Section 11.
+# Real timeout finding, 2026-09-08: a genuine full snapshot took 106s in isolated testing, and
+# longer under real concurrent load the same night (this script's own earlier steps were still
+# competing for Gateway RAM/swap at the time) -- an initial 60s curl timeout was nowhere near
+# enough and caused a silent, hard-to-diagnose script failure (exit 28, zero log output from this
+# block at all) the first time this ran for real. 900s gives real headroom.
 WAZUH_SNAP_REPO="hot_backup_repo"
 WAZUH_SNAP_NAME="wazuh-$(date '+%Y-%m-%d')"
 WAZUH_INDEXER_PW="$(run_remote sn-security "grep '^WAZUH_INDEXER_PASSWORD=' /opt/stacks/wazuh/.env | cut -d= -f2" 2>/dev/null)"
@@ -240,15 +245,25 @@ if [ -z "$WAZUH_INDEXER_PW" ]; then
   log "Wazuh indexer snapshot FAILED: could not read WAZUH_INDEXER_PASSWORD from sn-security"
   FAILED=1; FAIL_DETAIL+="wazuh-indexer(no-password) "
 else
-  wazuh_curl() { run_remote sn-security "curl -sk -m 60 -u admin:$WAZUH_INDEXER_PW $*"; }
-
-  SNAP_RESULT="$(wazuh_curl "-X PUT https://localhost:9200/_snapshot/$WAZUH_SNAP_REPO/$WAZUH_SNAP_NAME?wait_for_completion=true -H 'Content-Type: application/json' -d '{\"indices\":\"*\",\"ignore_unavailable\":true,\"include_global_state\":false,\"partial\":true}'")"
+  # Idempotency check, added 2026-09-08: OpenSearch keeps a snapshot running server-side even if
+  # the client curl connection dies first (a real timeout misconfiguration caused exactly this the
+  # first time this ran for real -- the script logged a false failure while the actual snapshot
+  # completed 144/144 on the server). Checking for an existing SUCCESS/PARTIAL snapshot under
+  # today's name first makes a retry (manual or from a prior partial run) safe instead of hitting
+  # invalid_snapshot_name_exception on the already-completed snapshot.
+  EXISTING="$(run_remote sn-security "curl -sk -m 15 -u admin:$WAZUH_INDEXER_PW https://localhost:9200/_snapshot/$WAZUH_SNAP_REPO/$WAZUH_SNAP_NAME" 2>/dev/null)"
+  if echo "$EXISTING" | grep -qE '"state":"(SUCCESS|PARTIAL)"'; then
+    SNAP_RESULT="$EXISTING"
+    log "Wazuh indexer snapshot $WAZUH_SNAP_NAME already exists and succeeded (prior run's server-side result) -- skipping re-creation"
+  else
+    SNAP_RESULT="$(run_remote sn-security "curl -sk -m 900 -u admin:$WAZUH_INDEXER_PW -X PUT https://localhost:9200/_snapshot/$WAZUH_SNAP_REPO/$WAZUH_SNAP_NAME?wait_for_completion=true -H 'Content-Type: application/json' -d '{\"indices\":\"*\",\"ignore_unavailable\":true,\"include_global_state\":false,\"partial\":true}'" 2>/tmp/wazuh-snap.err)"
+  fi
   if echo "$SNAP_RESULT" | grep -qE '"state":"(SUCCESS|PARTIAL)"'; then
     log "Wazuh indexer snapshot OK: $WAZUH_SNAP_NAME ($(echo "$SNAP_RESULT" | grep -o '"state":"[A-Z]*"'))"
 
     # prune snapshots older than 14 days -- the repo dedups internally at the segment level, so
     # retention here keeps the nightly tar-and-push below bounded rather than growing forever
-    OLD_SNAPS="$(wazuh_curl "https://localhost:9200/_snapshot/$WAZUH_SNAP_REPO/_all" | python3 -c "
+    OLD_SNAPS="$(run_remote sn-security "curl -sk -m 30 -u admin:$WAZUH_INDEXER_PW https://localhost:9200/_snapshot/$WAZUH_SNAP_REPO/_all" 2>/dev/null | python3 -c "
 import json,sys
 from datetime import datetime, timedelta
 try:
@@ -267,7 +282,7 @@ for s in data.get('snapshots', []):
             pass
 " 2>/dev/null)"
     while read -r old; do
-      [ -n "$old" ] && wazuh_curl "-X DELETE https://localhost:9200/_snapshot/$WAZUH_SNAP_REPO/$old" >/dev/null
+      [ -n "$old" ] && run_remote sn-security "curl -sk -m 30 -u admin:$WAZUH_INDEXER_PW -X DELETE https://localhost:9200/_snapshot/$WAZUH_SNAP_REPO/$old" >/dev/null 2>&1
     done <<< "$OLD_SNAPS"
 
     WAZUH_SNAP_OUT="$DUMP_DIR/wazuh-indexer-snapshot-$DATE.tar.gz"
@@ -286,9 +301,10 @@ for s in data.get('snapshots', []):
     fi
     rm -f /tmp/wazuh-snap-tar.err
   else
-    log "Wazuh indexer snapshot FAILED or incomplete: $SNAP_RESULT"
+    log "Wazuh indexer snapshot FAILED or incomplete: $SNAP_RESULT $(cat /tmp/wazuh-snap.err 2>/dev/null)"
     FAILED=1; FAIL_DETAIL+="wazuh-indexer(snapshot) "
   fi
+  rm -f /tmp/wazuh-snap.err
 fi
 
 # ── retention cleanup ─────────────────────────────────────────────────────────
