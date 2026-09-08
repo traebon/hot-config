@@ -480,3 +480,165 @@ in `fleet_state_backup_fleet_wide_2026_09_07` memory and the `fleet-state-backup
 `fleet-state-backup.sh` now also covers Forgejo, PowerDNS-Admin, hot-wiki, Namevault (sn-infra),
 ERPNext (hot-erp-nl), and Nextcloud (hot-pn) — 12 pieces total, ~13GB, first full run 2026-09-07
 succeeded with zero failures and was spot-verified restorable, not just pushed.
+
+---
+
+## 10. PBS made the actual local-storage rebuild backup, 2026-09-07 — Mr. Byrne's direct request
+
+The framing changed again, the day after Section 9's resolution. Mr. Byrne's ask was explicit: he
+wants PBS itself — his own local hardware — to be a continuously-updated, fully-encrypted backup
+covering everything needed to rebuild HoT from scratch, not a one-off encrypted archive delivered
+somewhere. First attempt at this request was to propose a single encrypted export archive (age,
+delivered via SendUserFile); corrected immediately once he clarified he meant PBS as the living
+backup target, updated daily.
+
+**Two gaps stood between "PBS backs up 3 VMs" and "PBS backs up everything":**
+
+1. **`pbs-hot`'s datastore had no client-side encryption at all.** Flagged back in Section 8 as an
+   open gap, never closed. Fixed: `pvesm set pbs-hot --encryption-key autogen` on hot-bm-nl —
+   PVE-storage-integrated PBS encryption only supports a non-passphrase-protected raw key (a real
+   PVE limitation, confirmed via `pvesm set --help`, not a design choice made here); the resulting
+   key (`/etc/pve/priv/storage/pbs-hot.enc`, fingerprint `f0:c3:8b:0a:...4a:e5:0f`) was immediately
+   pulled off hot-bm-nl and saved to Vaultwarden — it's the *only* thing standing between "encrypted"
+   and "permanently unrecoverable" for every VM backup on `pbs-hot` from this point forward.
+
+2. **Gateway, hot-pn, and hot-erp-nl are standalone VPS's, not Proxmox VMs — `pbs-hot`/vzdump can
+   never reach them, at all, structurally.** Their real state (Vaultwarden's own data, Keycloak,
+   Nextcloud, ERPNext, PrivateNexus, every Docker named volume) had cloud backup coverage
+   (`fleet-state-backup.sh`, `backup-gateway-vps.sh`, hot-pn's own pg_dump chain) but zero copy on
+   Mr. Byrne's own local storage. Fixed with a new mechanism, `pbs-host-backup.sh` — installed
+   `proxmox-backup-client` on all 3 hosts (Proxmox's own client-only apt repo, `pbs-client trixie`,
+   works cleanly on Ubuntu 26.04 despite no official Ubuntu target) and built a daily (03:40)
+   systemd-timed push of `/opt`, `/root`, `/var/lib/docker/volumes`, and `/etc/wireguard` where
+   present, encrypted client-side with a dedicated key.
+
+**Real facts checked before assuming `/opt` alone was enough**: `/var/lib/docker/volumes` was
+confirmed non-trivial on all 3 hosts (778MB Gateway, 1.3GB hot-pn, 915MB hot-erp-nl) — hot-erp-nl's
+ERPNext data in particular lives entirely in named Docker volumes
+(`dickson_dickson-{db,sites,assets}-data`), not a bind mount, and would have been silently missed
+backing up `/opt` alone (hot-erp-nl's `/opt` is only 108KB). This is exactly the kind of gap the
+project's "rebuild recipe" backups keep finding when checked live instead of assumed.
+
+**Encryption**: a dedicated `proxmox-backup-client` key (`fleet-hosts.key`), scrypt-KDF,
+passphrase-protected — generated via a Python PTY script (`key create` needs a real terminal, no
+env-var bypass exists for that specific subcommand, unlike `backup`/`restore` which do respect
+`PBS_ENCRYPTION_PASSWORD`). Same key file distributed to all 3 hosts via `scp` over already-trusted
+channels; the passphrase lives in Vaultwarden, not in any script. A dedicated least-privilege PBS
+user/token (`fleet-hosts@pbs!hostbackup`, `DatastoreBackup` role only — cannot read or modify any
+other backup, including the VM backups the `hot-bm-nl@pbs!vzdump` token holds) was created rather
+than reusing an existing identity.
+
+**Two real bugs hit standing this up, both fixed same-session**: `proxmox-backup-client backup
+--ns hosts` failed with "namespace not found" — this PBS version's client has no dedicated
+`namespace create` subcommand in `proxmox-backup-manager`, and creating one via the client itself
+needs `Datastore.Modify`, which the least-privilege token deliberately doesn't have. Simplest fix,
+not a workaround: dropped the `--ns` entirely — PBS's `host`-type backup groups don't collide with
+the existing `vm`-type VM backups even sharing the datastore root, so no namespace was actually
+needed. Second: the very first `vzdump 104 --storage pbs-hot` verification run was killed mid-backup
+by an unrelated local low-memory event that took down the foreground SSH session carrying it — real
+data loss risk from running a long verification test in a way that dies with the terminal, not a
+PBS/encryption bug. Fixed by re-running fully detached (`nohup ... & disown`) and by using the
+`Monitor` tool to watch for completion instead of holding the session open.
+
+**Verified live before trusting any timer**, same convention as every other automation in this
+project: real first backups on all 3 hosts (Gateway 2.9GB in 150s reusing 32MB incrementally already
+just from re-running the fixed script twice; hot-erp-nl 838MB in 48s over Tailscale; hot-pn 13.5GB
+in 54min, the genuine cold-start baseline — its `/opt` alone is 14GB, dominated by Nextcloud's real
+user data and Notesnook's Mongo/MinIO state). `daily-fleet-backup-pbs` (102/104/106) reverted from
+Section 9's interim `local-backup-zfs` fallback back to `pbs-hot`; a new job,
+`daily-fleet-backup-pbs-sninfra` (02:15), additionally sends VM 100/sn-infra to PBS too —
+deliberately additive, not a replacement for its existing `local-backup-zfs`+Hetzner-offsite path
+(keeping sn-infra's backup coverage independent of PBS/wg6 health, since it hosts the Tang fallback
+and other core infra other VMs depend on).
+
+**Throughput finding, resolved same session**: VM 104's real first encrypted backup to `pbs-hot`
+showed ~4 MiB/s mid-transfer, which projected to 15-18h for a full 250GB image if sustained. A clean
+full re-run showed this was a false alarm: PBS's chunk dedup reused 99% of the VM's data from a
+pre-outage backup already sitting on the datastore, so the real transfer was 1.12GB in 169s
+(6.8 MiB/s) — this is what real nightly runs should look like going forward, not the cold-start
+number. Confirms the earlier ~1.5-2 MiB/s figure from Section 8 was specific to that test's
+direction (pulling a full image *off* PBS, bound by its home upload) and doesn't apply here (pushing
+*into* PBS, which rides its fast download side and, more importantly, PBS's own dedup means most
+nights transfer only the delta, not the full image either way).
+
+**Real bug found+fixed the same session: the retention-prune step on both the VM and host-level
+paths was failing on every run, even though the backup itself always succeeded.** `vzdump`'s own
+inline `proxmox-backup-client prune` call (driven by the job's `prune-backups` config) errored with
+`missing Datastore.Modify|Datastore.Prune`, which failed the whole job nightly via `mail-to-root`
+despite the actual backup data landing safely — a real, easy-to-miss false-failure signal that would
+have looked like a broken backup pipeline every night. Root cause: the `DatastoreBackup` role
+originally granted to both `hot-bm-nl@pbs!vzdump` and the new `fleet-hosts@pbs!hostbackup` tokens
+doesn't include prune privilege, and granting `DatastorePowerUser` to the *token* alone wasn't
+enough — PBS tokens are privilege-separated by default, so effective permission is the intersection
+of the token's own ACL and its underlying user's ACL. Fixed by granting `DatastorePowerUser` to both
+the user and the token for each identity. Verified clean via real reruns on all 4 paths (VM 104's
+full vzdump job including its inline prune, plus Gateway/hot-pn/hot-erp-nl's `pbs-host-backup.sh`,
+which now also calls `proxmox-backup-client prune` on its own `host/<name>` group,
+`--keep-daily 7 --keep-weekly 4`, after every successful backup).
+
+**Still not done**: neither `pbs-host-backup.sh` nor the newly-encrypted `pbs-hot` VM backups have
+been wired into `fleet-health-sweep`'s monitoring the way `wg6-handshake`/`pbs-hot-storage` already
+are — a failed host-level backup currently only alerts via its own inline Ntfy `notify()` call, with
+no streak-based escalation if it fails silently for several nights running. Worth folding in as a
+future `fleet-health-sweep` check, same shape as the existing PBS checks, rather than assuming the
+per-run Ntfy alert alone is sufficient (it wasn't, historically, for exactly this class of gap — see
+the `grub-pc`/apt-daily-update precedent in `operational-rules.md`).
+
+---
+
+## 11. Wazuh indexer OpenSearch snapshot — the last flagged gap, closed 2026-09-08
+
+`fleet-state-backup.sh` covered every other database in the fleet with a proper dump command
+(`pg_dump`/`mariadb-dump`/`sqlite3 .backup`) from day one, but explicitly deferred sn-security's
+Wazuh indexer — a raw copy of its live OpenSearch/Lucene data risked an inconsistent, untested
+restore, and building a real snapshot mechanism was flagged as its own follow-up. Built this
+session, at Mr. Byrne's direct request after he asked why it wasn't covered yet.
+
+**Mechanism**: OpenSearch's native snapshot API against a filesystem repository — `path.repo`
+added to `wazuh.indexer.yml` (a bind mount, `./snapshots:/usr/share/wazuh-indexer/snapshots`, owned
+by the container's UID 1000), a repo registered once (`PUT /_snapshot/hot_backup_repo`, idempotent —
+`fleet-state-backup.sh` re-registers it every run, harmless if already present and self-healing if
+config ever drifts). Nightly: take a new dated snapshot into the same repo (`wait_for_completion`),
+prune snapshots older than 14 days via the API, tar the repo directory, push through the same
+`push()`/rclone-crypt pipeline every other piece in this script uses. `partial: true` is deliberate —
+found live during this build that a handful of old (Jul/Aug), empty, genuinely-unallocated-primary-
+shard indices exist on this indexer (pre-existing, unrelated to this work — see the incident note
+below), and an all-or-nothing snapshot would fail entirely over data that was already gone; partial
+mode captures everything healthy and records the rest as failed shards without blocking the backup
+that actually matters (the current month's real alert data, confirmed green throughout).
+
+**Verified for real, not just pushed**: a full snapshot succeeded 144/144 shards once the cluster
+was fully green (a first attempt mid-recovery came back PARTIAL with the known-bad old indices,
+confirmed harmless, deleted, redone clean). Restorability was checked directly — restored a real
+alert index under a renamed copy (`restore-test-wazuh-alerts-4.x-2026.09.06`), confirmed matching
+doc count (2/2) and genuine alert content (`rule.description`, real timestamp, real agent name), not
+an empty shell. Test index and test snapshot both deleted after. Wired into `fleet-state-backup.sh`
+and verified via the real `systemctl start fleet-state-backup.service` path alongside every other
+piece, not in isolation.
+
+**Real incident hit mid-build, unrelated to the snapshot work itself, fixed the same session**:
+recreating the indexer container to pick up the new `path.repo` config took it down for ~5 minutes
+while its ~144 shards reallocated. During that window, Wazuh's dashboard returned enough 403s to
+Blackbox Exporter's routine public-URL probing that CrowdSec's `http-generic-403-bf` scenario banned
+**hot-bm-nl's own public IP** (`31.207.47.146`) at the Caddy edge — and since every VM on hot-bm-nl
+shares that IP as its NAT egress for public-internet traffic, the ban broke *every* public health
+probe from the whole host, not just Wazuh's, matching Mr. Byrne's real-time report ("probes failing
+all over the shop"). Investigating turned up the real, separate root cause: `forgejo-runner` (also
+on sn-security) had a stale auth token and had been silently failing to poll Forgejo since
+**2026-09-05** (3 days, undetected — nothing watches this) at a 2-second retry interval against
+`git.securenexus.net`'s *public* URL (a real design flaw — internal CI polling should never depend
+on the public edge at all) — each round of 403s re-triggered the same ban within ~14 seconds, faster
+than it could be manually cleared, a self-sustaining loop. Fixed: stopped the runner to break the
+loop, cleared the ban, force-registered the runner fresh via its still-valid shared secret (moving
+aside its stale `.runner` state file — act-runner's own documented recovery path), confirmed clean
+task-fetch and zero new bans. **Two real follow-ups flagged, not yet done**: point `forgejo-runner`
+at Forgejo's internal address instead of the public one, and add a `fleet-health-sweep` check for
+actual task-fetch success (not just container/process liveness) so a repeat doesn't run silently for
+days again.
+
+**Separate, pre-existing finding, not caused by or blocking this work**: the indexer's cluster health
+was briefly `red` during the same recovery window due to a set of old (2026-07-27 through 08-19),
+empty indices with unallocated primary shards — resolved on its own once shard reallocation finished
+(fully `green`, 144/144, within a few minutes), but worth a closer look separately: genuinely lost
+primary shard data on old indices is a real question mark on Wazuh's own index lifecycle/retention,
+independent of anything backup-related.

@@ -220,6 +220,77 @@ else
 fi
 rm -f /tmp/nextcloud-data.err
 
+# ── sn-security: Wazuh indexer (OpenSearch) snapshot ─────────────────────────
+# Added 2026-09-08, closing the last flagged gap in this script: Wazuh's security-event history
+# had no application-consistent backup anywhere, only whatever crash-consistent state happened to
+# be on disk during the nightly whole-VM vzdump backup to pbs-hot. A raw copy of live Lucene
+# segment files risks an inconsistent, untested-restorable copy -- OpenSearch's own snapshot API
+# (registered against a filesystem repo, path.repo added to opensearch.yml 2026-09-08) is the
+# correct mechanism, same reasoning as pg_dump/sqlite3 .backup for every other database above.
+# `partial: true` is deliberate -- a handful of old, empty, pre-existing indices with genuinely
+# unallocated shards (found during this build, unrelated to it) would otherwise fail the whole
+# snapshot; partial mode captures everything healthy and marks the rest, rather than an all-or-
+# nothing failure over data that was already gone. See docs/HoT_PBS_Backup_Integration_Scope.md
+# Section 11.
+WAZUH_SNAP_REPO="hot_backup_repo"
+WAZUH_SNAP_NAME="wazuh-$(date '+%Y-%m-%d')"
+WAZUH_INDEXER_PW="$(run_remote sn-security "grep '^WAZUH_INDEXER_PASSWORD=' /opt/stacks/wazuh/.env | cut -d= -f2" 2>/dev/null)"
+
+if [ -z "$WAZUH_INDEXER_PW" ]; then
+  log "Wazuh indexer snapshot FAILED: could not read WAZUH_INDEXER_PASSWORD from sn-security"
+  FAILED=1; FAIL_DETAIL+="wazuh-indexer(no-password) "
+else
+  wazuh_curl() { run_remote sn-security "curl -sk -m 60 -u admin:$WAZUH_INDEXER_PW $*"; }
+
+  SNAP_RESULT="$(wazuh_curl "-X PUT https://localhost:9200/_snapshot/$WAZUH_SNAP_REPO/$WAZUH_SNAP_NAME?wait_for_completion=true -H 'Content-Type: application/json' -d '{\"indices\":\"*\",\"ignore_unavailable\":true,\"include_global_state\":false,\"partial\":true}'")"
+  if echo "$SNAP_RESULT" | grep -qE '"state":"(SUCCESS|PARTIAL)"'; then
+    log "Wazuh indexer snapshot OK: $WAZUH_SNAP_NAME ($(echo "$SNAP_RESULT" | grep -o '"state":"[A-Z]*"'))"
+
+    # prune snapshots older than 14 days -- the repo dedups internally at the segment level, so
+    # retention here keeps the nightly tar-and-push below bounded rather than growing forever
+    OLD_SNAPS="$(wazuh_curl "https://localhost:9200/_snapshot/$WAZUH_SNAP_REPO/_all" | python3 -c "
+import json,sys
+from datetime import datetime, timedelta
+try:
+    data = json.load(sys.stdin)
+except Exception:
+    sys.exit(0)
+cutoff = datetime.utcnow() - timedelta(days=14)
+for s in data.get('snapshots', []):
+    name = s.get('snapshot', '')
+    if name.startswith('wazuh-') and not name.startswith('wazuh-test'):
+        try:
+            dt = datetime.strptime(name[len('wazuh-'):], '%Y-%m-%d')
+            if dt < cutoff:
+                print(name)
+        except ValueError:
+            pass
+" 2>/dev/null)"
+    while read -r old; do
+      [ -n "$old" ] && wazuh_curl "-X DELETE https://localhost:9200/_snapshot/$WAZUH_SNAP_REPO/$old" >/dev/null
+    done <<< "$OLD_SNAPS"
+
+    WAZUH_SNAP_OUT="$DUMP_DIR/wazuh-indexer-snapshot-$DATE.tar.gz"
+    if ssh -o ConnectTimeout=10 -o BatchMode=yes sn-security \
+        "tar -cf - -C /opt/stacks/wazuh/snapshots ." 2>/tmp/wazuh-snap-tar.err | gzip > "$WAZUH_SNAP_OUT"; then
+      if [ -s "$WAZUH_SNAP_OUT" ]; then
+        log "Wazuh indexer snapshot tar OK: $WAZUH_SNAP_OUT ($(du -sh "$WAZUH_SNAP_OUT" | cut -f1))"
+        push "$WAZUH_SNAP_OUT" "sn-security"
+      else
+        log "Wazuh indexer snapshot tar empty — treating as failure. $(cat /tmp/wazuh-snap-tar.err 2>/dev/null)"
+        FAILED=1; FAIL_DETAIL+="wazuh-indexer(empty) "
+      fi
+    else
+      log "Wazuh indexer snapshot tar FAILED: $(cat /tmp/wazuh-snap-tar.err 2>/dev/null)"
+      FAILED=1; FAIL_DETAIL+="wazuh-indexer(tar) "
+    fi
+    rm -f /tmp/wazuh-snap-tar.err
+  else
+    log "Wazuh indexer snapshot FAILED or incomplete: $SNAP_RESULT"
+    FAILED=1; FAIL_DETAIL+="wazuh-indexer(snapshot) "
+  fi
+fi
+
 # ── retention cleanup ─────────────────────────────────────────────────────────
 find "$DUMP_DIR" -type f -mtime "+${RETENTION_DAYS}" -delete
 for REMOTE in hetzner-crypt b2-hot-crypt; do
