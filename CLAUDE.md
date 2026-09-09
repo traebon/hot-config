@@ -87,17 +87,29 @@ documented rule existed across 13 managed zones, and the same class of dead-DNS-
      `monitor.securenexus.net`/`prometheus.securenexus.net`, and both had to be moved).
    - IP-allowlisted instead of SSO-gated at all (e.g. `gatus.securenexus.net`,
      `rspamd.securenexus.net`) → `securenexus.net` is fine, no domain constraint applies.
-3. **PrivateNexus product/deployment surface** → `privatenexus.net`, and *only* things that are
-   actually part of PN's own product surface. Not a dumping ground for personal services deployed
-   through it — the wildcard-`A`-record incident happened specifically because Cosmos-era personal
-   subdomains were left registered here after the services themselves were gone. If the Catalogue
-   deploy flow (see hot-pn section) is ever wired to real public DNS instead of staying
-   `127.0.0.1`-only, treat that as its own deliberate decision, not an automatic
-   `privatenexus.net` subdomain grant.
-4. **Personal services** (e.g. a future Phase 4 "HoT Sync") → no default domain right now.
-   `tresemme.space`'s original use case (pn-test/sn-personal) is retired outright; don't default new
-   personal-services work to `privatenexus.net` or silently reuse `tresemme.space` — this needs an
-   explicit decision when the work is actually scoped.
+3. **PrivateNexus product/deployment surface, INCLUDING personal services deployed through its own
+   Catalogue flow** → `privatenexus.net`. **Reversed 2026-09-09, Mr. Byrne's explicit decision** —
+   personal services (Immich, Nextcloud, Notesnook) now deliberately live under the `privatenexus.net`
+   banner rather than being scattered across `house-of-trae.com`, since PrivateNexus is meant to be
+   shown off as the thing actually running/automating these deployments (the Catalogue flow is a
+   real product feature, not an internal convenience — dogfooding it publicly under its own name is
+   the point). This is the "own deliberate decision" the previous version of this rule said would be
+   needed before wiring the Catalogue flow to real public DNS — it's now made. Nextcloud/Notesnook
+   were migrated from `cloud.house-of-trae.com`/`notes-*.house-of-trae.com` to
+   `cloud.privatenexus.net`/`notes-*.privatenexus.net` the same day, with permanent 301s left on the
+   old URLs (same pattern as `monitor.securenexus.net`→`monitor.house-of-trae.com`). Immich
+   (`photos.privatenexus.net`) was deployed fresh directly under the new convention.
+   **The decommission rule below still applies without exception** — this is exactly the domain the
+   original wildcard-`A`-record incident happened on (Cosmos-era personal subdomains left registered
+   after the services were gone); reversing the "dumping ground" caution doesn't reverse the cleanup
+   discipline that incident taught. Anything genuinely NOT part of PN's product surface or the
+   personal-services set above (e.g. a one-off internal test) still doesn't belong here.
+4. **Personal services with no natural product-surface fit** (e.g. a future Phase 4 "HoT Sync" app
+   that doesn't go through PN's Catalogue flow) → still no default domain, same reasoning as before
+   rule 3's reversal — `tresemme.space`'s original use case (pn-test/sn-personal) is retired outright,
+   don't silently reuse it. In practice, everything scoped so far (Immich/Nextcloud/Notesnook/
+   Vaultwarden) has fallen under rule 3 or its own documented exception (Vaultwarden stays on the
+   Gateway) — this rule is now the fallback for the genuinely undecided case, not the default path.
 5. **Parent/shared infra with no natural entity home** (SSO itself, mail, DNS, Vaultwarden, the Tor
    mirror, Ntfy, monitoring dashboards behind the generic SSO wall) → `house-of-trae.com`, per its
    documented "Parent — shared services" role.

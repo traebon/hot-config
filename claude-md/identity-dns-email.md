@@ -14,7 +14,7 @@ Backend: Gateway VPS — PostgreSQL backend
 | clients         | Client portal users                                          |
 | house-of-trae   | House of Trae parent — master identity-provider-redirector broker |
 | master          | Keycloak's own built-in admin realm (not app-facing)         |
-| privatenexus    | PrivateNexus app users (prod/dev/test, all on hot-pn)        |
+| privatenexus    | PrivateNexus app users (prod/dev/test, all on hot-pn); also holds native OIDC clients for personal services deployed on hot-pn — `privatenexus` (the app itself), `pn-docs` (Wiki.js), `immich` (added 2026-09-09, confidential, `photos.privatenexus.net`) |
 
 10 realms total. All realms: MFA enforced, brute force detection, strong password policy.
 Keycloak OIDC API URL must point to realm root: `.../realms/<realm-name>` (NOT the protocol endpoint — causes 500 errors).
@@ -78,6 +78,16 @@ the symptom, since the wildcard immediately backfilled `cloud.privatenexus.net` 
 wildcard was the real fix, confirmed via public `dig` (correctly returns nothing now, instead of a
 confusing SSL error). `privatenexus.net`'s own apex record untouched throughout, confirmed still
 resolving correctly.
+
+**⚠ `cloud`/`notes-*` real and live again as of 2026-09-09 — not a recurrence of the incident above,
+a deliberate rebuild.** CLAUDE.md's Domain Assignment Policy rule 3 reversed the "personal services
+don't belong on privatenexus.net" stance the same day (Mr. Byrne's decision) — `cloud`,
+`notes-auth`, `notes-sync`, `notes-sse`, `notes-s3`, and a new `photos` `A` record (all →
+151.241.217.91, no wildcard — individually added, same discipline the incident above established)
+now have real matching Caddy site blocks and real backing containers (Nextcloud/Notesnook/Immich on
+hot-pn), unlike the 2026-08-10 dead leftovers this section documents. If any of these are ever torn
+down for real, the decommission rule still applies without exception — delete the specific record
+the same day, and double-check no wildcard has been reintroduced to backfill it.
 
 house-of-trae.com — `_tailscale-challenge` TXT record added 2026-07-16 (Tailscale domain
 verification, admin console "Add + verify domain" flow): `_tailscale-challenge.house-of-trae.com`

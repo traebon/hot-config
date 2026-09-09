@@ -304,3 +304,19 @@ endpoints:
         failure-threshold: 2
         success-threshold: 2
         send-on-resolved: true
+
+  - name: Immich
+    group: Personal Services (privatenexus.net)
+    # Deployed via the PrivateNexus Catalogue flow, 2026-09-09 -- part of the personal-services
+    # banner under privatenexus.net (Mr. Byrne's decision, see claude-md/network.md Domain
+    # Assignment Policy). Real health endpoint, not root (root serves the SPA shell).
+    url: "https://photos.privatenexus.net/api/server/ping"
+    interval: 5m
+    conditions:
+      - "[STATUS] == 200"
+      - "[BODY] == pat(*\"res\":*\"pong\"*)"
+    alerts:
+      - type: email
+        failure-threshold: 2
+        success-threshold: 2
+        send-on-resolved: true

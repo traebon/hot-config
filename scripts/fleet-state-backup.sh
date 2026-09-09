@@ -220,6 +220,28 @@ else
 fi
 rm -f /tmp/nextcloud-data.err
 
+# ── hot-pn: Immich (Postgres DB + real photo/video library) ─────────────────
+# Added 2026-09-09, deployed via the Catalogue flow same day as the Nextcloud/Notesnook domain
+# consolidation under privatenexus.net -- see claude-md/services-hotpn.md and network.md. Same
+# treatment as Nextcloud above (container-side tar -> gzip, no local disk use on either end).
+pg_backup "immich-db" hot-pn immich-db immich immich "hot-pn"
+IMMICH_OUT="$DUMP_DIR/immich-library-$DATE.tar.gz"
+log "Streaming Immich's photo/video library -- size grows over time, may take a while..."
+if ssh -o ConnectTimeout=10 -o BatchMode=yes hot-pn \
+    "docker exec immich tar -cf - -C /data ." 2>/tmp/immich-library.err | gzip > "$IMMICH_OUT"; then
+  if [ -s "$IMMICH_OUT" ]; then
+    log "Immich library tar OK: $IMMICH_OUT ($(du -sh "$IMMICH_OUT" | cut -f1))"
+    push "$IMMICH_OUT" "hot-pn"
+  else
+    log "Immich library tar empty — treating as failure. $(cat /tmp/immich-library.err 2>/dev/null)"
+    FAILED=1; FAIL_DETAIL+="immich-library(empty) "
+  fi
+else
+  log "Immich library tar FAILED: $(cat /tmp/immich-library.err 2>/dev/null)"
+  FAILED=1; FAIL_DETAIL+="immich-library(tar) "
+fi
+rm -f /tmp/immich-library.err
+
 # ── sn-security: Wazuh indexer (OpenSearch) snapshot ─────────────────────────
 # Added 2026-09-08, closing the last flagged gap in this script: Wazuh's security-event history
 # had no application-consistent backup anywhere, only whatever crash-consistent state happened to

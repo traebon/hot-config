@@ -209,6 +209,23 @@ for name in gateway hot-bm-nl sn-infra sn-web sn-monitor sn-security hot-pn hot-
     fi
   fi
 
+  # --- vzdump-offsite-push liveness (hot-bm-nl -> Hetzner offsite copy of VM 100) ---
+  # Added 2026-09-09 after a real incident this sweep had zero coverage for: the Hetzner
+  # Storage Box filled to 998GB/1TB (orphaned VM 102/104/106 copies from the 2026-09-04->
+  # 09-07 interim window, never pruned once those VMs moved to PBS-only), and the nightly
+  # push had been failing 3 nights straight (SSH_FX_FAILURE from the storage box) with
+  # nothing surfacing it -- the systemd service itself always reported 0/SUCCESS even on a
+  # failed push (a separate bug, fixed the same day -- see vzdump-offsite-push.sh's own
+  # header). Same pattern as the pbs-host-backup check above.
+  if [ "$name" = "hot-bm-nl" ]; then
+    offsite_result="$(run_remote "$alias" "systemctl show -p Result --value vzdump-offsite-push.service 2>/dev/null")"
+    if [ "$offsite_result" = "success" ]; then
+      report_check "hot-bm-nl" "vzdump-offsite-push" ok ""
+    elif [ -n "$offsite_result" ]; then
+      report_check "hot-bm-nl" "vzdump-offsite-push" fail "vzdump-offsite-push.service last result: $offsite_result"
+    fi
+  fi
+
   # --- wazuh agent liveness (process-vs-systemd-state, the sn-infra bug class) ---
   wazuh_check="$(run_remote "$alias" '
     if [ -x /var/ossec/bin/wazuh-control ]; then
