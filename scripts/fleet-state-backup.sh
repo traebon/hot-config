@@ -74,15 +74,43 @@ push() {
   fi
 }
 
+# ── Register a completed backup into PN's own service_backups table ─────────────────────────────
+# So PN's own Governance/Recovery views reflect reality instead of showing "Backup Policy: Daily"
+# right next to "never backed up" — found 2026-09-10 while investigating Mr. Byrne's "health checks
+# and backup jobs still need updating and fixing" report: the real backup mechanisms all genuinely
+# run (that's what backup_policy=daily was correctly asserting), but nothing outside PN's own
+# pg_dump.sh (privatenexus-db only) ever told PN about it — 32 of 33 'daily'-labeled services had
+# zero rows in service_backups. Same exact pattern pg_dump.sh already uses (direct psql INSERT, run
+# where the DB actually lives — hot-pn — not through the app's session-gated API, since this script
+# runs unattended with no session to hold). Failure here is logged but never fails the backup
+# itself — the real backup already succeeded by the time this runs, this is just telling PN about
+# it after the fact.
+# args: service_id  label  location  size_bytes
+register_backup() {
+  local service_id="$1" label="$2" location="$3" size_bytes="$4"
+  [ -z "$service_id" ] && return 0
+  local esc_label esc_location
+  esc_label="$(printf '%s' "$label" | sed "s/'/''/g")"
+  esc_location="$(printf '%s' "$location" | sed "s/'/''/g")"
+  local sql="INSERT INTO service_backups (tenant_id, service_id, label, backup_type, trust_state, location, size_bytes, notes) VALUES ('10000000-0000-0000-0000-000000000001', '${service_id}', '${esc_label}', 'full', 'trusted', '${esc_location}', ${size_bytes:-NULL}, 'Registered by fleet-state-backup.sh (Gateway) -- same pattern pg_dump.sh uses for privatenexus-db.');"
+  if ! ssh -o ConnectTimeout=10 -o BatchMode=yes hot-pn \
+      "docker exec -i privatenexus-db psql -U privatenexus -d privatenexus -v ON_ERROR_STOP=1 -c \"$sql\"" \
+      >/tmp/register_backup.err 2>&1; then
+    log "  register_backup FAILED for service_id=$service_id (non-fatal — the backup itself already succeeded): $(cat /tmp/register_backup.err 2>/dev/null)"
+  fi
+  rm -f /tmp/register_backup.err
+}
+
 # ── generic Postgres dump: pg_dump over (optional) SSH, gzip, push ──────────────────────────────
-# args: label  ssh_alias  container  db_user  db_name  subpath
+# args: label  ssh_alias  container  db_user  db_name  subpath  [service_id]
 pg_backup() {
-  local label="$1" alias="$2" container="$3" user="$4" db="$5" sub="$6"
+  local label="$1" alias="$2" container="$3" user="$4" db="$5" sub="$6" service_id="${7:-}"
   local out="$DUMP_DIR/${label}-$DATE.sql.gz"
   if run_remote "$alias" "docker exec $container pg_dump -U $user $db" 2>/tmp/"$label".err | gzip > "$out"; then
     if [ -s "$out" ]; then
       log "$label dump OK: $out ($(du -sh "$out" | cut -f1))"
       push "$out" "$sub"
+      register_backup "$service_id" "Automated fleet-state-backup — ${label} ${DATE}" "fleet-state-backups:${sub}/$(basename "$out")" "$(stat -c%s "$out" 2>/dev/null)"
     else
       log "$label dump empty — treating as failure. $(cat /tmp/"$label".err 2>/dev/null)"
       FAILED=1; FAIL_DETAIL+="${label}(empty) "
@@ -97,7 +125,7 @@ pg_backup() {
 log "=== fleet state backup START ==="
 
 # ── sn-monitor: Grafana Postgres DB ──────────────────────────────────────────
-pg_backup "grafana-db" sn-monitor grafana-db grafana grafana "sn-monitor"
+pg_backup "grafana-db" sn-monitor grafana-db grafana grafana "sn-monitor" "75cc2f58-61c6-4252-9fc2-bad362a050ca"
 
 # ── sn-monitor: Uptime Kuma SQLite DB ────────────────────────────────────────
 # Online backup via a throwaway alpine+sqlite container (not a raw cp) — kuma.db runs in WAL
@@ -110,6 +138,7 @@ if ssh -o ConnectTimeout=10 -o BatchMode=yes sn-monitor \
   if [ -s "$KUMA_OUT" ]; then
     log "Uptime Kuma DB backup OK: $KUMA_OUT ($(du -sh "$KUMA_OUT" | cut -f1))"
     push "$KUMA_OUT" "sn-monitor"
+    register_backup "38216cea-f752-4c11-a1aa-5dfd4a27f696" "Automated fleet-state-backup — uptime-kuma ${DATE}" "fleet-state-backups:sn-monitor/$(basename "$KUMA_OUT")" "$(stat -c%s "$KUMA_OUT" 2>/dev/null)"
   else
     log "Uptime Kuma DB backup empty — treating as failure. $(cat /tmp/kuma-dump.err 2>/dev/null)"
     FAILED=1; FAIL_DETAIL+="uptime-kuma(empty) "
@@ -133,6 +162,7 @@ if docker run --rm -v vaultwarden_vaultwarden_data:/data:ro alpine sh -c \
   if [ -s "$VW_OUT" ]; then
     log "Vaultwarden DB backup OK: $VW_OUT ($(du -sh "$VW_OUT" | cut -f1))"
     push "$VW_OUT" "gateway"
+    register_backup "1845174e-bdb3-4920-bdd7-0ed29d91207f" "Automated fleet-state-backup — vaultwarden-db ${DATE}" "fleet-state-backups:gateway/$(basename "$VW_OUT")" "$(stat -c%s "$VW_OUT" 2>/dev/null)"
   else
     log "Vaultwarden DB backup empty — treating as failure. $(cat /tmp/vaultwarden.err 2>/dev/null)"
     FAILED=1; FAIL_DETAIL+="vaultwarden(empty) "
@@ -144,13 +174,14 @@ fi
 rm -f /tmp/vaultwarden.err
 
 # ── sn-infra: Forgejo (Postgres DB + real repo data) ─────────────────────────
-pg_backup "forgejo-db" sn-infra forgejo-db forgejo forgejo "sn-infra"
+pg_backup "forgejo-db" sn-infra forgejo-db forgejo forgejo "sn-infra" "d04dfe22-503a-4210-a70e-b8aeb323d546"
 FORGEJO_OUT="$DUMP_DIR/forgejo-data-$DATE.tar.gz"
 if ssh -o ConnectTimeout=10 -o BatchMode=yes sn-infra \
     "docker exec forgejo tar -cf - -C /data ." 2>/tmp/forgejo-data.err | gzip > "$FORGEJO_OUT"; then
   if [ -s "$FORGEJO_OUT" ]; then
     log "Forgejo data tar OK: $FORGEJO_OUT ($(du -sh "$FORGEJO_OUT" | cut -f1))"
     push "$FORGEJO_OUT" "sn-infra"
+    register_backup "b8e89522-88e4-4eea-bd36-1755a4fbd917" "Automated fleet-state-backup — forgejo-data ${DATE}" "fleet-state-backups:sn-infra/$(basename "$FORGEJO_OUT")" "$(stat -c%s "$FORGEJO_OUT" 2>/dev/null)"
   else
     log "Forgejo data tar empty — treating as failure. $(cat /tmp/forgejo-data.err 2>/dev/null)"
     FAILED=1; FAIL_DETAIL+="forgejo-data(empty) "
@@ -162,9 +193,9 @@ fi
 rm -f /tmp/forgejo-data.err
 
 # ── sn-infra: PowerDNS-Admin, hot-wiki, Namevault Postgres DBs ───────────────
-pg_backup "pdns-admin-db" sn-infra pdns-admin-db pdnsadmin pdnsadmin "sn-infra"
-pg_backup "hot-wiki-db" sn-infra hot-wiki-db wikijs wiki "sn-infra"
-pg_backup "namevault-db" sn-infra namegen-db namegen namegen "sn-infra"
+pg_backup "pdns-admin-db" sn-infra pdns-admin-db pdnsadmin pdnsadmin "sn-infra" "dcfa2725-8bf4-44f7-90dc-b7f87b0ce10f"
+pg_backup "hot-wiki-db" sn-infra hot-wiki-db wikijs wiki "sn-infra" "c1f16fc8-cbea-4757-bb65-95dea60fa4bf"
+pg_backup "namevault-db" sn-infra namegen-db namegen namegen "sn-infra" "35131f43-a0b0-4942-87bf-cea50631d5c4"
 
 # ── hot-erp-nl: ERPNext (MariaDB + real uploaded-file volumes) ───────────────
 ERP_DB_OUT="$DUMP_DIR/dickson-db-$DATE.sql.gz"
@@ -174,6 +205,10 @@ if ssh -o ConnectTimeout=10 -o BatchMode=yes hot-erp-nl \
   if [ -s "$ERP_DB_OUT" ]; then
     log "ERPNext DB dump OK: $ERP_DB_OUT ($(du -sh "$ERP_DB_OUT" | cut -f1))"
     push "$ERP_DB_OUT" "hot-erp-nl"
+    register_backup "9fa5d495-1e3c-4f69-8b43-4e9787eedf3c" "Automated fleet-state-backup — dickson-db ${DATE}" "fleet-state-backups:hot-erp-nl/$(basename "$ERP_DB_OUT")" "$(stat -c%s "$ERP_DB_OUT" 2>/dev/null)"
+    # Also registered against dickson-backend -- the row with ERPNext's real public access_url,
+    # what Mr. Byrne actually looks at, not the DB sidecar row.
+    register_backup "0d84e024-b19c-43f6-9893-22fdaa67343f" "Automated fleet-state-backup — dickson-db ${DATE}" "fleet-state-backups:hot-erp-nl/$(basename "$ERP_DB_OUT")" "$(stat -c%s "$ERP_DB_OUT" 2>/dev/null)"
   else
     log "ERPNext DB dump empty — treating as failure. $(cat /tmp/dickson-db.err 2>/dev/null)"
     FAILED=1; FAIL_DETAIL+="dickson-db(empty) "
@@ -191,6 +226,7 @@ if ssh -o ConnectTimeout=10 -o BatchMode=yes hot-erp-nl \
   if [ -s "$ERP_FILES_OUT" ]; then
     log "ERPNext files tar OK: $ERP_FILES_OUT ($(du -sh "$ERP_FILES_OUT" | cut -f1))"
     push "$ERP_FILES_OUT" "hot-erp-nl"
+    register_backup "0d84e024-b19c-43f6-9893-22fdaa67343f" "Automated fleet-state-backup — dickson-files ${DATE}" "fleet-state-backups:hot-erp-nl/$(basename "$ERP_FILES_OUT")" "$(stat -c%s "$ERP_FILES_OUT" 2>/dev/null)"
   else
     log "ERPNext files tar empty — treating as failure. $(cat /tmp/dickson-files.err 2>/dev/null)"
     FAILED=1; FAIL_DETAIL+="dickson-files(empty) "
@@ -202,7 +238,7 @@ fi
 rm -f /tmp/dickson-files.err
 
 # ── hot-pn: Nextcloud (Postgres DB + real 13GB user-data directory) ──────────
-pg_backup "nextcloud-db" hot-pn nextcloud-db nextcloud nextcloud "hot-pn"
+pg_backup "nextcloud-db" hot-pn nextcloud-db nextcloud nextcloud "hot-pn" "2b97cd5c-0e0e-4322-8d60-df1597c7f922"
 NEXTCLOUD_OUT="$DUMP_DIR/nextcloud-data-$DATE.tar.gz"
 log "Streaming Nextcloud's real data directory (~13GB) -- this is the largest single piece, may take several minutes..."
 if ssh -o ConnectTimeout=10 -o BatchMode=yes hot-pn \
@@ -210,6 +246,9 @@ if ssh -o ConnectTimeout=10 -o BatchMode=yes hot-pn \
   if [ -s "$NEXTCLOUD_OUT" ]; then
     log "Nextcloud data tar OK: $NEXTCLOUD_OUT ($(du -sh "$NEXTCLOUD_OUT" | cut -f1))"
     push "$NEXTCLOUD_OUT" "hot-pn"
+    # Also register against the parent app row -- nextcloud-data (not nextcloud-db) is the size
+    # that matters for readiness/RTO on the row Mr. Byrne actually looks at in the UI.
+    register_backup "3c4b8f16-dbd7-449d-814d-8bebfd3f9248" "Automated fleet-state-backup — nextcloud-data ${DATE}" "fleet-state-backups:hot-pn/$(basename "$NEXTCLOUD_OUT")" "$(stat -c%s "$NEXTCLOUD_OUT" 2>/dev/null)"
   else
     log "Nextcloud data tar empty — treating as failure. $(cat /tmp/nextcloud-data.err 2>/dev/null)"
     FAILED=1; FAIL_DETAIL+="nextcloud-data(empty) "
@@ -224,7 +263,7 @@ rm -f /tmp/nextcloud-data.err
 # Added 2026-09-09, deployed via the Catalogue flow same day as the Nextcloud/Notesnook domain
 # consolidation under privatenexus.net -- see claude-md/services-hotpn.md and network.md. Same
 # treatment as Nextcloud above (container-side tar -> gzip, no local disk use on either end).
-pg_backup "immich-db" hot-pn immich-db immich immich "hot-pn"
+pg_backup "immich-db" hot-pn immich-db immich immich "hot-pn" "01e867df-446d-47b7-ac5c-25659bc7dff0"
 IMMICH_OUT="$DUMP_DIR/immich-library-$DATE.tar.gz"
 log "Streaming Immich's photo/video library -- size grows over time, may take a while..."
 if ssh -o ConnectTimeout=10 -o BatchMode=yes hot-pn \
@@ -232,6 +271,9 @@ if ssh -o ConnectTimeout=10 -o BatchMode=yes hot-pn \
   if [ -s "$IMMICH_OUT" ]; then
     log "Immich library tar OK: $IMMICH_OUT ($(du -sh "$IMMICH_OUT" | cut -f1))"
     push "$IMMICH_OUT" "hot-pn"
+    # Registered against the parent "immich" row (not immich-db) -- the library is what matters
+    # for readiness/RTO on the row Mr. Byrne actually looks at.
+    register_backup "6d0bed55-30c2-434c-88d7-5280163152d0" "Automated fleet-state-backup — immich-library ${DATE}" "fleet-state-backups:hot-pn/$(basename "$IMMICH_OUT")" "$(stat -c%s "$IMMICH_OUT" 2>/dev/null)"
   else
     log "Immich library tar empty — treating as failure. $(cat /tmp/immich-library.err 2>/dev/null)"
     FAILED=1; FAIL_DETAIL+="immich-library(empty) "
@@ -241,6 +283,66 @@ else
   FAILED=1; FAIL_DETAIL+="immich-library(tar) "
 fi
 rm -f /tmp/immich-library.err
+
+# ── hot-pn: Notesnook (MongoDB + real S3 attachment store) ───────────────────
+# Added 2026-09-10 -- found genuinely missing while investigating Mr. Byrne's report of wrong/blank
+# service metadata in PN's Inventory: Notesnook was deployed 2026-08-10 and had ZERO
+# application-consistent backup anywhere in this script, unlike Nextcloud/Immich (only
+# pbs-host-backup.sh's broad nightly /opt tar would have caught it, a raw non-Mongo-aware copy of
+# live WiredTiger files, not a real dump). mongodump against the live replica-set-mode Mongo
+# (notesnook-db, real 544MB as of 2026-09-10 despite zero end-user adoption -- see
+# personal_services_privatenexus_banner memory) inside the container, tarred, gzipped, pushed --
+# same no-local-disk pattern as everything else here. MinIO's attachment store (notesnook-s3,
+# 328KB as of this writing, essentially empty) included too for completeness even though there's
+# nothing real in it yet.
+NOTESNOOK_DB_OUT="$DUMP_DIR/notesnook-db-$DATE.archive.gz"
+if ssh -o ConnectTimeout=10 -o BatchMode=yes hot-pn \
+    "docker exec notesnook-db mongodump --archive" 2>/tmp/notesnook-db.err | gzip > "$NOTESNOOK_DB_OUT"; then
+  if [ -s "$NOTESNOOK_DB_OUT" ]; then
+    log "Notesnook DB dump OK: $NOTESNOOK_DB_OUT ($(du -sh "$NOTESNOOK_DB_OUT" | cut -f1))"
+    push "$NOTESNOOK_DB_OUT" "hot-pn"
+    register_backup "9a518a5d-a780-4019-a797-1b4190080db9" "Automated fleet-state-backup — notesnook-db ${DATE}" "fleet-state-backups:hot-pn/$(basename "$NOTESNOOK_DB_OUT")" "$(stat -c%s "$NOTESNOOK_DB_OUT" 2>/dev/null)"
+    # Also registered against the parent "notesnook" row -- the actual note content lives in this
+    # dump, not in notesnook-s3 (attachments only, currently near-empty).
+    register_backup "184eb7a7-3503-4c0b-86d6-a360e327cb2c" "Automated fleet-state-backup — notesnook ${DATE}" "fleet-state-backups:hot-pn/$(basename "$NOTESNOOK_DB_OUT")" "$(stat -c%s "$NOTESNOOK_DB_OUT" 2>/dev/null)"
+  else
+    log "Notesnook DB dump empty — treating as failure. $(cat /tmp/notesnook-db.err 2>/dev/null)"
+    FAILED=1; FAIL_DETAIL+="notesnook-db(empty) "
+  fi
+else
+  log "Notesnook DB dump FAILED: $(cat /tmp/notesnook-db.err 2>/dev/null)"
+  FAILED=1; FAIL_DETAIL+="notesnook-db(dump) "
+fi
+rm -f /tmp/notesnook-db.err
+
+NOTESNOOK_S3_OUT="$DUMP_DIR/notesnook-s3-$DATE.tar.gz"
+# Real bug found+fixed 2026-09-11 (first real production run of this block): `docker exec
+# notesnook-s3 tar ...` always failed -- MinIO's image is minimal/scratch-based and has no `tar`,
+# `which`, or `grep` binaries at all (confirmed live via `docker exec notesnook-s3 which tar` ->
+# "executable file not found"). The failure was silent in practice because `[ -s "$OUT" ]` only
+# checks the output file is non-empty, and gzip's own header+trailer for zero real input is itself
+# a small non-empty file (~20-30 bytes) -- so this block had been reporting false "OK" (the
+# "notesnook-s3-...-4.0K" size in earlier logs was disk block-size rounding on an essentially empty
+# archive, not real content). Fixed two ways: (1) tar the host-side bind mount directly over SSH
+# instead of going through the container at all (MinIO's data is a bind mount, not a named volume --
+# `/opt/stacks/notesnook/s3-data` on hot-pn -- so no docker exec is even needed); (2) raised the
+# emptiness threshold from "any non-zero size" to a real minimum, so a bare gzip header can never
+# pass as success again.
+if ssh -o ConnectTimeout=10 -o BatchMode=yes hot-pn \
+    "tar -cf - -C /opt/stacks/notesnook/s3-data ." 2>/tmp/notesnook-s3.err | gzip > "$NOTESNOOK_S3_OUT"; then
+  if [ -s "$NOTESNOOK_S3_OUT" ] && [ "$(stat -c%s "$NOTESNOOK_S3_OUT" 2>/dev/null || echo 0)" -gt 100 ]; then
+    log "Notesnook S3 tar OK: $NOTESNOOK_S3_OUT ($(du -sh "$NOTESNOOK_S3_OUT" | cut -f1))"
+    push "$NOTESNOOK_S3_OUT" "hot-pn"
+    register_backup "34b80515-e6ec-4e92-b0bc-7d859832c805" "Automated fleet-state-backup — notesnook-s3 ${DATE}" "fleet-state-backups:hot-pn/$(basename "$NOTESNOOK_S3_OUT")" "$(stat -c%s "$NOTESNOOK_S3_OUT" 2>/dev/null)"
+  else
+    log "Notesnook S3 tar empty — treating as failure. $(cat /tmp/notesnook-s3.err 2>/dev/null)"
+    FAILED=1; FAIL_DETAIL+="notesnook-s3(empty) "
+  fi
+else
+  log "Notesnook S3 tar FAILED: $(cat /tmp/notesnook-s3.err 2>/dev/null)"
+  FAILED=1; FAIL_DETAIL+="notesnook-s3(tar) "
+fi
+rm -f /tmp/notesnook-s3.err
 
 # ── sn-security: Wazuh indexer (OpenSearch) snapshot ─────────────────────────
 # Added 2026-09-08, closing the last flagged gap in this script: Wazuh's security-event history
@@ -313,6 +415,7 @@ for s in data.get('snapshots', []):
       if [ -s "$WAZUH_SNAP_OUT" ]; then
         log "Wazuh indexer snapshot tar OK: $WAZUH_SNAP_OUT ($(du -sh "$WAZUH_SNAP_OUT" | cut -f1))"
         push "$WAZUH_SNAP_OUT" "sn-security"
+        register_backup "9660b974-bdb7-46ac-ad8f-73c9dc21b049" "Automated fleet-state-backup — wazuh-indexer-snapshot ${DATE}" "fleet-state-backups:sn-security/$(basename "$WAZUH_SNAP_OUT")" "$(stat -c%s "$WAZUH_SNAP_OUT" 2>/dev/null)"
       else
         log "Wazuh indexer snapshot tar empty — treating as failure. $(cat /tmp/wazuh-snap-tar.err 2>/dev/null)"
         FAILED=1; FAIL_DETAIL+="wazuh-indexer(empty) "
