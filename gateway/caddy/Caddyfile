@@ -169,6 +169,26 @@ photos.privatenexus.net {
     reverse_proxy 10.10.2.2:26286
     header Strict-Transport-Security "max-age=31536000; includeSubDomains"
 }
+portal.privatenexus.net {
+    log
+    import crowdsec
+    import compress
+    # Heimdall (Catalogue deploy, 2026-09-11) -- application dashboard/launcher for the personal-
+    # services + self-hosted app batch (Sonarr/Radarr/Prowlarr/Bazarr/qBittorrent/Plex/Jellyfin/
+    # Bookstack/Grocy/Calibre-Web-Automated), part of the privatenexus.net banner.
+    #
+    # ⚠ No `import sso` here, and it's NOT a documented exception like the other no-SSO blocks in
+    # this file (Immich/cloud/docs above all have a REAL alternative -- native OIDC or a deliberate
+    # public-read design). Heimdall has neither: it's a plain Laravel app with no OIDC support at
+    # all, and `import sso` structurally cannot gate anything on privatenexus.net regardless --
+    # the shared oauth2-proxy's CSRF cookie is scoped to .house-of-trae.com/.securenexus.net only,
+    # the exact same domain-mismatch bug already found and fixed once on securenexus.net (see
+    # checklists.md's SSO section). This is a REAL, currently-open gap: unauthenticated access,
+    # unless Heimdall's own optional built-in password has been set inside the app itself (Settings
+    # > Security) -- verify that's done, this Caddy block alone provides no login wall.
+    reverse_proxy 10.10.2.2:28257
+    header Strict-Transport-Security "max-age=31536000; includeSubDomains"
+}
 docs.privatenexus.net {
     log
     import crowdsec

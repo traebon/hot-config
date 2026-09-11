@@ -19,6 +19,16 @@ set -uo pipefail
 
 DUMP_DIR="/var/backups/fleet-state"
 RETENTION_DAYS=30
+# Local staging retention, deliberately much shorter than the cloud copy's 30 days -- this
+# directory is only meant to hold each night's dump long enough to push it to Hetzner/B2, not to
+# be a second 30-day archive. Found 2026-09-11 (Gateway disk space item, real and current):
+# nextcloud-data alone is ~12GB/night and RETENTION_DAYS=30 meant up to ~360GB could accumulate
+# here -- on a 118GB disk, this alone had driven the Gateway to 96% full. 3 days is enough buffer
+# to retry a failed push without needing to re-dump, while the real 30-day history lives on the
+# cloud remotes (verified live before this change: every recent nextcloud-data dump already present
+# on both hetzner-crypt and b2-hot-crypt with matching sizes) -- shortening local retention loses
+# nothing that isn't already safely backed up elsewhere.
+LOCAL_RETENTION_DAYS=3
 NTFY_URL="https://ntfy.house-of-trae.com"
 NTFY_TOPIC="hot-alerts"
 NTFY_TOKEN_FILE="/etc/apt-daily-update/ntfy_token"
@@ -344,6 +354,19 @@ else
 fi
 rm -f /tmp/notesnook-s3.err
 
+# ── hot-pn: pn-docs / Wiki.js (Postgres DB) ──────────────────────────────────
+# Added 2026-09-11, closing a real gap found while auditing every service for a backup
+# record/policy (Mr. Byrne: "none of these squares should be without a health check or backup
+# policy or record"): pn-docs-db never got added when fleet-state-backup.sh's hot-pn section was
+# built -- the only coverage it had was pbs-host-backup.sh's raw /opt tar, which is crash-
+# consistent (no pg_dump/checkpoint coordination), not application-consistent, for a live Postgres
+# data directory. Also registers against the parent "pn-docs" row for the same reason
+# Nextcloud/Immich/Notesnook's data dumps register against their parent app row above.
+pg_backup "pn-docs-db" hot-pn pn-docs-db wikijs wiki "hot-pn" "fc9bc32c-7faf-432c-8dac-aa2fa48e8975"
+if [ -f "$DUMP_DIR/pn-docs-db-$DATE.sql.gz" ]; then
+  register_backup "2f4cdf07-7aa6-4c86-9ae3-f2527c45dc6a" "Automated fleet-state-backup — pn-docs ${DATE}" "fleet-state-backups:hot-pn/pn-docs-db-$DATE.sql.gz" "$(stat -c%s "$DUMP_DIR/pn-docs-db-$DATE.sql.gz" 2>/dev/null)"
+fi
+
 # ── sn-security: Wazuh indexer (OpenSearch) snapshot ─────────────────────────
 # Added 2026-09-08, closing the last flagged gap in this script: Wazuh's security-event history
 # had no application-consistent backup anywhere, only whatever crash-consistent state happened to
@@ -433,7 +456,8 @@ for s in data.get('snapshots', []):
 fi
 
 # ── retention cleanup ─────────────────────────────────────────────────────────
-find "$DUMP_DIR" -type f -mtime "+${RETENTION_DAYS}" -delete
+# Local vs. cloud deliberately decoupled -- see LOCAL_RETENTION_DAYS note above.
+find "$DUMP_DIR" -type f -mtime "+${LOCAL_RETENTION_DAYS}" -delete
 for REMOTE in hetzner-crypt b2-hot-crypt; do
   rclone listremotes 2>/dev/null | grep -q "^${REMOTE}:" || continue
   rclone delete "${REMOTE}:fleet-state-backups/" --min-age "${RETENTION_DAYS}d" 2>&1 | while IFS= read -r l; do log "  prune $REMOTE: $l"; done

@@ -164,3 +164,61 @@ be reachable from a public VPS that itself sits behind that same Caddy instance.
 - **Phase 2**: Notesnook's 5-service stack as the complexity stress test for the template schema.
 - **Phase 3** (only after Phase 1 is trusted in real use): revisit DNS auto-apply (Option B), and
   separately, whether Caddy automation (Option C) is ever wanted at all.
+
+---
+
+## 8. Phase 3 revisit — 2026-09-11
+
+Phase 1 has now been exercised for real 4 times (Nextcloud, Notesnook, Immich, Heimdall) — the
+"only after Phase 1 is trusted in real use" gate from §7 is met. Mr. Byrne asked why DNS/Caddy
+wiring still doesn't happen automatically after doing the Heimdall one by hand; this section is
+the real answer, updated against 2026-09-11 evidence rather than the original theoretical framing.
+
+**What's actually still true, re-verified live today, not assumed from the original doc:**
+- `PDNS_API_KEY` — still not configured on PN's backend. `env | grep PDNS` on `privatenexus-backend`
+  confirms it's absent.
+- Caddy's admin API — still `admin off` in the real Caddyfile's global block, confirmed via a live
+  connection attempt to `localhost:2019` from inside the `caddy` container itself (`Connection
+  refused`). Caddy *does* already hold a real `PDNS_API_KEY` locally, but only for its own
+  `acme_dns` DNS-01 challenge automation — a narrower, different-purpose credential than what PN's
+  backend would need to create new A records on demand.
+
+**What 4 real deploys actually taught, beyond what §5 theorized in August:**
+- The DNS half of this genuinely is mechanical and low-risk every single time: one `PATCH` to
+  PowerDNS's REST API, one new A record, always the bare `151.241.217.91` apex value, always
+  `REPLACE`. Zero judgment calls in 4/4 real cases.
+- The Caddy half is **not** uniformly mechanical, and Heimdall just proved it concretely: every
+  site block so far has needed a **real per-app auth-gating decision** — `import sso` (never
+  actually used on `privatenexus.net`, its cookie domain can't reach it — same class of bug already
+  fixed once on `securenexus.net`, see `checklists.md`), native OIDC (Immich), a documented
+  public-read exception (docs.privatenexus.net, cloud.privatenexus.net for WebDAV clients), or —
+  Heimdall's real case — **no good option exists at all**, and the honest answer was to ship it
+  publicly anyway with a loud comment flagging the gap rather than silently wiring something that
+  looks safe but isn't. A template or LLM applying a default `import sso` block here would have
+  shipped a broken, un-auditable login wall; skipping the gate silently would have shipped an
+  unflagged public exposure. Neither is acceptable to auto-apply without a human reading the
+  specific app's real auth story first.
+
+**Recommendation, updated: Option B, exactly as originally scoped, now with real evidence to back
+it rather than just the abstract "DNS is lower blast-radius" argument.**
+- **Automate DNS** (new `action_type`, e.g. `service.dns_record_create` — or fold into the existing
+  `service.provision_from_catalogue` executor as a step after container deploy succeeds): mints a
+  scoped `PDNS_API_KEY` for PN's backend if PowerDNS supports per-zone tokens (check before
+  assuming; if not, the existing fleet-wide key, same as every other automated DNS write this
+  project already does via scripts), issues the `PATCH` directly, records the change in
+  `action_requests`/`change_records` like everything else in this governance model. Real risk if
+  wrong: one A record pointing somewhere unexpected, trivially reverted, never affects any other
+  domain.
+- **Caddy stays generate-only, permanently, not just "for now."** Render the real site block text
+  (matching whichever of the real patterns above fits the app: `import sso`, native-OIDC-no-gate,
+  public-read-no-gate, or — Heimdall's case — flag as unresolved and require an explicit human
+  choice before the block is even generated) into the same `action_requests.params` the compose
+  preview already uses, so the *reviewer* sees the proposed Caddy block and auth story before
+  anything is applied, but a human still runs the actual `docker compose restart caddy` after
+  eyeballing it. This isn't "Option C isn't built yet" — it's "Option C is actively the wrong
+  target," now backed by a real example (Heimdall) where the correct action was a judgment call an
+  automated default would have gotten wrong in either direction.
+
+**Not yet decided — needs Mr. Byrne specifically, same as every other real decision in this doc:**
+whether to build the DNS-automation half at all, given it only saves one `curl`/API call per deploy
+and the Caddy half (the actually time-consuming part) stays manual regardless.
