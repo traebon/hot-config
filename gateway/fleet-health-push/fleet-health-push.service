@@ -1,0 +1,8 @@
+[Unit]
+Description=Push docker-container health/liveness facts into PrivateNexus for services its own prober can't reach directly
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/fleet-health-push.sh

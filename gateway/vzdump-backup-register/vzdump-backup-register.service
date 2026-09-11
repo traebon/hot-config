@@ -1,0 +1,8 @@
+[Unit]
+Description=Register the latest real Proxmox vzdump snapshot for each hot-bm-nl VM into PrivateNexus's service_backups
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/vzdump-backup-register.sh

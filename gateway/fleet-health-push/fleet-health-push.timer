@@ -1,0 +1,12 @@
+[Unit]
+Description=Run fleet-health-push every 5 minutes
+
+[Timer]
+# OnCalendar, not OnBootSec/OnUnitActiveSec alone -- see operational-rules.md's systemd timer
+# wedge-bug note (2026-08-19). Every recurring timer in this project uses OnCalendar for exactly
+# this reason.
+OnCalendar=*:0/5
+Persistent=true
+
+[Install]
+WantedBy=timers.target

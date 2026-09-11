@@ -20,6 +20,29 @@ NTFY_TOKEN="tk_c2efkgyxtt24uf48bo1snua86tthb"
 
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
 
+# ── Register a completed backup into PN's own service_backups table ─────────────────────────────
+# Same gap, same fix as fleet-state-backup.sh (2026-09-10/11): this script's backups have always
+# genuinely run, but nothing ever told PN about them -- gateway-tor/gateway-powerdns-db/
+# gateway-mailserver all showed backup_policy=daily next to zero rows in service_backups. Same
+# pattern pg_dump.sh already used: direct psql INSERT, run locally (this script runs ON the
+# Gateway, same host privatenexus-backend's session-gated API would otherwise require going
+# through — but this runs unattended on cron with no session to hold, hence direct DB write).
+# args: service_id  label  location  size_bytes
+register_backup() {
+  local service_id="$1" label="$2" location="$3" size_bytes="$4"
+  [ -z "$service_id" ] && return 0
+  local esc_label esc_location
+  esc_label="$(printf '%s' "$label" | sed "s/'/''/g")"
+  esc_location="$(printf '%s' "$location" | sed "s/'/''/g")"
+  local sql="INSERT INTO service_backups (tenant_id, service_id, label, backup_type, trust_state, location, size_bytes, notes) VALUES ('10000000-0000-0000-0000-000000000001', '${service_id}', '${esc_label}', 'full', 'trusted', '${esc_location}', ${size_bytes:-NULL}, 'Registered by backup-gateway-vps.sh (Gateway) -- same pattern pg_dump.sh uses for privatenexus-db.');"
+  if ! ssh -o ConnectTimeout=10 -o BatchMode=yes hot-pn \
+      "docker exec -i privatenexus-db psql -U privatenexus -d privatenexus -v ON_ERROR_STOP=1 -c \"$sql\"" \
+      >/tmp/register_backup.err 2>&1; then
+    log "  register_backup FAILED for service_id=$service_id (non-fatal): $(cat /tmp/register_backup.err 2>/dev/null)"
+  fi
+  rm -f /tmp/register_backup.err
+}
+
 send_alert() {
     local title="$1" body="$2" priority="${3:-high}" tags="${4:-warning,floppy_disk}"
     # Email via local mailserver (always up on Gateway VPS)
@@ -86,6 +109,9 @@ if ssh -o ConnectTimeout=10 -o BatchMode=yes "$REMOTE_HOST" "mkdir -p $REMOTE_PA
     scp "$BACKUP_DIR/powerdns/powerdns-db-$DATE.sql.gz"    "$REMOTE_HOST:$REMOTE_PATH/"
     scp "$BACKUP_DIR/mailserver/mailserver-$DATE.tar.gz"   "$REMOTE_HOST:$REMOTE_PATH/"
     log "  Push complete."
+    register_backup "1e314fc0-4aaf-4a4f-b427-5480c9088793" "Automated backup-gateway-vps — tor $DATE" "$REMOTE_HOST:$REMOTE_PATH/tor-hidden-service-$DATE.tar.gz" "$(stat -c%s "$BACKUP_DIR/tor/tor-hidden-service-$DATE.tar.gz" 2>/dev/null)"
+    register_backup "de39b662-5121-4464-8527-9ffb227b9f23" "Automated backup-gateway-vps — powerdns-db $DATE" "$REMOTE_HOST:$REMOTE_PATH/powerdns-db-$DATE.sql.gz" "$(stat -c%s "$BACKUP_DIR/powerdns/powerdns-db-$DATE.sql.gz" 2>/dev/null)"
+    register_backup "4c135ed4-0262-4286-8988-fad4739bd27d" "Automated backup-gateway-vps — mailserver $DATE" "$REMOTE_HOST:$REMOTE_PATH/mailserver-$DATE.tar.gz" "$(stat -c%s "$BACKUP_DIR/mailserver/mailserver-$DATE.tar.gz" 2>/dev/null)"
 else
     log "  WARNING: Proxmox unreachable — extending retention to ${RETENTION_DAYS_EXTENDED}d."
     PRUNED_AFTER=$RETENTION_DAYS_EXTENDED
@@ -118,6 +144,9 @@ else
             done
         done
         log "  rclone push complete (failed=${RCLONE_FAILED})."
+        register_backup "1e314fc0-4aaf-4a4f-b427-5480c9088793" "Automated backup-gateway-vps — tor $DATE (rclone fallback)" "hetzner-crypt:gateway-vps-backups/tor/tor-hidden-service-$DATE.tar.gz" "$(stat -c%s "$BACKUP_DIR/tor/tor-hidden-service-$DATE.tar.gz" 2>/dev/null)"
+        register_backup "de39b662-5121-4464-8527-9ffb227b9f23" "Automated backup-gateway-vps — powerdns-db $DATE (rclone fallback)" "hetzner-crypt:gateway-vps-backups/powerdns/powerdns-db-$DATE.sql.gz" "$(stat -c%s "$BACKUP_DIR/powerdns/powerdns-db-$DATE.sql.gz" 2>/dev/null)"
+        register_backup "4c135ed4-0262-4286-8988-fad4739bd27d" "Automated backup-gateway-vps — mailserver $DATE (rclone fallback)" "hetzner-crypt:gateway-vps-backups/mailserver/mailserver-$DATE.tar.gz" "$(stat -c%s "$BACKUP_DIR/mailserver/mailserver-$DATE.tar.gz" 2>/dev/null)"
     fi
 
     send_alert \

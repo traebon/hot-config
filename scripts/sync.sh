@@ -19,6 +19,56 @@ WARNINGS=()
 
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
 
+# ── Register config-backup coverage into PN's own service_backups table ─────────────────────────
+# Added 2026-09-11, closing the last "backup_policy set but zero records" gap Mr. Byrne flagged.
+# These 17 services are all config-only (no database of their own) -- their real, honest recovery
+# mechanism IS this script (redeploy from the tracked compose file, not a data restore, matching
+# every stateless-service runbook already written under docs/runbooks/), so it makes sense for
+# *this* script to be the one telling PN about it, not a separate one-off. Registers once per
+# successful run regardless of whether tonight had anything new to commit -- "config confirmed
+# current in git" is true either way, and only registering on nights with a real diff would make a
+# perfectly healthy mechanism look idle most nights. Same direct-psql-over-SSH register_backup
+# pattern every other backup script in this fleet already uses (no session to hold, runs unattended
+# on cron).
+register_config_backups() {
+  local location="$1"
+  local -A CONFIG_SERVICES=(
+    [b6a501a3-c617-4f54-b040-d356741f81cd]="gateway-caddy"
+    [5be9318b-27dc-411b-a1af-fd65c6366a4d]="gateway-crowdsec"
+    [90d7f704-e475-4663-ac27-a61d8e478279]="gateway-dockge"
+    [27ef53ed-0b71-45aa-a9a7-80776652f777]="gateway-gatus"
+    [363f329f-9232-4b68-97ff-270873356902]="gateway-keycloak"
+    [559af663-a8c1-45fc-8101-e7a693df62f3]="gateway-ntfy"
+    [c0c50bc8-fdb1-4d85-a25d-1d36bd0f78f9]="gateway-oauth2-proxy"
+    [3fdbc26c-e6af-46eb-8f07-8831ab566eee]="gateway-powerdns"
+    [8b896d45-6767-4efc-a479-694f0ad9157a]="gateway-roundcube"
+    [ca87d719-df12-4039-a112-236f6ffc197c]="gateway-sms-relay"
+    [8d6e8372-6afa-4efd-9886-e35b14df644f]="gateway-unbound"
+    [38c0be4a-d5bc-4e6b-a025-6b536738dc29]="powerdns-api"
+    [903b12a5-8085-4e5f-8942-238967615491]="sn-security-forgejo-runner"
+    [9f6ac970-ab1c-4bfc-9eca-eac5cb1970cf]="sn-security-watchtower"
+    [275f40af-f8d5-4135-8c8c-c373221646b5]="sn-security-wazuh-wazuh-dashboard-1"
+    [f86109fa-5d96-49db-85dd-e1e517f51a3d]="sn-security-wazuh-wazuh-manager-1"
+    [fccfb73f-1c26-41a0-98b2-d9042c0d20b6]="sn-web-stratus-digital"
+  )
+  local date; date=$(date '+%Y-%m-%d')
+  local values="" first=1
+  for service_id in "${!CONFIG_SERVICES[@]}"; do
+    local slug="${CONFIG_SERVICES[$service_id]}"
+    [ "$first" -eq 1 ] && first=0 || values+=","
+    values+="('10000000-0000-0000-0000-000000000001','${service_id}','Automated sync.sh config backup — ${slug} ${date}','config','trusted','${location}',NULL,'Registered by sync.sh — config-only service, real recovery is a redeploy from this tracked compose file, not a data restore.')"
+  done
+  local sql="INSERT INTO service_backups (tenant_id, service_id, label, backup_type, trust_state, location, size_bytes, notes) VALUES ${values};"
+  if ! ssh -o ConnectTimeout=10 -o BatchMode=yes hot-pn \
+      "docker exec -i privatenexus-db psql -U privatenexus -d privatenexus -v ON_ERROR_STOP=1 -c \"$sql\"" \
+      >/tmp/sync_register.err 2>&1; then
+    log "  register_config_backups FAILED (non-fatal): $(cat /tmp/sync_register.err 2>/dev/null)"
+  else
+    log "  register_config_backups: registered ${#CONFIG_SERVICES[@]} config-only services."
+  fi
+  rm -f /tmp/sync_register.err
+}
+
 notify() {
   local priority="$1" title="$2" message="$3"
   [ -f "$NTFY_TOKEN_FILE" ] || return 0
@@ -289,6 +339,7 @@ fi
 
 if $GIT diff --cached --quiet; then
   log "No changes — nothing to commit."
+  register_config_backups "git.securenexus.net/house-of-trae/hot-infrastructure (no changes tonight, config already current)"
   alert_if_warnings
   exit 0
 fi
@@ -312,6 +363,8 @@ for remote in github codeberg origin; do
     PUSH_FAILED=1
   fi
 done
+
+register_config_backups "git.securenexus.net/house-of-trae/hot-infrastructure (pushed $(date '+%Y-%m-%d'))"
 
 alert_if_warnings
 

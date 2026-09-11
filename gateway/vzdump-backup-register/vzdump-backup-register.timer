@@ -1,0 +1,10 @@
+[Unit]
+Description=Run vzdump-backup-register daily, after the real vzdump jobs (02:00/02:15) have had time to complete
+
+[Timer]
+OnCalendar=04:00
+RandomizedDelaySec=5min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

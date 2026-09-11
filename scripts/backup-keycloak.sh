@@ -23,6 +23,27 @@ NTFY_TOKEN="tk_c2efkgyxtt24uf48bo1snua86tthb"
 
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
 
+# ── Register a completed backup into PN's own service_backups table ─────────────────────────────
+# Same gap, same fix as fleet-state-backup.sh/backup-gateway-vps.sh (2026-09-10/11): this dump has
+# always genuinely run, but nothing ever told PN — gateway-keycloak-db/keycloak-hot both showed
+# backup_policy=daily next to zero rows in service_backups. Direct psql INSERT (this script runs
+# unattended on cron, no session to hold), same pattern pg_dump.sh already used for privatenexus-db.
+# args: service_id  label  location  size_bytes
+register_backup() {
+  local service_id="$1" label="$2" location="$3" size_bytes="$4"
+  [ -z "$service_id" ] && return 0
+  local esc_label esc_location
+  esc_label="$(printf '%s' "$label" | sed "s/'/''/g")"
+  esc_location="$(printf '%s' "$location" | sed "s/'/''/g")"
+  local sql="INSERT INTO service_backups (tenant_id, service_id, label, backup_type, trust_state, location, size_bytes, notes) VALUES ('10000000-0000-0000-0000-000000000001', '${service_id}', '${esc_label}', 'full', 'trusted', '${esc_location}', ${size_bytes:-NULL}, 'Registered by backup-keycloak.sh (Gateway) -- same pattern pg_dump.sh uses for privatenexus-db.');"
+  if ! ssh -o ConnectTimeout=10 -o BatchMode=yes hot-pn \
+      "docker exec -i privatenexus-db psql -U privatenexus -d privatenexus -v ON_ERROR_STOP=1 -c \"$sql\"" \
+      >/tmp/register_backup.err 2>&1; then
+    log "  register_backup FAILED for service_id=$service_id (non-fatal): $(cat /tmp/register_backup.err 2>/dev/null)"
+  fi
+  rm -f /tmp/register_backup.err
+}
+
 send_alert() {
     local title="$1" body="$2" priority="${3:-high}" tags="${4:-warning,floppy_disk}"
     # Email via local mailserver (always up on Gateway VPS)
@@ -53,6 +74,9 @@ mkdir -p "$DUMP_DIR"
 docker exec "$CONTAINER" pg_dump -U "$DB_USER" "$DB_NAME" | gzip > "$OUTFILE"
 SIZE=$(du -sh "$OUTFILE" | cut -f1)
 log "Dump complete: $OUTFILE ($SIZE)"
+SIZE_BYTES=$(stat -c%s "$OUTFILE" 2>/dev/null)
+register_backup "4d5cff0b-50aa-4eb2-abc5-2c87bef57919" "Automated backup-keycloak — $DATE" "$OUTFILE" "$SIZE_BYTES"
+register_backup "de386f0b-78bc-4161-9233-aa55084ed1e1" "Automated backup-keycloak — $DATE" "$OUTFILE" "$SIZE_BYTES"
 
 # Push to Proxmox (non-fatal — Proxmox may be unreachable during outage)
 PRUNED_AFTER=$RETENTION_DAYS
