@@ -1,0 +1,23 @@
+services:
+  forgejo-mcp:
+    build: .
+    container_name: forgejo-mcp
+    restart: always
+    ports:
+      - "127.0.0.1:3004:3004"
+    environment:
+      FORGEJO_URL: "http://10.10.10.100:3000"
+      FORGEJO_TOKEN_FILE: "/run/secrets/forgejo_token"
+      MCP_AUTH_TOKEN_FILE: "/run/secrets/mcp_auth_token"
+      PORT: "3004"
+    secrets:
+      - forgejo_token
+      - mcp_auth_token
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"
+
+secrets:
+  forgejo_token:
+    file: ./secrets/forgejo_token.txt
+  mcp_auth_token:
+    file: ./secrets/mcp_auth_token.txt
