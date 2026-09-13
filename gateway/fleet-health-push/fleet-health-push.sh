@@ -152,6 +152,9 @@ push_container_health "gateway-powerdns-db"  "powerdns-db"
 push_container_health "gateway-sms-relay"    "sms-relay"
 push_container_health "gateway-tor"          "tor"
 push_container_health "gateway-unbound"      "unbound"
+push_container_health "gateway-node-exporter" "node-exporter"
+push_container_health "gateway-promtail"      "promtail"
+push_container_health "gateway-watchtower"    "watchtower"
 
 # ── hot-erp-nl's internal-only containers ────────────────────────────────────────────────────────
 push_container_health "hot-erp-nl-dickson-db"          "dickson-db"          "hot-erp-nl"
@@ -168,13 +171,26 @@ push_container_health "sn-infra-forgejo-db"     "forgejo-db"     "sn-infra"
 push_container_health "sn-infra-hot-wiki-db"    "hot-wiki-db"    "sn-infra"
 push_container_health "sn-infra-namegen-db"     "namegen-db"     "sn-infra"
 push_container_health "sn-infra-pdns-admin-db"  "pdns-admin-db"  "sn-infra"
+push_container_health "sn-infra-node-exporter"  "node-exporter"  "sn-infra"
+push_container_health "sn-infra-promtail"       "promtail"       "sn-infra"
+push_container_health "sn-infra-watchtower"     "watchtower"     "sn-infra"
+
+# ── sn-web's fleet-monitoring containers (added 2026-09-13, closing the Discovery-approve
+# health_endpoint gap for these 3 alongside the identical sn-infra/sn-monitor/gateway additions) ──
+push_container_health "sn-web-node-exporter" "node-exporter" "sn-web"
+push_container_health "sn-web-promtail"      "promtail"      "sn-web"
+push_container_health "sn-web-watchtower"    "watchtower"    "sn-web"
 
 # ── sn-monitor's internal-only DB sidecar ────────────────────────────────────────────────────────
 push_container_health "sn-monitor-grafana-db" "grafana-db" "sn-monitor"
+push_container_health "sn-monitor-node-exporter" "node-exporter" "sn-monitor"
+push_container_health "sn-monitor-promtail"      "promtail"      "sn-monitor"
+push_container_health "sn-monitor-watchtower"    "watchtower"    "sn-monitor"
 
 # ── sn-security's internal-only containers ───────────────────────────────────────────────────────
 push_container_health "sn-security-forgejo-runner" "forgejo-runner" "sn-security"
 push_container_health "sn-security-watchtower"     "watchtower"     "sn-security"
+push_container_health "sn-security-node-exporter"  "node-exporter"  "sn-security"
 
 COUNT=$(python3 -c "import json; print(len(json.load(open('$RESULTS_FILE'))))")
 log "Pushing $COUNT results to $PN_HEALTH_PUSH_URL"
