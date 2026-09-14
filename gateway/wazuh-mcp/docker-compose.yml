@@ -1,0 +1,36 @@
+services:
+  wazuh-mcp:
+    build: .
+    container_name: wazuh-mcp
+    restart: always
+    ports:
+      - "127.0.0.1:3007:3007"
+    environment:
+      WAZUH_MANAGER_URL: "https://10.10.70.106:55000"
+      WAZUH_INDEXER_URL: "https://10.10.70.106:9200"
+      WAZUH_API_USER_FILE: "/run/secrets/wazuh_api_user"
+      WAZUH_API_PASS_FILE: "/run/secrets/wazuh_api_pass"
+      WAZUH_INDEXER_USER_FILE: "/run/secrets/wazuh_indexer_user"
+      WAZUH_INDEXER_PASS_FILE: "/run/secrets/wazuh_indexer_pass"
+      MCP_AUTH_TOKEN_FILE: "/run/secrets/mcp_auth_token"
+      PORT: "3007"
+    secrets:
+      - wazuh_api_user
+      - wazuh_api_pass
+      - wazuh_indexer_user
+      - wazuh_indexer_pass
+      - mcp_auth_token
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"
+
+secrets:
+  wazuh_api_user:
+    file: ./secrets/wazuh_api_user.txt
+  wazuh_api_pass:
+    file: ./secrets/wazuh_api_pass.txt
+  wazuh_indexer_user:
+    file: ./secrets/wazuh_indexer_user.txt
+  wazuh_indexer_pass:
+    file: ./secrets/wazuh_indexer_pass.txt
+  mcp_auth_token:
+    file: ./secrets/mcp_auth_token.txt
