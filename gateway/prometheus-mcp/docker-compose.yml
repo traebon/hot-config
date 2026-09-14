@@ -1,0 +1,19 @@
+services:
+  prometheus-mcp:
+    build: .
+    container_name: prometheus-mcp
+    restart: always
+    ports:
+      - "127.0.0.1:3003:3003"
+    environment:
+      PROM_URL: "http://10.10.50.104:9090"
+      MCP_AUTH_TOKEN_FILE: "/run/secrets/mcp_auth_token"
+      PORT: "3003"
+    secrets:
+      - mcp_auth_token
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"
+
+secrets:
+  mcp_auth_token:
+    file: ./secrets/mcp_auth_token.txt
