@@ -1,0 +1,25 @@
+services:
+  proxmox-mcp:
+    build: .
+    container_name: proxmox-mcp
+    restart: always
+    network_mode: host
+    environment:
+      PVE_URL: "https://100.90.156.88:8006/api2/json"
+      PVE_TOKEN_ID: "jarvis@pve!mcp"
+      PVE_TOKEN_SECRET_FILE: "/run/secrets/pve_token_secret"
+      PVE_NODE: "proxmox22272"
+      MCP_AUTH_TOKEN_FILE: "/run/secrets/mcp_auth_token"
+      PORT: "3006"
+      LISTEN_HOST: "127.0.0.1"
+    secrets:
+      - pve_token_secret
+      - mcp_auth_token
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"
+
+secrets:
+  pve_token_secret:
+    file: ./secrets/pve_token_secret.txt
+  mcp_auth_token:
+    file: ./secrets/mcp_auth_token.txt
