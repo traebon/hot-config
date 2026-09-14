@@ -1,5 +1,6 @@
 scripts/discovery_agent_token.txt
 gateway/rclone/rclone.conf
 **/secrets/
+**/node_modules/
 __pycache__/
 gateway/open-items-refresh/.previous.html
