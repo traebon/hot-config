@@ -1,0 +1,36 @@
+services:
+  postgres-mcp-keycloak:
+    build: .
+    container_name: postgres-mcp-keycloak
+    restart: always
+    ports:
+      - "127.0.0.1:3005:3005"
+    environment:
+      DB_LABEL: "Keycloak"
+      PG_HOST: "keycloak-db"
+      PG_PORT: "5432"
+      PG_DATABASE: "keycloak"
+      PG_USER: "keycloak_ro"
+      PG_PASSWORD_FILE: "/run/secrets/pg_password"
+      MCP_AUTH_TOKEN_FILE: "/run/secrets/mcp_auth_token"
+      PORT: "3005"
+    secrets:
+      - pg_password
+      - mcp_auth_token
+    networks:
+      - default
+      - keycloak_internal
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"
+
+secrets:
+  pg_password:
+    file: ./secrets/keycloak_ro_password.txt
+  mcp_auth_token:
+    file: ./secrets/mcp_auth_token.txt
+
+networks:
+  default: {}
+  keycloak_internal:
+    name: keycloak_keycloak_internal
+    external: true
