@@ -1,0 +1,36 @@
+services:
+  postgres-mcp-privatenexus:
+    build: .
+    container_name: postgres-mcp-privatenexus
+    restart: always
+    ports:
+      - "10.10.2.2:3010:3010"
+    environment:
+      DB_LABEL: "PrivateNexus"
+      PG_HOST: "privatenexus-db"
+      PG_PORT: "5432"
+      PG_DATABASE: "privatenexus"
+      PG_USER: "privatenexus_ro"
+      PG_PASSWORD_FILE: "/run/secrets/pg_password"
+      MCP_AUTH_TOKEN_FILE: "/run/secrets/mcp_auth_token"
+      PORT: "3010"
+    secrets:
+      - pg_password
+      - mcp_auth_token
+    networks:
+      - default
+      - pn_internal
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"
+
+secrets:
+  pg_password:
+    file: ./secrets/privatenexus_ro_password.txt
+  mcp_auth_token:
+    file: ./secrets/mcp_auth_token.txt
+
+networks:
+  default: {}
+  pn_internal:
+    name: compose_pn-internal
+    external: true
