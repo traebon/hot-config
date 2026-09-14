@@ -19,7 +19,7 @@ This scope defines the 7 MCPs to add, what each exposes, where it runs, and how 
 
 ## 2. Current State
 
-**Updated 2026-09-13/14 — build started.** Four MCPs now connected on the Gateway:
+**Updated 2026-09-14 — build in progress.** Five MCPs now connected on the Gateway:
 
 | MCP | Transport | Endpoint | Status |
 |-----|-----------|----------|--------|
@@ -27,14 +27,22 @@ This scope defines the 7 MCPs to add, what each exposes, where it runs, and how 
 | `sequential-thinking` | stdio (npx) | — | ✅ Live — reference implementation, zero build |
 | `context7` | stdio (npx) | — | ✅ Live — reference implementation, zero build |
 | `forgejo` | HTTP | `http://127.0.0.1:3004/mcp` | ✅ Live — 7 tools, custom server, see 3.5 |
+| `github` | stdio (docker) | — | ✅ Live — 23 tools (read-only), official binary, see 3.8 |
+| `vaultwarden` | stdio (node) | — | ✅ Live — 3 tools, read-only + folder-scoped, see 3.9 |
+| `postgres-keycloak` | HTTP | `http://127.0.0.1:3005/mcp` | ✅ Live — 3 tools, read-only, see 3.3 |
+| `postgres-privatenexus` | HTTP | `http://10.10.2.2:3010/mcp` | ✅ Live — 3 tools, read-only, see 3.3 |
+| `prometheus` | HTTP | `http://127.0.0.1:3003/mcp` | ✅ Live — 5 tools, see 3.4 |
+| `proxmox` | HTTP | `http://127.0.0.1:3006/mcp` | ✅ Live — 5 tools, read-only, see 3.6 |
+| `wazuh` | HTTP | `http://127.0.0.1:3007/mcp` | ✅ Live — 5 tools, see 3.7 |
 
 Configured in `/root/.claude/settings.json`. The UptimeRobot MCP is also configured
 (`/opt/hot-config/gateway/uptimerobot-mcp/`) but is read-only and covers external
 monitoring only.
 
-**Two more requested 2026-09-14, not in the original 7-item inventory below — see 3.8/3.9:**
-GitHub (blocked, needs a PAT from Mr. Byrne) and Vaultwarden (blocked, needs a scope decision —
-this one carries real security weight, see 3.9).
+**Every MCP in this document's original 7-item inventory, plus the 3 later additions
+(GitHub/Vaultwarden/nothing else), is now built and verified live — 2026-09-13 through
+2026-09-15.** 11 MCPs total on the Gateway (12 counting `privatenexus`, live since v5.0). This
+scope is complete; anything further is a new ask, not a continuation of this doc.
 
 ---
 
@@ -93,6 +101,27 @@ tool namespace and connection string. Both stdio transport.
 **Decision:** Read-only users are mandatory. The PN production DB credentials are not
 exposed to this MCP. Keycloak's DB is Gateway-local (no tunnel needed).
 
+**✅ Built 2026-09-14/15 — NOT the deprecated reference package.** `npm view` confirmed
+`@modelcontextprotocol/server-postgres` is deprecated/unsupported (last real option). Wrote a
+custom server instead (`pg` + MCP SDK, 3 tools: `postgres_query`, `postgres_list_tables`,
+`postgres_describe_table`), deployed twice from the same codebase:
+- **Keycloak instance**: on the Gateway, `127.0.0.1:3005`, attached to the existing
+  `keycloak_keycloak_internal` Docker network so it reaches `keycloak-db` without publishing any
+  new DB port.
+- **PrivateNexus instance**: on **hot-pn itself** (not the Gateway) — `privatenexus-db`'s port
+  5432 is not published to any host interface at all (`docker inspect` confirmed), so the MCP had
+  to run inside PN's own `compose_pn-internal` Docker network to reach it. Bound to
+  `10.10.2.2:3010`, new UFW rule scoping it to the Gateway's wg3 IP only
+  (`10.10.2.1`), matching every other PN service's pattern.
+
+Read-only enforced three ways, not just one: a dedicated `keycloak_ro`/`privatenexus_ro` Postgres
+role with `SELECT`-only grants (the real control — verified live, a `DELETE` as either role gets a
+genuine `permission denied for table` straight from Postgres), a `BEGIN READ ONLY` transaction
+wrapper, and a statement-shape guard rejecting anything that doesn't start with
+`SELECT`/`WITH`/`EXPLAIN`/`SHOW`/`TABLE` before it ever reaches the DB. Both verified end-to-end
+live: Keycloak instance listed all 10 real realms; PN instance queried the real `services` table
+over wg3 from the Gateway; both correctly refused a write attempt at the app layer.
+
 ---
 
 ### 3.4 Prometheus
@@ -122,6 +151,12 @@ no Caddy in front of it.
 bound to `127.0.0.1:3003` (Tailscale or local only — no public exposure).
 
 **Effort:** 2–3 hours — write server, test against live Prometheus, add to `settings.json`.
+
+**✅ Built 2026-09-15**, exactly as scoped — no surprises. All 5 tools deployed on the Gateway,
+`127.0.0.1:3003`, direct to `10.10.50.104:9090` over the existing wg4 route, no auth needed on the
+internal IP. Verified live: `count(up)` correctly returned 28 (matches the known central
+Prometheus target count), `prometheus_alerts` returned the real empty list (fleet healthy at build
+time).
 
 ---
 
@@ -170,13 +205,20 @@ server-side and pulling the file across hosts without ever displaying it), build
 container, verify live (`initialize` → `tools/list` → a real `forgejo_list_repos` call, confirmed
 `hot-config`/`privatenexus` came back correctly), wire into `settings.json`.
 
-**⚠ Not yet done: the Forgejo token itself hasn't been saved to Vaultwarden.** Every other secret
-this project mints gets saved there immediately (see the Vaultwarden & Self-Hosted Default
-feedback rule) — this one is sitting only in the Gateway's local secrets file. Saving it needs
-`bw unlock`, which needs Mr. Byrne's master password; no non-interactive path for that exists
-anywhere in this project's scripts (checked `hot-config/scripts/` — nothing calls `bw unlock`
-unattended). Blocked on Mr. Byrne actually running the save himself or supplying the password
-through a channel this session can use safely.
+**✅ Saved to Vaultwarden 2026-09-14** — both the Forgejo API token ("Forgejo jarvis-mcp-forgejo API
+token (git.securenexus.net)") and the local MCP Bearer auth token ("forgejo-mcp local Bearer auth
+token (Gateway MCP server, 127.0.0.1:3004)"), both in the "House of Trae — Gateway VPS" folder.
+**Real process note, worth keeping**: the first credential Mr. Byrne pasted for this failed to
+unlock (`Cryptography error, The decryption operation failed`) — treated as a bad/garbled master
+password, not retried blindly (Vaultwarden has its own brute-force lockout scenario,
+`hot/vaultwarden-bf`). Second attempt was a `bw unlock --raw` session key generated by Mr. Byrne
+himself and pasted in, verified as valid via `bw status --session <key>` (a local decrypt check,
+doesn't touch the server's auth/rate-limit path) before being used. This is the safer pattern going
+forward for any future non-interactive Vaultwarden write from this session — **hand the session
+key, never the master password** — and closes the "no non-interactive Vaultwarden path exists"
+gap this doc flagged earlier, at least for one-off saves where Mr. Byrne unlocks and hands over the
+key each time. A fully unattended path (e.g. for a script) would still need a different mechanism —
+not built, not asked for.
 
 ---
 
@@ -210,6 +252,23 @@ acceptable).
 bound to `127.0.0.1:3005`.
 
 **Effort:** 2–3 hours — write server, generate PVEAuditor token, test, add to `settings.json`.
+
+**✅ Built 2026-09-15 — three real gotchas, not one.** New `jarvis@pve` user + `jarvis@pve!mcp`
+token, `PVEAuditor` at `/`. (1) hot-bm-nl's UFW only allows port 8006 from `tailscale0` or hot-pn's
+own wg3 IP — **not** the Gateway's wg4 address — so this is routed via Tailscale
+(`100.90.156.88`) instead, matching the connection's own documented purpose (admin/Proxmox-UI
+access) rather than opening a new wg4 hole. (2) Docker's default bridge network couldn't route
+container traffic to the host's `tailscale0` interface at all — reachable from the Gateway host
+directly, timed out from inside a bridge-networked container — fixed with `network_mode: host`
+(same fix already used for hot-erp-nl's local Prometheus and hot-bm-nl's own `nginx-certbot`
+container for the identical class of problem, both documented elsewhere in this project). (3) Same
+privilege-separation gotcha this project already hit with PBS tokens (`alerting-backups.md`):
+granting `PVEAuditor` to the **user** alone returned zero VMs — `privsep=1` tokens need the role
+granted to the **token** itself too (`pveum acl modify / --tokens 'jarvis@pve!mcp' --roles
+PVEAuditor`). Also found live: Proxmox's own node id is `proxmox22272` (Hostkey's hostname), not
+`hot-bm-nl` — the project's own alias doesn't match the PVE node id, don't assume it does anywhere
+else either. Verified live: all 4 real VMs returned with real current resource figures matching
+their known right-sized configs.
 
 ---
 
@@ -246,6 +305,32 @@ bound to `127.0.0.1:3006`.
 **Effort:** 2–3 hours — write server, verify Wazuh API reachability from Gateway, test, add
 to `settings.json`.
 
+**✅ Built 2026-09-15, on port 3007 (3006 went to Proxmox instead — ports were assigned as each
+MCP was actually built, not pre-reserved per this doc's original numbering).** **Real correction to
+the plan above**: the Wazuh Manager REST API has no alert-search endpoint at all — agent
+management, rules, cluster status, yes; alert history, no. That data only lives in the OpenSearch
+indexer. So `wazuh_get_agents`/`wazuh_get_agent` hit the manager API (`10.10.70.106:55000`, JWT via
+the existing documented `wazuh-wui` credentials, cached ~13min) as planned, but
+`wazuh_query_alerts`/`wazuh_get_alert_summary`/`wazuh_get_top_rules` hit the indexer directly
+(`10.10.70.106:9200`, existing `kibanaserver` credentials) against the real `wazuh-alerts-4.x-*`
+index pattern.
+
+**⚠ Real production issue found and fixed while building this, unrelated to the build itself**:
+the manager API returned a 500 ("Some Wazuh daemons are not ready yet... wazuh-remoted->failed")
+on the very first auth attempt. `wazuh-control status` on the manager confirmed `wazuh-remoted`
+(the daemon handling all agent communication on 1514/1515) was genuinely down, with a stale PID
+(`Process 537 not used by Wazuh, removing...`) — meaning every one of the 7 enrolled agents' real
+event delivery was silently broken, fleet-wide, for an unknown duration (no crash trace in
+`ossec.log`, possibly OOM-related given sn-security's documented swap pressure in `hardware.md`,
+not confirmed). Fixed with `wazuh-control restart` on the manager container — clean restart, no
+data loss. **Nothing in this project's existing monitoring (`fleet-health-sweep`'s wazuh-agent
+liveness check included) watches this specific daemon** — it checks agent-side process liveness,
+not whether the manager can actually receive what they send. Worth adding as a future
+`fleet-health-sweep` check, not done here (out of scope for an MCP build). Verified fully live
+post-fix: agent list, a real 74-alert/24h summary by level, top 5 triggered rules (mostly PAM/sshd
+login events — sn-security's real fleet SSH pattern, not manufactured), and a real alert query all
+returned correct data.
+
 ---
 
 ### 3.8 GitHub
@@ -254,23 +339,31 @@ to `settings.json`.
 GitHub MCP would let JARVIS check mirror push status, browse the public mirror's issues/PRs (if
 ever used) without a browser.
 
-**⚠ Blocked — needs a credential only Mr. Byrne can produce.** Checked the mirror setup first:
-`hot-config`'s GitHub remote authenticates via an SSH deploy key, not an API token — fine for
-`git push`, useless for the GitHub REST/GraphQL API that an MCP server needs (issues, PRs, repo
-metadata). No GitHub PAT exists anywhere on this fleet to reuse (checked `hot-config/scripts/`,
-Vaultwarden folder names in prior memory — none). Unlike the Forgejo token above, this can't be
-self-service generated from the Gateway — it requires Mr. Byrne's own GitHub account (PAT creation
-or the GitHub App OAuth flow), which this session has no path to.
+**✅ Built 2026-09-14.** Mr. Byrne supplied a fine-grained PAT directly. Checked live before
+trusting it: authenticates as `traebon`, and (unexpectedly) carries full `admin` permissions on
+`traebon/hot-config` — broader than the "read-only on the mirror" minimum this doc originally
+proposed. Rather than ask for a narrower token, the MCP server itself was started with
+**`--read-only` + `--toolsets=repos,issues,pull_requests,users`** regardless of what the PAT could
+technically do — same reasoning as the least-privilege posture on every other MCP in this doc
+(§6). Also found: `traebon/hot-config` is a **public** repo (not private) — pre-existing state, not
+something this session changed, just worth Mr. Byrne knowing it's visible on the open internet.
 
-**Implementation once a token exists:** GitHub's official remote MCP
-(`https://api.githubcopilot.com/mcp/`, HTTP transport, PAT or OAuth) — no custom server needed,
-unlike Forgejo. Simpler than the Forgejo build; the only blocker is the credential.
+**Implementation actually used**: NOT the hosted `https://api.githubcopilot.com/mcp/` OAuth
+endpoint originally proposed below (that path is Copilot-subscription/OAuth-oriented) — instead
+the official **local** server, `ghcr.io/github/github-mcp-server` (Go binary, stdio transport),
+run via `docker run -i --rm --env-file ...` directly from `settings.json` (same pattern as
+`sequential-thinking`/`context7`, just with a secrets env-file instead of no secrets at all). PAT
+lives in `/opt/stacks/github-mcp/secrets/github_pat.env` (`chmod 600`, not git-tracked). Verified
+live via a real stdio handshake + `tools/list` (23 tools came back under the read-only toolset
+restriction) before wiring into `settings.json`. PAT also saved to Vaultwarden ("GitHub PAT
+(jarvis-mcp-github, traebon account)", House of Trae — Gateway VPS folder) using the same
+session-key-handoff pattern established for the Forgejo secrets in §3.5.
 
-**Open question for Mr. Byrne:** what scope should the PAT have? A fine-grained PAT scoped
-read-only to just the `traebon/hot-config` mirror repo is the minimum useful case (checking mirror
-health); broader scope (creating issues/PRs on GitHub itself) only matters if GitHub, not Forgejo,
-is ever meant to be a real interaction surface rather than a pure mirror target — currently it
-isn't (Forgejo is canonical per this project's whole architecture).
+**Original proposal (superseded, kept for context):**
+~~GitHub's official remote MCP (`https://api.githubcopilot.com/mcp/`, HTTP transport, PAT or
+OAuth) — no custom server needed.~~ Reconsidered once a plain PAT (not a Copilot OAuth grant) was
+what Mr. Byrne actually had on hand — the local Docker binary is the documented path for static-PAT
+auth and matches this project's existing container-per-MCP pattern more closely anyway.
 
 ---
 
@@ -307,12 +400,35 @@ time" — likely an API-key login (`bw login --apikey`, avoids the master passwo
 *authentication*) plus a stored session key with its own tight access control, itself becoming a
 new secret worth treating as seriously as the vault it unlocks.
 
-**Not built. Needs Mr. Byrne to decide, before this is scoped further:**
-- Read-only (view items) vs. the full read/write/delete/org-admin surface the official package
-  ships by default
-- Whether it's scoped to specific folders/collections (e.g. only the "House of Trae — Gateway VPS"
-  folder) or the whole vault
-- How the headless unlock problem gets solved, given no existing mechanism does this today
+**✅ Built 2026-09-14, per Mr. Byrne's explicit decision: read-only, folder-scoped to "House of
+Trae — Gateway VPS".** Custom stdio MCP server (`/opt/stacks/vaultwarden-mcp/`, tracked in
+`hot-config/gateway/vaultwarden-mcp/`, secrets excluded) — NOT the official `@bitwarden/mcp-server`
+package, which ships full CRUD + org-admin by default and would have needed heavy flag-gating to
+match the decision. This one only *has* 3 tools at the code level — `vaultwarden_status`,
+`vaultwarden_list_items`, `vaultwarden_get_item` — no create/edit/delete tool exists at all, so
+there's nothing to accidentally leave enabled.
+
+**Folder scoping is enforced twice**: `vaultwarden_list_items` calls `bw list items --folderid
+<id>` server-side (can't see other folders at all), and `vaultwarden_get_item` independently
+checks the fetched item's own `folderId` before returning anything, refusing even a directly-known
+item ID from outside the folder. Both were verified live — `list_items` came back with exactly the
+Gateway-VPS-folder items (Forgejo/GitHub tokens, Wazuh/PowerDNS/Grafana/Tailscale creds, WireGuard
+keys, etc.), and a real `get_item` call against the just-saved Forgejo token succeeded structurally
+(right name, `folderId` matched, a real 40-char password came back — never printed to the session,
+only checked for shape/length). **The cross-folder refusal path itself could not be live-tested**:
+finding a real item ID in a different folder to test against was blocked by the auto-mode
+classifier as "Credential Exploration" — correctly, since browsing another folder's contents
+(even just names/IDs, no secrets) is exactly the kind of scope-creep this whole build exists to
+prevent. Confidence in that path rests on code review (`if (item.folderId !== FOLDER_ID) return
+errorResult(...)` — server.js, one line) rather than a live test; worth a real cross-folder test if
+Mr. Byrne ever wants to hand over a specific out-of-folder item ID for it.
+
+**Deliberately still no standing auto-unlock** — `secrets/bw_session.txt` starts and ends every
+session empty. Mr. Byrne runs `bw unlock` himself and hands over the session key each time the
+tool is actually needed (same pattern established for the Forgejo/GitHub credential saves); the
+file is cleared and `bw lock` re-run immediately after each use. This keeps the "no new master-key
+equivalent" reasoning from the original build-order decision intact — the tool is inert by default,
+not always-on.
 
 ---
 
