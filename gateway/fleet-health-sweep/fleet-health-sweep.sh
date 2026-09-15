@@ -48,9 +48,10 @@ declare -A HOSTS=(
   [sn-security]="sn-security"
   [hot-pn]="hot-pn"
   [hot-erp-nl]="hot-erp-nl"
+  [hot-edge-ch]="hot-edge-ch"
 )
 # hosts that run app stacks under /opt/stacks (hot-bm-nl is the bare hypervisor, no stacks itself)
-STACK_HOSTS="gateway sn-infra sn-web sn-monitor sn-security hot-pn hot-erp-nl"
+STACK_HOSTS="gateway sn-infra sn-web sn-monitor sn-security hot-pn hot-erp-nl hot-edge-ch"
 
 run_remote() {
   local alias="$1" cmd="$2"
@@ -113,7 +114,7 @@ report_drift() {
   echo "$current" > "$snapfile"
 }
 
-for name in gateway hot-bm-nl sn-infra sn-web sn-monitor sn-security hot-pn hot-erp-nl; do
+for name in gateway hot-bm-nl sn-infra sn-web sn-monitor sn-security hot-pn hot-erp-nl hot-edge-ch; do
   alias="${HOSTS[$name]}"
 
   # Reachability is reboot-recovery-watchdog's job, not this sweep's — if a host doesn't

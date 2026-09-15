@@ -320,3 +320,35 @@ endpoints:
         failure-threshold: 2
         success-threshold: 2
         send-on-resolved: true
+
+  - name: hot-wiki
+    group: Services
+    url: "https://wiki.house-of-trae.com"
+    interval: 5m
+    conditions:
+      - "[STATUS] == 200"
+    alerts:
+      - type: email
+        failure-threshold: 2
+        success-threshold: 2
+        send-on-resolved: true
+
+  - name: hot-edge-ch (direct reachability)
+    group: Edge (hot-edge-ch)
+    # Real domain-level health (correct SNI, actual app response) is already covered by
+    # privatenexus.net/erp.dickson-supplies.com above -- but those now resolve via PowerDNS's
+    # LUA/ifurlup load balancing (docs/HoT_Edge_Load_Balancing_Scope.md #8), so a hot-edge-ch-only
+    # outage could get silently routed around and never show red. This is a direct signal
+    # independent of DNS. TCP-only, not HTTPS: Caddy has no catch-all cert (SNI-only routing, no
+    # default site) -- confirmed live that an HTTPS check against the raw IP fails with a TLS
+    # error even when the server is fully healthy, so an HTTP condition here would be a permanent
+    # false positive, not a real signal.
+    url: "tcp://82.38.64.63:443"
+    interval: 2m
+    conditions:
+      - "[CONNECTED] == true"
+    alerts:
+      - type: email
+        failure-threshold: 2
+        success-threshold: 2
+        send-on-resolved: true
