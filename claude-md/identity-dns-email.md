@@ -39,6 +39,20 @@ API port: 8081 (NOT 8053)
 API key: pdnsKj7xM9pL2vR5n
 Bound on: 10.10.0.1:8081 (WireGuard interface — reachable from bare metal)
 Authoritative nameservers: ns1.house-of-trae.com / ns2.house-of-trae.com
+Version: 4.9.17 (auto-updated to this from 4.9.15 by an unrelated container recreate 2026-09-15 —
+image tag is unpinned `latest` in `/opt/stacks/powerdns/compose.yml`, worth knowing if a future
+issue looks version-related)
+
+**`enable-lua-records=yes`, turned on 2026-09-15** (`pdns.conf.template`, was off) — powers real
+active-active DNS load balancing with automatic health-checked failover for `privatenexus.net` and
+`erp.dickson-supplies.com`, both now `LUA` records using `ifurlup()` against the Gateway
+(151.241.217.91) and hot-edge-ch (82.38.64.63) rather than plain `A` records. See
+`docs/HoT_Edge_Load_Balancing_Scope.md` §8 for the full build, the `ifportup()`-doesn't-work-here
+gotcha (Caddy's SNI-only routing means a bare port check fails even on a healthy server — use
+`ifurlup()` against a real URL instead), and what's proven (failover exclusion, rock solid) vs.
+observed-not-fully-characterized (the exact healthy-candidate selection algorithm — looks like
+PowerDNS's own consistent-hashing-per-querier, not naive round-robin, matching the
+`lua-consistent-hashes-*` settings already present in this config).
 
 Zones managed (confirmed live):
   house-of-trae.com, securenexus.net, byrne-accounts.org, stratus-digital.com,

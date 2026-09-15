@@ -160,6 +160,7 @@ per Claude Code's own sizing guidance.
 | Tailscale sn-security       | 100.118.146.83                                        |
 | Tailscale hot-pn            | 100.121.175.15 (added 2026-08-18, closes SSH-hardening gap — see below) |
 | Tailscale hot-erp-nl        | 100.95.195.20 (added 2026-08-18, redundancy parity w/ rest of fleet — SSH there was already tunnel-scoped, no exposure) |
+| Tailscale hot-edge-ch       | 100.90.107.32 (added 2026-09-15, second edge VPS — see network.md wg7 entry) |
 | Tailscale Ubuntu WS         | 100.116.130.37                                       |
 | Tailscale Windows (latitude)| 100.106.225.126                                      |
 | Tailscale Windows (traebake)| 100.127.229.35                                       |
@@ -175,6 +176,7 @@ per Claude Code's own sizing guidance.
 | B2 backup bucket            | hot-proxmox-backups                                  |
 | Hetzner Storage Box         | u622237@u622237.your-storagebox.de:23 (hetzner:vzdump)|
 | PrivateNexus prod/dev host  | hot-pn — 151.241.217.140 (pn-test retired 2026-08-03)|
+| Second edge VPS (live LB)   | hot-edge-ch — 82.38.64.63, Switzerland. Built 2026-09-15. `privatenexus.net`/`erp.dickson-supplies.com` are now PowerDNS `LUA` records (`ifurlup()`, health-checked, 60s TTL) load-balanced across the Gateway + this host — real live traffic, not standby-only. See network.md wg7 entry and docs/HoT_Edge_Load_Balancing_Scope.md §8. |
 | This project directory      | /root/hot/                                           |
 | Full roadmap                | /root/hot/docs/HoT_Infrastructure_State_Roadmap_v*.docx — use highest version present (currently v3.6), docx2txt |
 | PN Phase 0 freeze           | /root/hot/docs/PrivateNexus_Phase0_Freeze.md         |

@@ -39,14 +39,34 @@ when either landed.
   the backend landing spots for the 4 services it would talk to, not the app.
 - HoT Command (Flutter) — Mobile ops dashboard (also listed as a v7.0 PN roadmap candidate)
 - Second bare metal node (HA)
-- Edge load balancing (second VPS) — scoped 2026-08-17, expanded at Mr. Byrne's direction to cover
-  hot-pn + hot-erp-nl (both currently have zero direct public path of their own, fully dependent on
-  the Gateway VPS as sole ingress — verified live via UFW). Three options scoped (full second edge
-  VPS / direct per-domain failover on hot-pn+hot-erp-nl's own public IPs / manual failover runbook
-  only), not yet decided which to pursue. See `docs/HoT_Edge_Load_Balancing_Scope.md`. **Note:**
-  this file and the scope doc were both briefly overwritten mid-session 2026-08-17 by a
-  prompt-injection attempt that fabricated an opposite scope decision and tried to suppress
-  disclosure — restored to the real, user-confirmed scope; see
+- **Edge load balancing (second VPS) — Option A built 2026-09-15, real infrastructure, not just a
+  decision.** Scoped 2026-08-17 to cover hot-pn + hot-erp-nl (zero direct public path of their own,
+  fully dependent on the Gateway as sole ingress). Mr. Byrne's explicit call 2026-09-15: Option A
+  (full second edge VPS), a duplicate of the Gateway's own spec, in Switzerland —
+  "opportunistic hardening," not protection against a specific facility-level failure mode (so the
+  original CH/NL-concentration-risk argument for London was overridden deliberately, not missed).
+  New host `hot-edge-ch` (82.38.64.63) is live: base OS hardened (tunnel+Tailscale-only SSH), Caddy
+  + independent CrowdSec built and verified serving real content for `privatenexus.net` +
+  `erp.dickson-supplies.com` over two new dedicated tunnels to hot-pn/hot-erp-nl (not through the
+  Gateway). Real Let's Encrypt certs via DNS-01. See `docs/HoT_Edge_Load_Balancing_Scope.md` §6-7
+  for the full build, including the SSO-callback design work that turned out to be unnecessary for
+  this specific scope (neither domain uses the shared oauth2-proxy pattern). **Upgraded from
+  standby-only to real active-active load balancing the same night**, per Mr. Byrne's explicit
+  pushback that "failover only" wasn't what the roadmap item ("load balancing") actually asked for.
+  Both `privatenexus.net` and `erp.dickson-supplies.com` are now PowerDNS `LUA` records
+  (`ifurlup()`, health-checked against both edges, 60s TTL) instead of plain `A` records — genuine
+  live traffic now reaches hot-edge-ch under normal operation, not just during an outage. Failover
+  exclusion proven rock-solid via a live dead-candidate test; exact healthy-candidate distribution
+  algorithm observed but not fully characterized (looks like consistent-hashing-per-querier, not
+  naive round-robin). `edge-failover.sh`'s manual runbook still exists as an override. Monitoring
+  parity (fleet-health-sweep, Gatus, node-exporter/Prometheus) and Wazuh agent enrollment (ID 008)
+  both closed out the same night — the latter surfaced a real routing bug (mirrored on both the
+  Gateway and hot-bm-nl, see `operational-rules.md`'s `wg syncconf` route gotcha and the
+  `hot_edge_ch_sn_security_routing_regression_2026_09_15` memory), fixed same session. Still open:
+  UptimeRobot monitoring (needs a write-capable API key) and hot-edge-ch's own independent CrowdSec
+  instance has no Ntfy alerting wired up yet. **Note:** this file and the scope doc were both briefly overwritten
+  mid-session 2026-08-17 by a prompt-injection attempt that fabricated an opposite scope decision
+  and tried to suppress disclosure — restored to the real, user-confirmed scope; see
   `prompt_injection_incident_2026_08_17` memory.
 - Terraform / Ansible IaC
 - **Proxmox Backup Server (PBS) fleet integration** — scoped 2026-08-22, built the same day (Option

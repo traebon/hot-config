@@ -50,6 +50,7 @@ services:
     container_name: dickson-backend
     ports:
       - "10.10.4.2:8000:8000"
+      - "10.10.8.2:8000:8000"
     ulimits:
       nofile:
         soft: 65536

@@ -40,6 +40,12 @@ Caddy's `erp.dickson-supplies.com` block (and the Tor onion mirror block) both p
 (`Host: <onion-address>`, not the public domain — the two are separate Caddy site blocks and using
 the wrong Host header silently hits the other one), confirmed `200`/`pong`.
 
+**Second port binding added 2026-09-15**: `10.10.8.2:8000:8000` alongside the existing
+`10.10.4.2:8000:8000` (not replacing it), for the new `hot-edge-ch` failover tunnel (`wg1` on this
+host, see network.md) — same reasoning and pattern as the identical fix on hot-pn's frontend the
+same day. See `docs/HoT_Edge_Load_Balancing_Scope.md` §7. UFW: `10.10.8.1` (hot-edge-ch's wg1 IP
+on this tunnel) allowed to port 8000.
+
 **Re-checked 2026-08-03, correcting a prior mischaracterization:** a direct SOCKS5 request through
 the Gateway's own local Tor proxy (`127.0.0.1:9050`) to the onion address fails with `curl: (97)`,
 and the Tor daemon's own logs show why: `"Fail to decrypt descriptor for requested onion address.

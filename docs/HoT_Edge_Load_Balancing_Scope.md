@@ -79,8 +79,191 @@ exactly the failover event this is meant to protect against. This is the same la
 bit `monitor.securenexus.net`/`prometheus.securenexus.net` once (caddy_fixes_2026_08_09 memory) —
 worth re-reading before committing to Option A.
 
-Highest cost: second VPS to pay for and patch, cert duplication, CrowdSec state/ban-list sync
-question, and the SSO callback problem above.
+**Worked through further 2026-09-15, at Mr. Byrne's direction ("scope Option A further") — this
+turns out to be tractable, not a fundamental redesign.** Keycloak's redirect_uri check is a literal
+string match against the registered URI, not an IP or host-binding check — it doesn't care which
+physical edge actually answers for `ds.house-of-trae.com`, only that the URL string matches. So the
+fix is two things, both already implied by Option A's own premise, not a separate special case:
+1. **Include `ds.house-of-trae.com` in the exact same DNS-failover mechanism protecting every other
+   domain.** No new failover logic needed — this hostname just needs to be on the list, not
+   special-cased or excluded.
+2. **Deploy oauth2-proxy identically on both edges, sharing the same `--cookie-secret` and the same
+   Keycloak `oauth2-proxy` client secret.** Since oauth2-proxy's session cookie is just a signed
+   token, any edge holding the same cookie-secret can validate a session a *different* edge issued
+   — a login that starts on Edge 1 and completes (or continues) after failover to Edge 2 survives
+   cleanly as long as both edges hold the same secret. This is a secrets-sync problem, the same
+   class this project already solves elsewhere (Vaultwarden + manual/scripted distribution), not an
+   architecture problem.
+
+**What this does NOT need**: no oauth2-proxy config change, no new Keycloak client, no second
+registered redirect URI. The existing single-URI design already works for a failover edge — it was
+never actually incompatible with Option A, just under-scoped. **Separately, unrelated to SSO**: each
+edge would run its own independent CrowdSec instance — ban-list/decision state does *not* need to
+be shared for correctness (each edge can independently ban its own attackers against its own
+traffic), only worth noting so it's not confused with the cookie-secret sync requirement above,
+which *does* need to be shared.
+
+**Net effect on the cost picture**: the SSO callback was flagged as the thing making Option A
+"materially bigger than B or C" — with a concrete fix in hand, the honest remaining cost is: second
+VPS to pay for and patch, cert duplication (real but mechanical — Caddy's own ACME handles this per
+domain, no design work needed), the DNS-failover trigger mechanism itself (still open, see Option
+B's "who watches the watchmen" discussion above — UptimeRobot, live since 2026-08-23, is the
+natural candidate now), and secrets distribution to the second edge (cookie-secret, client secrets,
+WireGuard hub config). No longer a landmine, just a checklist.
+
+**Location decided 2026-09-15, Mr. Byrne's explicit call: a duplicate of the Gateway itself, in
+Switzerland** — not the London-diversity framing this doc originally argued for (Section 6 below
+still stands as real research, just not what got chosen; "opportunistic hardening," not protection
+against a specific facility-level failure mode, per his own framing when asked directly). Checked
+live before committing to a location, not assumed:
+- **Catalog-level**: `vm.v2-mini` (4 vCPU / 8 GB / 120 GB NVMe — the tier that actually matches the
+  Gateway's own spec, not the cheaper `nano`) shows available in both NL and CH per Hostkey's
+  `presets.php?action=list` (a genuinely read-only catalog endpoint, no invoice side effect — better
+  than the "appraisal call, if one can be found" this doc's Section 6 caveat was hoping existed).
+- **Account-level, CH specifically**: this account had a *documented prior block* ordering `vm.v2-*`
+  in CH during the hot-erp-nl migration (`hostkey_invapi_notes` memory) — catalog-level "available"
+  was known not to be sufficient evidence on its own. Tested for real, with Mr. Byrne's explicit
+  go-ahead given the side effect: a real `eq.php?action=order_instance` call for `vm.v2-mini`/CH
+  succeeded (invoice #615674, $7.59/mo) — **the prior CH block is no longer in effect on this
+  account.**
+- **Mr. Byrne paid the invoice the same session** — real infrastructure, not a scoping exercise.
+  Public IP `82.38.64.63`. Base bring-up done and verified: `ssh hot-edge-ch` alias, own SSH key
+  installed, password auth disabled, Tailscale enrolled (`100.90.107.32`), UFW default-deny with
+  SSH scoped to the WireGuard tunnel + Tailscale only (public port 22 confirmed unreachable), a
+  dedicated `wg7`/`wg0` tunnel to the Gateway (`10.10.6.1`/`10.10.6.2`, port 51827) with a real
+  handshake. Root password and both tunnel keypairs saved to Vaultwarden.
+
+## 7. Edge role built and verified live, 2026-09-15
+
+**Scope deliberately narrow**: Caddy + CrowdSec for exactly the two domains this whole doc has been
+about — `privatenexus.net` and `erp.dickson-supplies.com` — not a full Gateway replica. Duplicating
+Vaultwarden, mail, Keycloak, or the Gateway's other ~30 site blocks is a separate, much larger
+decision not made here.
+
+**Real finding: the SSO-callback design work in Section 3 turned out not to be needed for this
+scope at all.** Neither `privatenexus.net` nor `erp.dickson-supplies.com` uses the shared
+oauth2-proxy `import sso` pattern — PrivateNexus authenticates directly against its own Keycloak
+`privatenexus` realm client, and ERPNext isn't SSO-gated via Caddy at all. The cookie-secret-sync
+design is still the right answer *if* this edge is ever extended to cover a Gateway-hosted
+`import sso` app, but building it now would have been solving a problem this specific scope doesn't
+have.
+
+**Network path**: hot-edge-ch reaches hot-pn and hot-erp-nl over two new dedicated tunnels, not
+through the Gateway (routing through the thing you're failing away from defeats the point):
+- `wg1` (hot-edge-ch) ↔ `wg1` (hot-pn): `10.10.7.1`/`10.10.7.2`, port 51828
+- `wg2` (hot-edge-ch) ↔ `wg1` (hot-erp-nl): `10.10.8.1`/`10.10.8.2`, port 51829
+
+Both backends needed a real fix to be reachable this way: PrivateNexus's frontend and ERPNext's
+backend both bind to a *specific* IP (their existing Gateway-tunnel address), not `0.0.0.0` —
+correct, deliberate hardening already in place (avoids Docker's NAT-bypasses-UFW risk), but it
+meant traffic arriving via the new tunnel's different local IP was refused outright. Fixed by
+adding a **second** specific-IP port binding on each (`10.10.7.2:5173:80` alongside the existing
+`10.10.2.2:5173:80` on hot-pn; `10.10.8.2:8000:8000` alongside `10.10.4.2:8000:8000` on
+hot-erp-nl) — both paths verified working side by side, zero disruption to the existing production
+path through the Gateway.
+
+**Certificates**: DNS-01 via PowerDNS's API (`caddy-dns/powerdns` plugin, same xcaddy build as the
+Gateway's own Caddy), not HTTP-01 — this edge isn't live ingress under normal DNS, so an HTTP-01
+challenge could never complete. Needed the same PowerDNS-API-over-WireGuard access hot-pn already
+has: widened `wg7`'s `AllowedIPs` (both directions) to include `10.10.0.1/32` (the Gateway's
+PowerDNS bind), installed the resulting route by hand (`wg syncconf` doesn't do this — see
+`operational-rules.md`). No new Gateway UFW rule needed — the existing PowerDNS API rule already
+covers the whole `10.10.0.0/16` range, which `10.10.6.x` falls inside. Real Let's Encrypt certs
+issued and verified for both domains (`privatenexus.net` confirmed via a live TLS handshake showing
+a genuine Let's Encrypt leaf cert, not self-signed/staging).
+
+**CrowdSec**: independent instance on hot-edge-ch (`crowdsecurity/caddy`/`http-cve`/`linux`
+collections, matching the Gateway's own), no ban-list sync with the Gateway's instance — per the
+design decision in Section 3, each edge protects its own traffic independently, this isn't a
+correctness requirement. Bouncer registered and confirmed `validated` with a live `last_pull`
+timestamp via `cscli bouncers list`, not just configured-and-assumed-working.
+
+**Verified end-to-end, both domains, via real requests against the public IP with `--resolve`**
+(DNS itself still points at the Gateway — this is the standby path, not live traffic): `privatenexus.net`
+returns real app HTML (200, genuine PrivateNexus `index.html`) through the new `wg1` tunnel to
+hot-pn; `erp.dickson-supplies.com` returns 200 through the new `wg2` tunnel to hot-erp-nl.
+
+## 8. Real active-active load balancing built same night, superseding pure failover
+
+**Mr. Byrne pushed back on "failover only"** — correctly: the roadmap item has always been called
+"load balancing," and the original scope doc's own reasoning for pure failover (no automated
+trigger existed) was itself the gap, not a fixed decision. Real load balancing with automatic
+failover built in is achievable using PowerDNS's own Lua records feature (`enable-lua-records`,
+confirmed supported at v4.9.15/4.9.17, was off, now on) — no third-party GSLB, no centralized
+HAProxy (which would just relocate the Gateway's single-point-of-failure problem onto whatever
+machine ran it, not solve it — DNS-level distribution is the only mechanism that spans two
+genuinely independent hosts without introducing a new SPOF).
+
+**`privatenexus.net` and `erp.dickson-supplies.com` are now both `LUA` records**, not plain `A`
+records:
+```
+ifurlup('https://privatenexus.net/', {{'151.241.217.91'}, {'82.38.64.63'}})
+ifurlup('https://erp.dickson-supplies.com/', {{'151.241.217.91'}, {'82.38.64.63'}})
+```
+TTL dropped from 300s to 60s on both, so a dead candidate falls out of rotation fast.
+
+**Real gotcha found building this**: `ifportup()` (the obvious first choice — bare port check) does
+NOT work here. Caddy on hot-edge-ch (and the Gateway) has no catch-all TLS certificate — SNI-based
+routing only, by design — so a health check that connects without specifying a real hostname gets a
+TLS `internal_error` alert even though the server is completely healthy for real traffic. Confirmed
+directly: raw TCP connect to hot-edge-ch:443 succeeds, TLS without SNI fails, TLS with the correct
+SNI works perfectly. **`ifurlup()` against a real URL is the correct tool** — it negotiates real
+SNI/Host matching a live site block, so the health check sees the same thing a real visitor does.
+
+**Verified three ways, all live, before touching the real production records**:
+1. A disposable test record (`lb-test.house-of-trae.com`) proved both `ifportup()`'s failure mode
+   and `ifurlup()`'s correct behavior, including real alternation between both edges across repeat
+   queries when both are healthy.
+2. **Failover exclusion proven unambiguously**: swapped one candidate for `192.0.2.1` (a reserved,
+   guaranteed-unreachable TEST-NET address) — across 5 queries spanning well past the TTL, the dead
+   address was never once returned, only the real healthy IP.
+3. **The real production cutover itself verified end-to-end**, not just via crafted tests: after
+   switching, an unmodified `curl https://privatenexus.net/` (system resolver, no `--resolve`
+   override) returned a real 200; same for `erp.dickson-supplies.com`, which resolved to
+   hot-edge-ch on that particular query — genuine live traffic through the standby edge for the
+   first time since it was built.
+
+**What's proven vs. what's observed but not fully characterized**: the failover mechanism (excluding
+a dead candidate) is proven solid. The exact distribution algorithm across healthy candidates is
+NOT simple per-query random rotation — repeated queries from the same source (this session's own
+fleet hosts) tended to return the same answer consistently, which lines up with PowerDNS's
+`lua-consistent-hashes-*` config (hash-based selection per querier, avoiding cache-thrash for any
+one resolver) rather than a bug — but this wasn't independently confirmed against PowerDNS's own
+documentation or source, only inferred from the observed behavior and the presence of those config
+options. Worth watching real traffic patterns over time rather than treating the exact mechanism as
+fully understood.
+
+**This changes hot-edge-ch's status materially**: it was standby-only, never having served a real
+visitor, as of earlier tonight. It is now genuinely in the live rotation for both domains, all the
+time, not just during a Gateway outage. `edge-failover.sh` (Section 7) still exists as a manual
+override — useful for e.g. deliberately forcing all traffic to one side during maintenance — but is
+no longer the only mechanism keeping these two domains resilient.
+
+**What's still open, not built tonight**:
+- ~~The actual failover trigger~~ **Superseded by Section 8** — PowerDNS's own `ifurlup()` health
+  checking now does this automatically, no UptimeRobot/webhook automation needed for these two
+  domains specifically. UptimeRobot's Gateway/hot-pn/hot-erp-nl monitoring (live since 2026-08-23)
+  remains valuable as an independent, human-facing signal — it's not replaced, just no longer the
+  only path to DNS actually moving.
+  - **⚠ Real gap that still applies regardless of Section 8**: DNS routing traffic away from a dead
+    Gateway does not give anyone an admin path *to* the Gateway to actually fix it — hot-edge-ch's
+    SSH is intentionally tunnel/Tailscale-only, same access story as the rest of the fleet. Load
+    balancing traffic and being able to intervene on a broken host are two separate problems; this
+    section only ever solved the first one.
+- ~~Manual cutover runbook~~ **Built 2026-09-15**: `edge-failover.sh` (`status`/`cutover`/`revert`),
+  deployed identically on both the Gateway and hot-edge-ch (has to work when the Gateway can't be
+  reached). `cutover` refuses to run if a real preflight check against hot-edge-ch's own IP shows
+  either domain unhealthy, and requires explicit confirmation (`--yes` to skip the prompt). PATCH
+  mechanics verified live against a disposable test record before being pointed at the real zones;
+  the full preflight+abort path verified clean from both hosts with zero DNS mutation on decline.
+  Tracked in `hot-config/gateway/edge-failover/`. **A real cutover/revert cycle against the
+  production domains was not executed** — the mechanics are proven correct, but actually flipping
+  live traffic even briefly is a separate decision from building the tool; worth doing once Mr.
+  Byrne wants that specific proof.
+- **hot-edge-ch has no monitoring of its own yet** — not in Gatus, Uptime Kuma, or UptimeRobot.
+  Same class of gap this session already found and fixed for `hot-wiki` earlier tonight.
+- **CrowdSec here has no alerting wired** — the Gateway's CrowdSec posts ban notifications to Ntfy;
+  this instance doesn't yet.
 
 ### Option B — Direct per-domain failover on hot-pn/hot-erp-nl themselves (most directly answers "include the other 2 VMs")
 Since both hosts already have independent public IPs, give each a standby direct path: open the

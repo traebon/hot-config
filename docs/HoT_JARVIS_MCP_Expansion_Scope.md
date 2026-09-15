@@ -320,16 +320,29 @@ the manager API returned a 500 ("Some Wazuh daemons are not ready yet... wazuh-r
 on the very first auth attempt. `wazuh-control status` on the manager confirmed `wazuh-remoted`
 (the daemon handling all agent communication on 1514/1515) was genuinely down, with a stale PID
 (`Process 537 not used by Wazuh, removing...`) — meaning every one of the 7 enrolled agents' real
-event delivery was silently broken, fleet-wide, for an unknown duration (no crash trace in
-`ossec.log`, possibly OOM-related given sn-security's documented swap pressure in `hardware.md`,
-not confirmed). Fixed with `wazuh-control restart` on the manager container — clean restart, no
-data loss. **Nothing in this project's existing monitoring (`fleet-health-sweep`'s wazuh-agent
-liveness check included) watches this specific daemon** — it checks agent-side process liveness,
-not whether the manager can actually receive what they send. Worth adding as a future
-`fleet-health-sweep` check, not done here (out of scope for an MCP build). Verified fully live
-post-fix: agent list, a real 74-alert/24h summary by level, top 5 triggered rules (mostly PAM/sshd
-login events — sn-security's real fleet SSH pattern, not manufactured), and a real alert query all
-returned correct data.
+event delivery was silently broken, fleet-wide. Fixed with `wazuh-control restart` on the manager
+container — clean restart, no data loss.
+
+**Root cause investigated further 2026-09-15, at Mr. Byrne's request — real evidence, not a
+guess.** Duration: **10 days 12h49m** (2026-09-04 09:23 UTC → 2026-09-14 22:12 UTC), pinned down
+via an hourly date-histogram over the real `wazuh-alerts-4.x-*` index (alerts stop dead at 09:23 on
+the 4th, save two isolated 2-alert blips, resume with a 1598-alert backlog flush the moment this
+session fixed it). Cause: sn-security's routine unattended `apt-get -y upgrade` that same morning
+(09:01–09:09) upgraded `docker-ce`/`containerd.io`, which restarts the Docker daemon
+(`ActiveEnterTimestamp` confirmed 09:05:59, inside the window) — this recreated the manager
+container (and the dashboard container, same second) without a VM reboot (`journalctl
+--list-boots` showed continuous uptime). `wazuh-remoted` alone failed to come back up out of
+Wazuh's ~15 internal daemons; the container itself looked completely healthy the whole time
+(`docker ps` "Up 10 days", `RestartCount: 0`). Now documented as a new fleet-wide gotcha in
+`operational-rules.md` (any host's nightly `apt-daily-update.sh` run can trigger the same failure
+mode on any long-lived multi-process container, not just Wazuh) and in full in the
+`wazuh_remoted_down_2026_09_15` memory. **Nothing in this project's existing monitoring
+(`fleet-health-sweep`'s wazuh-agent liveness check included) watches this specific daemon** — it
+checks agent-side process liveness, not whether the manager can actually receive what they send.
+Worth adding as a future `fleet-health-sweep` check, not done here (out of scope for an MCP
+build). Verified fully live post-fix: agent list, a real 74-alert/24h summary by level, top 5
+triggered rules (mostly PAM/sshd login events — sn-security's real fleet SSH pattern, not
+manufactured), and a real alert query all returned correct data.
 
 ---
 

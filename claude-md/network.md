@@ -133,8 +133,62 @@ Other WireGuard interfaces on the Gateway VPS (separate from the wg0 bare-metal 
           fallback pending Mr. Byrne's go-ahead to revert per the 2026-09-04 fix — see
           `docs/HoT_PBS_Backup_Integration_Scope.md` Section 7.
 
+    wg7 — tunnel to `hot-edge-ch` (server ID TBD, Hostkey CH, `82.38.64.63`) — the second edge VPS,
+          built 2026-09-15 per `docs/HoT_Edge_Load_Balancing_Scope.md` §6-7 (Option A, Mr. Byrne's
+          explicit call: a duplicate of the Gateway's own spec, in Switzerland — "opportunistic
+          hardening," not protection against a specific facility-level failure mode). Gateway
+          `10.10.6.1` / hot-edge-ch `10.10.6.2` (interface name `wg0` on that host, matching every
+          other remote host's own-tunnel-is-always-wg0 convention), port 51827. `AllowedIPs`
+          widened both directions to include `10.10.0.1/32` (the Gateway's PowerDNS bind) so
+          hot-edge-ch's own Caddy can do DNS-01 cert issuance — no new Gateway UFW rule needed, the
+          existing PowerDNS API rule already covers all of `10.10.0.0/16`.
+
+          hot-edge-ch also runs two of its own dedicated tunnels, direct to hot-pn and hot-erp-nl
+          (deliberately NOT routed through the Gateway — that defeats the point of a failover path):
+          `wg1` (hot-edge-ch, `10.10.7.1`) ↔ `wg1` (hot-pn, `10.10.7.2`), port 51828; `wg2`
+          (hot-edge-ch, `10.10.8.1`) ↔ `wg1` (hot-erp-nl, `10.10.8.2`), port 51829. Both hot-pn's
+          frontend and hot-erp-nl's backend needed a second specific-IP port binding added
+          (alongside their existing Gateway-tunnel bind, not replacing it) to actually accept
+          traffic arriving via these new local IPs — see the scope doc for why.
+
+          `AllowedIPs` widened again same night to add `10.10.70.106/32` (sn-security, for a planned
+          hot-edge-ch Wazuh agent enrollment) — **this caused a real ~46-minute sn-security outage,
+          self-inflicted, see the routing gotcha in `operational-rules.md`.** The manual
+          `ip route add 10.10.70.106/32 dev wg7` that normally accompanies an `AllowedIPs` widening
+          (since `wg syncconf` doesn't install routes on its own) was wrong here — sn-security was
+          already reachable via the broader `10.10.70.0/24 dev wg4` route (its real VLAN, through
+          hot-bm-nl), and the new `/32` route via `wg7` is more specific, so the kernel silently
+          preferred it — routing all Gateway→sn-security traffic to hot-edge-ch instead of
+          hot-bm-nl, where nothing was listening for it. Fixed by removing that one route
+          (`ip route del 10.10.70.106 dev wg7`) — the `/24 dev wg4` route took back over immediately,
+          confirmed via a clean ping. The `AllowedIPs` entry itself is still correct and needed (for
+          the Gateway to *forward* wg7↔wg4 traffic to hot-edge-ch's own Wazuh agent) — only the local
+          host route was the mistake.
+
+          **Wazuh agent enrolled 2026-09-15 (ID 008, Active)** — see `services-fleet.md`'s enrollment
+          note. Hit the mirror-image of the routing bug above: the forward SYN path worked fine, but
+          hot-bm-nl's own `wg0.conf` had `10.10.6.2/32` in `AllowedIPs` with no matching kernel route
+          ever installed, so sn-security's SYN-ACK had nowhere to go once it reached hot-bm-nl. Fixed
+          with `ip route add 10.10.6.2/32 dev wg0` on hot-bm-nl.
+
+          Caddy + an independent CrowdSec instance run on hot-edge-ch itself, covering exactly
+          `privatenexus.net` and `erp.dickson-supplies.com` (not a full Gateway replica — Vaultwarden/
+          mail/Keycloak/the other ~30 site blocks are a separate, unmade decision). Verified live:
+          both domains serve real app content with genuine Let's Encrypt certs through this edge.
+          **Live ingress since the same night (2026-09-15)** — both domains are now PowerDNS `LUA`
+          records (`ifurlup()`, health-checked, 60s TTL) actively load-balanced across the Gateway
+          and this host, not just standby — see `identity-dns-email.md`'s PowerDNS section and
+          `docs/HoT_Edge_Load_Balancing_Scope.md` §8. SSH: tunnel + Tailscale only
+          (`100.90.107.32`), password auth disabled, public port 22 confirmed unreachable — same
+          hardening pattern as every other fleet host. Monitoring parity (fleet-health-sweep, Gatus,
+          node-exporter/Prometheus) was closed out the same session — still open: UptimeRobot
+          (needs a write-capable API key) and hot-edge-ch's own CrowdSec→Ntfy alerting, both unbuilt.
+
 **Key rule:** Production traffic never routes through Tailscale. Tailscale = admin SSH only.
 **Key rule:** Bare metal has zero public-facing ports. All public traffic enters via the Gateway VPS.
+**Key rule, updated 2026-09-15:** this was true until hot-edge-ch (above) — a second, independent
+public entry point now genuinely exists, currently standby-only (DNS doesn't point there, no
+automated failover trigger built). If that changes, this rule needs a real rewrite, not a footnote.
 **Key rule:** Before creating a new WireGuard interface on the Gateway VPS, run `wg show` first — wg1 (personal VPN) is easy to collide with by guessing sequential names.
 
 ---

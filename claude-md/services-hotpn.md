@@ -217,6 +217,14 @@ known to bypass UFW's filtering for published ports; binding to the specific tun
 Docker's NAT rule itself never matches traffic to the public IP, which is more robust than relying
 on UFW alone.
 
+**Second port binding added 2026-09-15**: `10.10.7.2:5173:80`, alongside the existing
+`10.10.2.2:5173:80` (not replacing it) — same specific-IP-bind pattern, just for the new
+`hot-edge-ch` failover tunnel (`wg1`, see network.md) rather than the Gateway's `wg3`. Needed
+because the frontend was bound to a specific IP, not `0.0.0.0`, so traffic arriving via a
+*different* tunnel's local IP was being refused outright until this was added. See
+`docs/HoT_Edge_Load_Balancing_Scope.md` §7. UFW: `10.10.7.1` (hot-edge-ch's wg1 IP) allowed to
+port 5173, matching the existing `10.10.2.1` rule's scoping.
+
 Root password and the wg3 keypair are saved in Vaultwarden under the **PrivateNexus** folder
 ("hot-pn root password (Hostkey CH VPS)" and "hot-pn wg3 WireGuard tunnel keys" — renamed from the
 `pn-vps` prefix 2026-07-24). A separate SSH keypair (`tristian-termius-pn-vps`, alias not renamed)
