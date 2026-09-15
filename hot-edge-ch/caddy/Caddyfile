@@ -1,0 +1,73 @@
+{
+    admin off
+    order crowdsec first
+    email admin@house-of-trae.com
+    acme_dns powerdns {
+        server_url http://10.10.0.1:8081
+        server_id localhost
+        api_token {env.PDNS_API_KEY}
+    }
+    log {
+        output file /data/access.log {
+            roll_size 100mb
+            roll_keep 10
+        }
+        format json
+    }
+    crowdsec {
+        api_url http://crowdsec:8080
+        api_key {env.CROWDSEC_API_KEY}
+        ticker_interval 10s
+    }
+}
+
+(crowdsec) {
+    crowdsec
+}
+
+(compress) {
+    encode zstd gzip
+}
+
+(secure_headers) {
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options nosniff
+        X-Frame-Options SAMEORIGIN
+    }
+}
+
+# ---------------------------------------------------------------------------
+# Failover edge — Switzerland (hot-edge-ch). Not live ingress under normal
+# operation; DNS for these two domains points at the Gateway. This exists so
+# a manual (or future automated) DNS cutover has a real, working target —
+# see docs/HoT_Edge_Load_Balancing_Scope.md. Reaches hot-pn/hot-erp-nl over
+# dedicated wg1/wg2 tunnels (10.10.7.x/10.10.8.x), NOT through the Gateway.
+# ---------------------------------------------------------------------------
+
+privatenexus.net, www.privatenexus.net {
+    log
+    import crowdsec
+    import compress
+    @api path /api/*
+    reverse_proxy @api 10.10.7.2:5173 {
+        header_up Host {host}
+        transport http {
+            response_header_timeout 10m
+        }
+    }
+    reverse_proxy 10.10.7.2:5173 {
+        header_up Host {host}
+    }
+    import secure_headers
+}
+
+erp.dickson-supplies.com {
+    log
+    import crowdsec
+    import compress
+    reverse_proxy 10.10.8.2:8000 {
+        header_up Host {host}
+    }
+    import secure_headers
+}

@@ -1,0 +1,28 @@
+services:
+  crowdsec:
+    image: crowdsecurity/crowdsec:latest
+    container_name: crowdsec
+    restart: unless-stopped
+    environment:
+      TZ: Europe/Zurich
+      COLLECTIONS: "crowdsecurity/caddy crowdsecurity/http-cve crowdsecurity/linux"
+      GID: "1000"
+    volumes:
+      - crowdsec_data:/var/lib/crowdsec/data
+      - crowdsec_config:/etc/crowdsec
+      - /var/log:/var/log/host:ro
+      - caddy_data:/var/log/caddy:ro
+    networks:
+      - edge
+
+volumes:
+  crowdsec_data:
+    name: crowdsec_data
+  crowdsec_config:
+    name: crowdsec_config
+  caddy_data:
+    external: true
+
+networks:
+  edge:
+    external: true
