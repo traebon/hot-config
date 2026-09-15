@@ -239,6 +239,40 @@ for name in gateway hot-bm-nl sn-infra sn-web sn-monitor sn-security hot-pn hot-
   fi
   # (hosts without wazuh-agent installed at all are silently skipped for this check)
 
+  # --- wazuh MANAGER daemon liveness (sn-security only) ---
+  # Added 2026-09-15 after wazuh-remoted was found dead fleet-wide for 10 days 12h49m
+  # (2026-09-04 09:23 -> 2026-09-14 22:12, see wazuh_remoted_down_2026_09_15 memory) with
+  # zero trace anywhere this sweep already checks: `docker ps` showed the manager container
+  # "Up" the whole time (RestartCount: 0, looked completely healthy), and the check above
+  # only verifies AGENT-side liveness, never whether the manager can actually receive what
+  # agents send. Real root cause was sn-security's own routine unattended docker-ce/
+  # containerd apt upgrade restarting the Docker daemon mid-flight (no VM reboot involved)
+  # -- see the new operational-rules.md gotcha -- which silently dropped one of Wazuh's ~15
+  # internal daemons on container recreate while every other one came back fine. This check
+  # closes that exact blind spot: it looks INSIDE the manager container's own
+  # `wazuh-control status`, not just at the container's own up/down state.
+  #
+  # wazuh-clusterd/-maild/-agentlessd/-integratord/-dbd/-csyslogd are excluded -- confirmed
+  # live 2026-09-15 that all six are legitimately "not running" in this single-node,
+  # non-clustered deployment (disabled features, not a fault) -- flagging them would just be
+  # permanent noise.
+  if [ "$name" = "sn-security" ]; then
+    manager_check="$(run_remote "$alias" '
+      docker exec wazuh-wazuh.manager-1 /var/ossec/bin/wazuh-control status 2>/dev/null \
+        | grep -i "not running" \
+        | grep -vE "wazuh-clusterd|wazuh-maild|wazuh-agentlessd|wazuh-integratord|wazuh-dbd|wazuh-csyslogd" \
+        || true
+    ')"
+    if [ -n "$manager_check" ]; then
+      report_check "sn-security" "wazuh-manager-daemons" fail "$manager_check"
+    elif run_remote "$alias" "docker inspect -f '{{.State.Running}}' wazuh-wazuh.manager-1 2>/dev/null" | grep -q true; then
+      report_check "sn-security" "wazuh-manager-daemons" ok ""
+    fi
+    # (silently skipped if the manager container isn't present/running at all -- a dead
+    # container is already covered by other means, this check is specifically about a
+    # container that LOOKS fine but has a dead daemon inside it)
+  fi
+
   # --- /opt/stacks inventory drift (undocumented deployments) ---
   if [[ " $STACK_HOSTS " == *" $name "* ]]; then
     stacks="$(run_remote "$alias" "ls -1 /opt/stacks/ 2>/dev/null | sort")"
