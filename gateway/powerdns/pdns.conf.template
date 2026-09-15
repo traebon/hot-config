@@ -18,3 +18,8 @@ allow-axfr-ips=127.0.0.1
 default-soa-content=ns1.house-of-trae.com admin.house-of-trae.com 0 10800 3600 604800 3600
 log-dns-queries=no
 loglevel=4
+
+# Enables ifportup()/ifurlup() Lua records — health-checked A record selection across
+# multiple real IPs (e.g. Gateway + hot-edge-ch), for load-balancing-with-built-in-failover.
+# See docs/HoT_Edge_Load_Balancing_Scope.md.
+enable-lua-records=yes
