@@ -38,6 +38,21 @@ FAIL_DETAIL=""
 
 mkdir -p "$DUMP_DIR"
 
+# Real incident, 2026-09-16: this cleanup used to run only as the last step of the script, after
+# every backup step including the Wazuh indexer snapshot (a known source of a silent, zero-log
+# script death -- see the WAZUH_SNAP_REPO section below). When that step dies mid-run, the script
+# never reaches the end, so this cleanup never fires -- disk fills night after night with nothing
+# to stop it, since LOCAL_RETENTION_DAYS only matters if the delete command actually executes.
+# This is the same disk-space crisis already documented once (2026-09-11, see LOCAL_RETENTION_DAYS
+# below) recurring for a structural reason that shortening the retention window alone didn't fix --
+# it drove the Gateway to 92% full and, in a real chicken-and-egg loop, may itself have been slowing
+# things down enough to cause the very timeout that skipped it. A trap makes this run on every exit
+# path (success, early failure, or an uncaught error) instead of only the happy path.
+cleanup_local_retention() {
+  find "$DUMP_DIR" -type f -mtime "+${LOCAL_RETENTION_DAYS}" -delete 2>/dev/null
+}
+trap cleanup_local_retention EXIT
+
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
 
 notify() {
@@ -456,8 +471,8 @@ for s in data.get('snapshots', []):
 fi
 
 # ── retention cleanup ─────────────────────────────────────────────────────────
-# Local vs. cloud deliberately decoupled -- see LOCAL_RETENTION_DAYS note above.
-find "$DUMP_DIR" -type f -mtime "+${LOCAL_RETENTION_DAYS}" -delete
+# Local cleanup now runs via the EXIT trap near the top of this script, not here -- see that
+# comment for why. Cloud-remote pruning stays here; it's unrelated to the local-disk failure mode.
 for REMOTE in hetzner-crypt b2-hot-crypt; do
   rclone listremotes 2>/dev/null | grep -q "^${REMOTE}:" || continue
   rclone delete "${REMOTE}:fleet-state-backups/" --min-age "${RETENTION_DAYS}d" 2>&1 | while IFS= read -r l; do log "  prune $REMOTE: $l"; done
