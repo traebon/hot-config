@@ -1,8 +1,8 @@
 [Unit]
-Description=Run the fleet health sweep nightly at 07:45 (after backups, before apt-daily-update)
+Description=Run the fleet health sweep nightly at 10:00 (after apt-daily-update, not before it)
 
 [Timer]
-OnCalendar=*-*-* 07:45:00
+OnCalendar=*-*-* 10:00:00
 RandomizedDelaySec=5min
 Persistent=true
 
