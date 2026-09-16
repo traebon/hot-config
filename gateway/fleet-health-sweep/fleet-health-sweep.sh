@@ -162,6 +162,26 @@ for name in gateway hot-bm-nl sn-infra sn-web sn-monitor sn-security hot-pn hot-
     fi
   fi
 
+  # --- pbs-local-mirror liveness (PBS's own same-box stopgap redundancy job) ---
+  # Added 2026-09-16, closing a real monitoring gap found the same day: pbs-local-mirror.sh
+  # (built 2026-08-25, see docs/HoT_PBS_Backup_Integration_Scope.md Section 12) rsyncs the
+  # real houseoftrae-backups datastore (sdb) onto the otherwise-idle sda nightly at 06:00,
+  # as a stopgap against single-disk failure until a real block-level RAID rebuild happens.
+  # It was never wired into this sweep -- only its own one-shot Ntfy notify() call watched
+  # it, the exact class of gap (alert fires, nobody looks, streak keeps building silently)
+  # this whole sweep exists to close everywhere else. PBS isn't a normal HOSTS entry (home
+  # hardware, not the fleet's usual SSH-alias pattern) -- checked here during the gateway
+  # iteration, same placement as the wg6-handshake check above, using the `pbs` alias
+  # directly via run_remote.
+  if [ "$name" = "gateway" ]; then
+    mirror_result="$(run_remote pbs "systemctl show -p Result --value pbs-local-mirror.service 2>/dev/null")"
+    if [ "$mirror_result" = "success" ]; then
+      report_check "pbs" "pbs-local-mirror" ok ""
+    elif [ -n "$mirror_result" ]; then
+      report_check "pbs" "pbs-local-mirror" fail "pbs-local-mirror.service last result: $mirror_result"
+    fi
+  fi
+
   # --- pbs-hot storage reachability (PBS backup target on hot-bm-nl) ---
   # Same motivation/date as the wg6 check above -- pvesm reported 'pbs-hot: inactive -
   # Connection timed out' for 9+ days with nothing watching it. Silently skipped if
