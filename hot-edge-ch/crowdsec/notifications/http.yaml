@@ -1,0 +1,19 @@
+type: http
+name: http_default
+log_level: info
+group_wait: 30s
+group_threshold: 10
+timeout: 10s
+
+url: https://ntfy.house-of-trae.com/hot-alerts
+method: POST
+headers:
+  Title: "CrowdSec (hot-edge-ch): IP Banned"
+  Priority: high
+  Tags: shield,no_entry
+  Authorization: Bearer tk_c2efkgyxtt24uf48bo1snua86tthb
+  Content-Type: text/plain
+
+format: |
+  {{range .}}[hot-edge-ch] {{.Source.Value}} banned ({{(index .Decisions 0).Duration}}) — {{(index .Decisions 0).Scenario}}
+  {{end}}
