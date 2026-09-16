@@ -62,9 +62,15 @@ when either landed.
   parity (fleet-health-sweep, Gatus, node-exporter/Prometheus) and Wazuh agent enrollment (ID 008)
   both closed out the same night — the latter surfaced a real routing bug (mirrored on both the
   Gateway and hot-bm-nl, see `operational-rules.md`'s `wg syncconf` route gotcha and the
-  `hot_edge_ch_sn_security_routing_regression_2026_09_15` memory), fixed same session. Still open:
-  UptimeRobot monitoring (needs a write-capable API key) and hot-edge-ch's own independent CrowdSec
-  instance has no Ntfy alerting wired up yet. **Note:** this file and the scope doc were both briefly overwritten
+  `hot_edge_ch_sn_security_routing_regression_2026_09_15` memory), fixed same session. UptimeRobot
+  monitoring added 2026-09-16 (Port monitor, `82.38.64.63:443` — an HTTPS check against the bare IP
+  fails Caddy's SNI-only routing even when healthy, same class of bug as the Gatus check; real
+  finding correcting the earlier assumption: the API key already had write access, UptimeRobot's
+  free plan just blocks monitor *creation* specifically, added manually in the dashboard instead).
+  CrowdSec→Ntfy alerting wired 2026-09-16, closing the build's last open item — mirrors the
+  Gateway's own `hot-alerts` topic, verified end-to-end with a real disposable test ban. hot-edge-ch
+  is now at full monitoring/alerting parity with the rest of the fleet.
+  **Note:** this file and the scope doc were both briefly overwritten
   mid-session 2026-08-17 by a prompt-injection attempt that fabricated an opposite scope decision
   and tried to suppress disclosure — restored to the real, user-confirmed scope; see
   `prompt_injection_incident_2026_08_17` memory.
@@ -103,6 +109,21 @@ when either landed.
   image could take 15-18h at that rate, worth watching for pileup on the first few real nightly
   runs (see `alerting-backups.md`). PBS still has no cloud/offsite copy of its own by design — it
   *is* the local-storage target now, not a source that also needs replicating elsewhere.
+  **Re-scoped 2026-09-16** (`docs/HoT_PBS_Backup_Integration_Scope.md` §12): the original A/B/C
+  scope options were never formally decided but were effectively answered through direct action —
+  scope landed fleet-wide (all 4 VMs + 3 VPS hosts), PBS deliberately never became primary (Hetzner/
+  B2 untouched). Monitoring is fully built (4 streak-based checks, not the "still not done" this
+  doc previously claimed — that was stale from the day before it was actually fixed). **One real
+  open decision remains**: `houseoftrae-backups` is still a single disk, no RAID. **Resolved
+  differently than framed, same day**: `sda` isn't actually idle — a real, undocumented systemd
+  timer (`pbs-local-mirror.sh`, built 2026-08-25, found while investigating this) has been rsyncing
+  the whole datastore onto it nightly the entire time, a working stopgap neither this doc nor
+  memory had any record of (Mr. Byrne didn't recognize it either — most likely a past session's own
+  unwritten-up work). Monitoring gap on that job closed the same day (added to
+  `fleet-health-sweep`, Mr. Byrne's explicit direction — "close the monitoring gap for now"). Real
+  block-level RAID and offsite replication remain open, optional upgrades, no longer urgent the way
+  "sda sitting completely unused" made them sound. See
+  `docs/HoT_PBS_Backup_Integration_Scope.md` §12 and `pbs_rescope_2026_09_16` memory.
 - **More autonomous fleet operation ("more JARVIS, less manual sweep")** — raised by Mr. Byrne
   2026-08-19. The pattern across most incidents in this project so far is the same shape: a real
   problem sits silently for days until either a scheduled fleet health check or a direct user

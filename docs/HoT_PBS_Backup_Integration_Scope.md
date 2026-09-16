@@ -642,3 +642,110 @@ empty indices with unallocated primary shards — resolved on its own once shard
 (fully `green`, 144/144, within a few minutes), but worth a closer look separately: genuinely lost
 primary shard data on old indices is a real question mark on Wazuh's own index lifecycle/retention,
 independent of anything backup-related.
+
+---
+
+## 12. Re-scoped, 2026-09-16 — most of Section 2's original A/B/C was answered through direct
+action, not a formal decision; here's what's real today and what's genuinely still open
+
+Re-checked live at Mr. Byrne's request to "scope the PBS fleet integration decision" — worth being
+honest that the framing in Section 2 (Option A/hot-bm-nl-only vs. B/fleet-wide vs. C/PBS-as-primary)
+never actually got a formal answer. What happened instead, across Sections 6-11 and a sequence of
+Mr. Byrne's own direct requests, landed on something that doesn't map cleanly onto any single
+original option:
+
+- **Scope is fleet-wide** (closer to Option B's breadth) — all 4 Proxmox VMs (100/102/104/106) via
+  `pbs-hot`/vzdump, plus the 3 standalone VPS hosts (Gateway/hot-pn/hot-erp-nl, which `pbs-hot` can
+  never reach structurally) via the separate `pbs-host-backup.sh` mechanism.
+- **PBS is explicitly NOT primary** (Option C was never chosen, deliberately) — Section 10's framing,
+  Mr. Byrne's own words, was PBS as "everything it would take to rebuild HoT" on his own hardware, a
+  continuously-updated **local, non-cloud rebuild copy** — Hetzner/B2 remain the real offsite/DR
+  copies for everything they already covered before PBS entered the picture; nothing was downgraded
+  or replaced.
+- **Transport** (Section 3): resolved — dedicated `wg6` WireGuard tunnel, not a Tailscale exception.
+- **Redundancy** (Section 4 Q3): **still genuinely unresolved** — see below, this is the one real
+  open decision left.
+- **The `sda`/network questions** (Section 4 Q4): the network misconfig self-resolved (the home
+  router replacement that caused the 09-04 outage happened to also fix the `192.168.1.1` gateway
+  mismatch — confirmed, `nic1` is now correctly on-subnet). The ~5.4TB of unused `sda` capacity is
+  still genuinely unexplained and unused — see below, it's directly relevant to the redundancy
+  question.
+
+**Correcting a stale claim in Section 10**: that section says PBS backup monitoring is "still not
+done." That was true when written (2026-09-07) but was fixed the very next day and this doc was
+never updated to reflect it. Checked live against the actual `fleet-health-sweep.sh` just now —
+monitoring is genuinely complete, more thorough than this doc claims: **four** separate checks exist,
+not zero — `pbs-hot-storage` (storage target reachable), `pbs-vm-backup` (each of the 4 VMs'
+vzdump-to-PBS jobs actually completed clean, not just that the storage was reachable — added
+specifically because of the real Datastore.Modify prune-permission bug from Section 10 that failed
+jobs silently while data landed fine), `pbs-host-backup` (the 3 VPS hosts' own encrypted push), and
+`vzdump-offsite-push` (a fourth check this doc never documented at all — added 2026-09-09 after the
+Hetzner Storage Box filled to 998GB/1TB from orphaned pre-PBS-migration VM copies that were never
+pruned once those VMs moved to PBS-only; worth a proper writeup separately, this doc just didn't
+have it). All four are streak-based with the same 3-night urgent/SMS escalation as every other
+fleet-health-sweep point check.
+
+### The one real open decision: single-disk, no-RAID PBS datastore
+
+Verified live, unchanged since Section 1 first flagged it on 2026-08-22: `houseoftrae-backups`
+still lives on a single physical disk (`sdb`, 3.6TB, 632GB used/2.8TB free) with zero RAID or
+mirroring — `cat /proc/mdstat` and `zpool list` both confirm no software RAID exists on this host at
+all. `sda` (5.5TB) is still entirely OS root + swap, sitting almost completely unused, unexplained.
+
+**This question is materially sharper now than when Section 4 first asked it.** In August, a
+single-disk failure would have cost 3 VMs' worth of fast-local-recovery convenience, with Hetzner/B2
+as an unaffected fallback. Today, per Section 10's own explicit scope, PBS is the fleet's *entire*
+local rebuild backup — all 4 Proxmox VMs and all 3 VPS hosts' `/opt`/`/root`/Docker-volume state.
+A single disk failure on this one box would still leave the cloud tiers intact (nothing here was
+ever meant to replace them), but it would erase the entire "fast local recovery" layer Mr. Byrne
+explicitly asked for, all at once, with no advance warning beyond whatever SMART monitoring (if any
+— not checked as part of this pass) this disk has.
+
+**Real options, not yet decided:**
+1. **Leave it as-is.** Defensible if the honest answer is "Hetzner/B2 are always the real recovery
+   path if PBS's one disk dies, PBS is convenience not a dependency" — but that's worth Mr. Byrne
+   saying explicitly, not assuming, since a restore-from-cloud-B2 for a full rebuild would be far
+   slower than what PBS was built to provide.
+2. **Mirror `sdb` onto (part of) the otherwise-idle `sda`.** The ~5.4TB sitting idle as oversized OS
+   root headroom is more than enough to hold a second copy of the 632GB currently in use — this
+   would need repartitioning `sda` (shrinking `pbs-root`, which is running at a tiny fraction of its
+   5.4TB) and standing up an mdadm/ZFS mirror across the two physical disks, real but bounded work,
+   no new hardware purchase needed.
+3. **Add real new redundant storage** (a second physical disk purchase, proper RAID1/RAIDZ) if `sda`
+   turns out to be earmarked for something else Mr. Byrne already has in mind (never actually asked
+   directly — Section 1 flagged this as an open question too, still never answered).
+
+No option chosen here — this is scope, not a build. Needs Mr. Byrne's call on which of the three
+above, and directly, what `sda`'s ~5.4TB was originally meant for before assuming it's free to
+repurpose.
+
+### Resolved, same day — the redundancy question already had a real answer, just undocumented
+
+Investigating the RAID options above turned up something neither this doc nor any memory had a
+record of: **`sda` isn't actually idle at all.** A real, working systemd timer,
+`pbs-local-mirror.timer`/`.service` (`/usr/local/bin/pbs-local-mirror.sh`), built 2026-08-25 —
+the same day the original PBS/`pbs-hot` build landed — has been running nightly at 06:00 ever
+since, `rsync -a --delete`-ing the entire `houseoftrae-backups` datastore from `sdb` onto `sda`
+(`/mnt/backups-mirror`) as an explicit "stopgap redundancy" measure. Its own header comment
+already anticipated this exact conversation: *"a real mdadm/ZFS RAID rebuild (which needs the OS
+disk repartitioned — disruptive, not done live) and proper offsite replication... get scheduled
+separately."* Real alerting exists (Ntfy on both success and failure), and it's been running
+clean for three weeks straight based on everything checked live. Mr. Byrne had no memory of
+building this either — most likely a past session's own undocumented work, the same class of gap
+as the `nginx-certbot`/nextcloud-binding-drift findings elsewhere in this project.
+
+**This changes the real state of the redundancy question**: same-box cross-disk protection
+against a plain `sdb` failure already exists today, just with up to ~24h exposure (daily sync,
+not real-time) and no protection against whole-box loss — both explicitly acknowledged in the
+script's own comments, not new caveats. The disruptive RAID1 conversion and offsite-replication
+options above are both still genuinely open, but neither is urgent the way "sda sitting
+completely unused" made them sound.
+
+**Monitoring gap closed 2026-09-16, Mr. Byrne's explicit direction ("close the monitoring gap for
+now")**: `pbs-local-mirror.service`'s result was, like `pbs-host-backup.sh` before its own fix,
+only ever watched by its own one-shot Ntfy call — no streak-based escalation if it silently failed
+for several nights. Added to `fleet-health-sweep.sh` (same `systemctl show -p Result --value`
+pattern already used for `pbs-host-backup`/`pbs-vm-backup`, checked via `run_remote pbs` directly
+since PBS isn't a normal sweep host), verified via a real `systemctl start
+fleet-health-sweep.service` run showing the check pass cleanly. Full trace: `pbs_rescope_2026_09_16`
+memory.

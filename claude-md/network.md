@@ -181,8 +181,30 @@ Other WireGuard interfaces on the Gateway VPS (separate from the wg0 bare-metal 
           `docs/HoT_Edge_Load_Balancing_Scope.md` §8. SSH: tunnel + Tailscale only
           (`100.90.107.32`), password auth disabled, public port 22 confirmed unreachable — same
           hardening pattern as every other fleet host. Monitoring parity (fleet-health-sweep, Gatus,
-          node-exporter/Prometheus) was closed out the same session — still open: UptimeRobot
-          (needs a write-capable API key) and hot-edge-ch's own CrowdSec→Ntfy alerting, both unbuilt.
+          node-exporter/Prometheus) was closed out the same session. **UptimeRobot added
+          2026-09-16** ("HoT-edge-ch", ID `804006343`, Port monitor on `82.38.64.63:443`, not
+          HTTP(S) — Caddy's SNI-only routing means an HTTPS check against the bare IP fails cert
+          validation even on a healthy host, same class of bug as the Gatus check earlier; a raw
+          TCP port check sidesteps it). **Real correction to the earlier "needs a write-capable API
+          key" assumption**: the existing key already had write access the whole time (`editMonitor`
+          worked immediately) — the actual blocker was that UptimeRobot's free plan specifically
+          disallows monitor *creation* via the API (`newMonitor` → `access_denied` regardless of
+          parameters), not a key-scope problem. Mr. Byrne created the monitor manually in the
+          dashboard; managed via the API from here on.
+
+          **CrowdSec→Ntfy alerting wired 2026-09-16**, closing the last open item from this build.
+          Mirrors the Gateway's own `hot-alerts` topic/token, but posts to the public
+          `https://ntfy.house-of-trae.com/hot-alerts` URL rather than the Gateway's internal
+          `http://ntfy:80/...` hostname (hot-edge-ch has no access to that Docker network) — message
+          carries a `[hot-edge-ch]` prefix to stay distinguishable from the Gateway's own alerts in
+          the same topic. **Real gotcha**: this instance's `profiles.yaml` ships with the entire
+          `notifications:` key commented out by default, not just the list entries under it —
+          uncommenting only `- http_default` without uncommenting the parent key leaves it a
+          dangling, unparented YAML node. Verified end-to-end with a real disposable test ban
+          (reserved TEST-NET-3 IP, 1-minute duration) — confirmed the real Ntfy message arrived,
+          then removed. Config lives in a named Docker volume, not bind-mounted — mirrored to
+          `hot-config/hot-edge-ch/crowdsec/` for tracking, same pattern as the Gateway's own CrowdSec
+          whitelist file.
 
 **Key rule:** Production traffic never routes through Tailscale. Tailscale = admin SSH only.
 **Key rule:** Bare metal has zero public-facing ports. All public traffic enters via the Gateway VPS.
